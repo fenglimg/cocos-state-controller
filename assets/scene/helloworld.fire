@@ -356,8 +356,8 @@
           "1": true,
           "2": {
             "__type__": "cc.Vec3",
-            "x": -266.644,
-            "y": 62.957,
+            "x": -283.585,
+            "y": 111.494,
             "z": 0
           },
           "5": {
@@ -386,7 +386,7 @@
             "z": 0
           },
           "5": {
-            "__uuid__": "410fb916-8721-4663-bab8-34397391ace7"
+            "__uuid__": "31bc895a-c003-4566-a9f3-2e54ae1c17dc"
           },
           "6": {
             "__type__": "cc.Vec3",
@@ -473,7 +473,7 @@
     "_enabled": true,
     "stateIdAuto": 6,
     "_ctrlId": 1751447808163,
-    "_selectedIndex": 0,
+    "_selectedIndex": 1,
     "_pageNames": [
       {
         "__id__": 11
@@ -680,7 +680,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 286.85,
+      "width": 297.95,
       "height": 75.6
     },
     "_anchorPoint": {
@@ -732,8 +732,8 @@
     ],
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
-    "_string": "状态00000",
-    "_N$string": "状态00000",
+    "_string": "状态111111",
+    "_N$string": "状态111111",
     "_fontSize": 60,
     "_lineHeight": 60,
     "_enableWrapText": true,
@@ -768,7 +768,7 @@
       "__id__": 2
     },
     "_propKey": 3,
-    "_propValue": "状态00000",
+    "_propValue": "状态111111",
     "_isDeleteCurr": false,
     "_ctrlData": {
       "1751447808163": {
@@ -1100,7 +1100,7 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        -90.0000000000008,
+        30,
         0,
         0,
         0,
@@ -1254,7 +1254,7 @@
     "_N$handle": {
       "__id__": 27
     },
-    "_N$progress": 0.19999999999999737,
+    "_N$progress": 0.6,
     "_id": "dbyy3zLe9J5ZBeg/v4Il1r"
   },
   {
@@ -1275,7 +1275,7 @@
       "__id__": 2
     },
     "_propKey": 14,
-    "_propValue": 0.19999999999999737,
+    "_propValue": 0.6,
     "_isDeleteCurr": false,
     "_ctrlData": {
       "1751447808163": {
@@ -1586,8 +1586,8 @@
     ],
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
-    "_string": "dasdasasdcxzcxzc",
-    "_N$string": "dasdasasdcxzcxzc",
+    "_string": "你好发的是粉色的",
+    "_N$string": "你好发的是粉色的",
     "_fontSize": 20,
     "_lineHeight": 25,
     "_enableWrapText": false,
@@ -1764,7 +1764,7 @@
       "__id__": 30
     },
     "_enabled": true,
-    "_string": "dasdasasdcxzcxzc",
+    "_string": "你好发的是粉色的",
     "returnType": 0,
     "maxLength": 100,
     "_tabIndex": 0,
@@ -1804,7 +1804,7 @@
       "__id__": 2
     },
     "_propKey": 15,
-    "_propValue": "dasdasasdcxzcxzc",
+    "_propValue": "你好发的是粉色的",
     "_isDeleteCurr": false,
     "_ctrlData": {
       "1751447808163": {
@@ -1940,9 +1940,7 @@
     "_enabled": true,
     "_defaultClip": null,
     "_clips": [
-      {
-        "__uuid__": "8b0e2d4a-b53e-47de-8cd0-7d200f487b19"
-      }
+      null
     ],
     "playOnLoad": false,
     "_id": "fdyOR5ciJNfJIlcnqpDk2j"
