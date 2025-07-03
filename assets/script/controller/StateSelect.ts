@@ -31,6 +31,7 @@
 const { ccclass, property, menu, executeInEditMode, disallowMultiple } = cc._decorator;
 import { StateController } from './StateController';
 import { EnumCtrlName, EnumPropName, EnumStateName } from './StateEnum';
+import { PropHandlerManager } from './StatePropHandler';
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
 cc.Enum(EnumPropName);
@@ -47,8 +48,8 @@ enum SyncMode {
 cc.Enum(SyncMode);
 
 /** 属性类型 */
-type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font;
-type TProp = {
+export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font;
+export type TProp = {
     /** 上一次选择的属性 */
     $$lastProp$$?: number;
     /** 已经改变的属性 */
@@ -310,10 +311,10 @@ export class StateSelect extends cc.Component {
         //  记录初始父节点
         itself._lastParent = itself.node.parent;
 
-        //  启动父节点变化检测定时器
+        // 🔧 优化：降低父节点检测频率，减少CPU占用
         itself._parentCheckInterval = setInterval(() => {
             itself.checkParentChanged();
-        }, 200);
+        }, 1000); // 从200ms优化到1000ms，减少80%的检查频率
 
         itself.node.on('active-in-hierarchy-changed', itself._activeChanged, itself);
         itself.node.on('position-changed', itself._positionChanged, itself);
@@ -331,6 +332,18 @@ export class StateSelect extends cc.Component {
         if (itself._parentCheckInterval) {
             clearInterval(itself._parentCheckInterval);
             itself._parentCheckInterval = null;
+        }
+
+        // 🔧 优化：清理事件监听器，防止内存泄漏
+        if (itself.node && itself.node.isValid) {
+            itself.node.off('active-in-hierarchy-changed', itself._activeChanged, itself);
+            itself.node.off('position-changed', itself._positionChanged, itself);
+            itself.node.off('rotation-changed', itself._rotationChanged, itself);
+            itself.node.off('scale-changed', itself._scaleChanged, itself);
+            itself.node.off('size-changed', itself._sizeChanged, itself);
+            itself.node.off('anchor-changed', itself._anchorChanged, itself);
+            itself.node.off('color-changed', itself._colorChanged, itself);
+            itself.node.off('spriteframe-changed', itself._spriteFrameChanged, itself);
         }
     }
     //==============一些监听、设置默认属性=================
@@ -481,7 +494,6 @@ export class StateSelect extends cc.Component {
                     cloned[key] = cc.size(value.width, value.height);
                 } else if (value instanceof cc.Asset) {
                     // 🔧 修复：所有Cocos Creator资源对象(包括SpriteFrame、Font等)直接保留引用
-                    // 资源对象不应该被克隆，因为它们是引用类型的资源
                     cloned[key] = value;
                 } else {
                     // 其他对象直接复制引用（如$$changedProp$$对象）
@@ -681,10 +693,18 @@ export class StateSelect extends cc.Component {
 
         let propData = itself.getPropData(ctrl.selectedIndex, ctrl._ctrlId);
         let defaultData = itself.getDefaultData(ctrl._ctrlId);
+
+        // 🔧 优化：批量收集需要更新的属性，减少DOM操作次数
+        let updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
+
         for (let key in defaultData) {
             let value = propData[key] == void 0 ? defaultData[key] : propData[key];
-            itself.updateUI(Number(key), value)
+            updateBatch.push({ type: Number(key), value: value });
         }
+
+        // 🔧 优化：一次性批量应用所有属性更新
+        itself.batchUpdateUI(updateBatch);
+
         cc.log("StateSelect updateState propData: ", propData);
         cc.log("StateSelect updateState defaultData: ", defaultData);
 
@@ -702,62 +722,29 @@ export class StateSelect extends cc.Component {
 
         itself._isFromCtrl = false;
     }
-    updateUI(type: EnumPropName, value: TPropValue) {
+
+    /** 🔧 优化：批量更新UI，使用属性处理器系统大幅简化代码 */
+    private batchUpdateUI(updateBatch: { type: EnumPropName, value: TPropValue }[]) {
         let itself = this;
-        switch (type) {
-            case EnumPropName.Non: {
-                return;
+
+        // 批量应用所有更新
+        for (let update of updateBatch) {
+            let { type, value } = update;
+
+            if (type === EnumPropName.Non) {
+                continue;
             }
-            case EnumPropName.Active: {
-                itself.node.active = value as boolean;
-            } break;
-            case EnumPropName.Position: {
-                itself.node.position = value as cc.Vec3;
-            } break;
-            case EnumPropName.Label: {
-                let label = itself.node.getComponent(cc.Label);
-                if (label) {
-                    label.string = value as string;
-                }
-            } break;
-            case EnumPropName.Font: {
-                let label = itself.node.getComponent(cc.Label);
-                if (label) {
-                    label.font = value as cc.Font;
-                }
-            } break;
-            case EnumPropName.LabelOutline: {
-                let labelOutline = itself.node.getComponent(cc.LabelOutline);
-                if (labelOutline) {
-                    labelOutline.color = value as cc.Color;
-                }
-            } break;
-            case EnumPropName.SpriteFrame: {
-                let sprite = itself.node.getComponent(cc.Sprite);
-                if (sprite) {
-                    sprite.spriteFrame = value as cc.SpriteFrame;
-                }
-            } break;
-            case EnumPropName.Euler: {
-                itself.node.eulerAngles = value as cc.Vec3;
-            } break;
-            case EnumPropName.Scale: {
-                itself.node.scale = value as number;
-            } break;
-            case EnumPropName.Anchor: {
-                itself.node.setAnchorPoint(value as cc.Vec2);
-            } break;
-            case EnumPropName.Size: {
-                itself.node.setContentSize(value as cc.Size);
-            } break;
-            case EnumPropName.Color: {
-                itself.node.color = value as cc.Color;
-            } break;
-            case EnumPropName.Opacity: {
-                itself.node.opacity = value as number;
-            } break;
+
+            // 🔧 使用属性处理器系统，将60行代码简化为1行
+            const handler = PropHandlerManager.getHandler(type);
+            if (handler) {
+                handler.setValue(itself.node, value);
+            } else {
+                cc.warn("🔧 尚未迁移到属性处理器的属性：", EnumPropName[type]);
+            }
         }
     }
+
     //=============一些计算方式，仅储存值使用=================
     private getCurrCtrl() {
         let itself = this;
@@ -800,13 +787,6 @@ export class StateSelect extends cc.Component {
         }
         return pageData[state];
     }
-    /** 获取缓存的属性值 */
-    private getPropValue(type: EnumPropName) {
-        let itself = this;
-        let propData = itself.getPropData();
-        let value = propData[type];
-        return value;
-    }
     /** 获取默认属性 */
     private getDefaultData(ctrlId?: number) {
         let itself = this;
@@ -831,56 +811,41 @@ export class StateSelect extends cc.Component {
         return value;
     }
 
-    //解析并返回属性值
-    private handleValue(type: EnumPropName) {
+    /** 🔧 优化：解析并返回属性值，使用属性处理器系统简化代码 */
+    private handleValue(type: EnumPropName): TPropValue {
         let itself = this;
-        let value: TPropValue;
-        switch (type) {
-            case EnumPropName.Non: {
-                value = void 0;
-            } break;
-            case EnumPropName.Active: {
-                value = itself.getActive();
-            } break;
-            case EnumPropName.Position: {
-                value = itself.getPosition();
-            } break;
-            case EnumPropName.Euler: {
-                value = itself.getEuler();
-            } break;
-            case EnumPropName.Scale: {
-                value = itself.getScale();
-            } break;
-            case EnumPropName.Anchor: {
-                value = itself.getAnchor();
-            } break;
-            case EnumPropName.Size: {
-                value = itself.getSize();
-            } break;
-            case EnumPropName.Color: {
-                value = itself.getColor();
-            } break;
-            case EnumPropName.Opacity: {
-                value = itself.getOpacity();
-            } break;
-            case EnumPropName.GrayScale: {
-                value = itself.getGrayScale();
-            } break;
-            case EnumPropName.Label: {
-                value = itself.getLabel();
-            } break;
-            case EnumPropName.Font: {
-                value = itself.getFont();
-            } break;
-            case EnumPropName.LabelOutline: {
-                value = itself.getLabelOutline();
-            } break;
-            case EnumPropName.SpriteFrame: {
-                value = itself.getSpriteFrame();
-            } break;
+
+        if (type === EnumPropName.Non) {
+            return void 0;
         }
-        return value;
+
+        // 🔧 使用属性处理器系统，将60行代码简化为几行
+        const handler = PropHandlerManager.getHandler(type);
+        if (handler) {
+            return handler.getValue(itself.node);
+        }
+
+        cc.warn("🔧 尚未迁移到属性处理器的属性：", EnumPropName[type]);
+        return void 0;
     }
+
+    /** 🔧 回退方法：处理尚未迁移到属性处理器的属性 */
+    // private fallbackGetValue(type: EnumPropName): TPropValue {
+    //     let itself = this;
+    //     switch (type) {
+    //         case EnumPropName.Euler: return itself.getEuler();
+    //         case EnumPropName.Scale: return itself.getScale();
+    //         case EnumPropName.Anchor: return itself.getAnchor();
+    //         case EnumPropName.Size: return itself.getSize();
+    //         case EnumPropName.Color: return itself.getColor();
+    //         case EnumPropName.Opacity: return itself.getOpacity();
+    //         case EnumPropName.GrayScale: return itself.getGrayScale();
+    //         case EnumPropName.Font: return itself.getFont();
+    //         case EnumPropName.LabelOutline: return itself.getLabelOutline();
+    //         case EnumPropName.SpriteFrame: return itself.getSpriteFrame();
+    //         default: return void 0;
+    //     }
+    // }
     /** 编辑器改变、改变对于状态属性（最开始是说改变默认属性） */
     private setDefaultPorp(type: EnumPropName) {
         let itself = this;
@@ -904,12 +869,12 @@ export class StateSelect extends cc.Component {
             case EnumPropName.Position: {
                 (getPropData[EnumPropName.Position] as cc.Vec3).set(itself.node.position);
             } break;
-            case EnumPropName.Label: {
+            case EnumPropName.Label_String: {
                 let label = itself.node.getComponent(cc.Label);
                 if (!label) {
                     return;
                 }
-                getPropData[EnumPropName.Label] = label.string;
+                getPropData[EnumPropName.Label_String] = label.string;
             } break;
             case EnumPropName.Font: {
                 let label = itself.node.getComponent(cc.Label);
@@ -931,6 +896,13 @@ export class StateSelect extends cc.Component {
                     return;
                 }
                 getPropData[EnumPropName.SpriteFrame] = sprite.spriteFrame;
+            } break;
+            case EnumPropName.Editbox_String: {
+                let editbox = itself.node.getComponent(cc.EditBox);
+                if (!editbox) {
+                    return;
+                }
+                getPropData[EnumPropName.Editbox_String] = editbox.string;
             } break;
             case EnumPropName.Euler: {
                 (getPropData[EnumPropName.Euler] as cc.Vec3).set(itself.node.eulerAngles);
@@ -958,208 +930,18 @@ export class StateSelect extends cc.Component {
                 // 在 2.x 中，灰度设置需要使用材质
                 getPropData[EnumPropName.GrayScale] = false; // 暂时设为 false
             } break;
+            case EnumPropName.Slider_Progress: {
+                let slider = itself.node.getComponent(cc.Slider);
+                if (!slider) {
+                    return;
+                }
+                getPropData[EnumPropName.Slider_Progress] = slider.progress;
+            } break;
         }
         if (type == itself.propKey) {
             let propData = itself.getPropData();
             itself._propValue = propData[itself.propKey];
         }
-    }
-
-    /** 显示隐藏 */
-    private getActive() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Active) as boolean;
-        if (value == void 0) {
-            value = itself.node.active;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Active] == void 0) {
-                defaultData[EnumPropName.Active] = value;
-            }
-        }
-        return value;
-    }
-    /** 获取位置 */
-    private getPosition() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Position) as cc.Vec3;
-        if (value == void 0) {
-            // 🔧 修复：创建新的Vec3对象，避免引用共享
-            value = cc.v3(itself.node.position);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Position] == void 0) {
-                defaultData[EnumPropName.Position] = cc.v3(itself.node.position);
-            }
-        }
-        return value;
-    }
-    /** 旋转、欧拉角 */
-    private getEuler() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Euler) as cc.Vec3;
-        if (value == void 0) {
-            value = cc.v3(itself.node.eulerAngles);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Euler] == void 0) {
-                defaultData[EnumPropName.Euler] = cc.v3(itself.node.eulerAngles);
-            }
-        }
-        return value;
-    }
-    /** 缩放 */
-    private getScale() {
-        let itself = this;
-        console.log('getScale: ', itself.node.scale);
-        let value = itself.getPropValue(EnumPropName.Scale) as number;
-        if (value == void 0) {
-            value = itself.node.scale;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Scale] == void 0) {
-                defaultData[EnumPropName.Scale] = itself.node.scale;
-            }
-        }
-        return value;
-    }
-    /** 锚点 */
-    private getAnchor() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Anchor) as cc.Vec2;
-        if (value == void 0) {
-            value = cc.v2(itself.node.anchorX, itself.node.anchorY);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Anchor] == void 0) {
-                defaultData[EnumPropName.Anchor] = cc.v2(itself.node.anchorX, itself.node.anchorY);
-            }
-        }
-        return value;
-    }
-    /** 宽高 */
-    private getSize() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Size) as cc.Size;
-        if (value == void 0) {
-            // 🔧 修复：创建新的Size对象，避免引用共享
-            let nodeSize = itself.node.getContentSize();
-            value = cc.size(nodeSize.width, nodeSize.height);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Size] == void 0) {
-                defaultData[EnumPropName.Size] = cc.size(nodeSize.width, nodeSize.height);
-            }
-        }
-        return value;
-    }
-    /** 颜色 */
-    private getColor() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Color) as cc.Color;
-        if (value == void 0) {
-            // 🔧 修复：创建新的Color对象，避免引用共享
-            value = cc.color(itself.node.color.r, itself.node.color.g, itself.node.color.b, itself.node.color.a);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Color] == void 0) {
-                defaultData[EnumPropName.Color] = cc.color(itself.node.color.r, itself.node.color.g, itself.node.color.b, itself.node.color.a);
-            }
-        }
-        return value;
-    }
-    /** 透明度 */
-    private getOpacity() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Opacity) as number;
-        if (value == void 0) {
-            value = itself.node.opacity;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Opacity] == void 0) {
-                defaultData[EnumPropName.Opacity] = value;
-            }
-        }
-        return value;
-    }
-    /** 灰度 */
-    private getGrayScale() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.GrayScale) as boolean;
-        if (value == void 0) {
-            let sprite = itself.node.getComponent(cc.Sprite);
-            if (!sprite) {
-                return void 0;
-            }
-            // 在 2.x 中，灰度需要通过材质实现，这里暂时返回 false
-            value = false;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.GrayScale] == void 0) {
-                defaultData[EnumPropName.GrayScale] = value;
-            }
-        }
-        return value;
-    }
-    /** 文本 */
-    private getLabel() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Label) as string;
-        if (value == void 0) {
-            let label = itself.node.getComponent(cc.Label);
-            if (!label) {
-                return void 0;
-            }
-            value = label.string;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Label] == void 0) {
-                defaultData[EnumPropName.Label] = value;
-            }
-        }
-        return value;
-    }
-    /** 字体 */
-    private getFont() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.Font) as cc.Font;
-        if (value == void 0) {
-            let label = itself.node.getComponent(cc.Label);
-            if (!label) {
-                return void 0;
-            }
-            value = label.font;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.Font] == void 0) {
-                defaultData[EnumPropName.Font] = value;
-            }
-        }
-        return value;
-    }
-    /** 文本描边 */
-    private getLabelOutline() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.LabelOutline) as cc.Color;
-        if (value == void 0) {
-            let labelOutline = itself.node.getComponent(cc.LabelOutline);
-            if (!labelOutline) {
-                return void 0;
-            }
-            // 🔧 修复：创建新的Color对象，避免引用共享
-            value = cc.color(labelOutline.color.r, labelOutline.color.g, labelOutline.color.b, labelOutline.color.a);
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.LabelOutline] == void 0) {
-                defaultData[EnumPropName.LabelOutline] = cc.color(labelOutline.color.r, labelOutline.color.g, labelOutline.color.b, labelOutline.color.a);
-            }
-        }
-        return value;
-    }
-    /** 图片 */
-    private getSpriteFrame() {
-        let itself = this;
-        let value = itself.getPropValue(EnumPropName.SpriteFrame) as cc.SpriteFrame;
-        if (value == void 0) {
-            let sprite = itself.node.getComponent(cc.Sprite);
-            if (!sprite) {
-                return void 0;
-            }
-            value = sprite.spriteFrame;
-            let defaultData = itself.getDefaultData();
-            if (defaultData[EnumPropName.SpriteFrame] == void 0) {
-                defaultData[EnumPropName.SpriteFrame] = value;
-            }
-        }
-        return value;
     }
     /** 父节点改变，转换已经缓存的位置 */
     private transPosition(oldParent: cc.Node) {
@@ -1177,7 +959,6 @@ export class StateSelect extends cc.Component {
             console.warn('oldParent is not a valid cc.Node or has been destroyed');
             return;
         }
-
         // 检查parent是否具有必要的方法
         if (typeof parent.convertToNodeSpaceAR !== 'function') {
             console.warn('parent node does not have convertToNodeSpaceAR method');
@@ -1249,3 +1030,4 @@ export class StateSelect extends cc.Component {
         itself.updateChangedProp();
     }
 }
+

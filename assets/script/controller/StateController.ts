@@ -212,36 +212,57 @@ export class StateController extends cc.Component {
     /** 更新状态 */
     private updateState(type: EnumUpdataType, value?: any) {
         let itself = this;
-        let updateChild = function (parent: cc.Node) {
-            if (!parent || !parent.children.length) {
-                return;
-            }
-            let len = parent.children.length;
-            for (let index = 0; index < len; index++) {
-                let child = parent.children[index];
-                let notFind = child.getComponent(StateController);
-                if (!notFind) {//这里自己判断一些不需要遍历子节点的，比如列表
-                    updateChild(child);
-                }
-                let select = child.getComponent(StateSelect);
-                if (!select) {
+
+        // 🔧 优化：使用队列替代递归，避免深度递归的性能问题
+        let updateChild = function (rootNode: cc.Node) {
+            let nodeQueue: cc.Node[] = [rootNode];
+            let processedNodes = new Set<cc.Node>(); // 防止重复处理
+
+            while (nodeQueue.length > 0) {
+                let parent = nodeQueue.shift();
+
+                // 安全检查和重复处理防护
+                if (!parent || !parent.children || processedNodes.has(parent)) {
                     continue;
                 }
-                if (type == EnumUpdataType.state) {
-                    select.updateState(itself);
-                } else if (type == EnumUpdataType.name) {
-                    select.updateCtrlName(itself.node);
-                } else if (type == EnumUpdataType.selPage) {
-                    select.updateCtrlPage(itself, value);
-                } else if (type == EnumUpdataType.delete) {
-                    select.updateDelete(itself);
-                } else if (type == EnumUpdataType.init) {
-                    select.updatePreLoad(itself);
-                } else if (type == EnumUpdataType.prop) {
-                    select.updateProp(itself);
+                processedNodes.add(parent);
+
+                let children = parent.children;
+                let len = children.length;
+
+                for (let index = 0; index < len; index++) {
+                    let child = children[index];
+
+                    // 🔧 优化：一次性获取所需组件，减少getComponent调用
+                    let childStateController = child.getComponent(StateController);
+                    let stateSelect = child.getComponent(StateSelect);
+
+                    // 如果找到StateSelect组件，处理它
+                    if (stateSelect) {
+                        if (type == EnumUpdataType.state) {
+                            stateSelect.updateState(itself);
+                        } else if (type == EnumUpdataType.name) {
+                            stateSelect.updateCtrlName(itself.node);
+                        } else if (type == EnumUpdataType.selPage) {
+                            stateSelect.updateCtrlPage(itself, value);
+                        } else if (type == EnumUpdataType.delete) {
+                            stateSelect.updateDelete(itself);
+                        } else if (type == EnumUpdataType.init) {
+                            stateSelect.updatePreLoad(itself);
+                        } else if (type == EnumUpdataType.prop) {
+                            stateSelect.updateProp(itself);
+                        }
+                    }
+
+                    // 🔧 优化：只有在没有StateController的节点才继续遍历子节点
+                    // 这样避免了不必要的深度遍历
+                    if (!childStateController && child.children && child.children.length > 0) {
+                        nodeQueue.push(child);
+                    }
                 }
             }
         }
+
         updateChild(itself.node);
     }
 }

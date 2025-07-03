@@ -29,7 +29,7 @@ export enum EnumPropName {
     /** 位置 */
     Position,
     /** 文本 */
-    Label,
+    Label_String,
     /** 描边 */
     LabelOutline,
     /** 图片 */
@@ -52,4 +52,8 @@ export enum EnumPropName {
     GrayScale,
     /** 字体 */
     Font,
+    /** 滑动条 */
+    Slider_Progress,
+    /** 编辑框 */
+    Editbox_String,
 }
