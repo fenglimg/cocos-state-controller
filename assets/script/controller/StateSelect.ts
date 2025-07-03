@@ -115,6 +115,7 @@ export class StateSelect extends cc.Component {
     }
     private set ctrlState(value: number) {
         let itself = this;
+        cc.log("StateSelect itself.getCurrCtrl(): ", itself.getCurrCtrl());
         if (itself.getCurrCtrl()) {
             itself.getCurrCtrl().selectedIndex = value;
         } else {
@@ -159,18 +160,24 @@ export class StateSelect extends cc.Component {
         }
         itself._propKey = value;
         let propData = itself.getPropData();
-        propData.$$lastProp$$ = value;
-        let propValue = itself.setPropValue(value)
-        propData[value] = propValue;
-        if (propValue != void 0 && value != EnumPropName.Non) {
-            propData.$$changedProp$$ = propData.$$changedProp$$ || {};
-            propData.$$changedProp$$[EnumPropName[value]] = value;
 
-            // 智能同步：根据同步模式决定是否自动同步
-            if (itself.syncMode === SyncMode.AutoSync) {
-                itself.syncPropToAllStatesInternal(value);
+        // 🔧 修复：只有非Non属性才需要存储到propData
+        if (value !== EnumPropName.Non) {
+            propData.$$lastProp$$ = value;
+            let propValue = itself.setPropValue(value);
+            propData[value] = propValue;
+
+            if (propValue != void 0) {
+                propData.$$changedProp$$ = propData.$$changedProp$$ || {};
+                propData.$$changedProp$$[EnumPropName[value]] = value;
+
+                // 智能同步：根据同步模式决定是否自动同步
+                if (itself.syncMode === SyncMode.AutoSync) {
+                    itself.syncPropToAllStatesInternal(value);
+                }
             }
         }
+        // 注意：当选择Non时，不存储任何数据，保持原有代码结构
         itself.updateChangedProp();
     }
     /** 属性值 */
@@ -223,7 +230,7 @@ export class StateSelect extends cc.Component {
     /** 属性同步模式 */
     @property({
         type: SyncMode,
-        tooltip: "属性同步模式：\n• 独立模式：每个状态属性完全独立，需手动为每个状态添加属性\n• 自动同步：添加属性时自动同步到所有状态（推荐）\n• 手动同步：添加属性不自动同步，但可以使用下方按钮手动同步"
+        tooltip: "属性同步模式：\n• 独立模式：每个状态属性完全独立，需手动为每个状态添加属性\n• 自动同步：添加属性时自动同步到所有状态，状态切换时保持PropKey选择（推荐）\n• 手动同步：添加属性不自动同步，但可以使用下方按钮手动同步"
     })
     syncMode: SyncMode = SyncMode.AutoSync;
 
@@ -255,11 +262,16 @@ export class StateSelect extends cc.Component {
         let itself = this;
         let propData = itself.getPropData();
         let lastProp = propData.$$lastProp$$;
-        if (lastProp) {
+
+        // 🔧 修复：确保lastProp不为0（EnumPropName.Non），因为0代表"不选择"状态
+        if (lastProp && lastProp !== EnumPropName.Non) {
             itself.propKey = lastProp;
         } else {
             itself.propKey = EnumPropName.Non;
         }
+        cc.log("StateSelect refProp propData: ", propData);
+        cc.log("StateSelect refProp lastProp: ", lastProp);
+        cc.log("StateSelect refProp propKey: ", itself.propKey);
     }
 
     _isPreload = false;
@@ -295,10 +307,10 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        // // 记录初始父节点
+        //  记录初始父节点
         itself._lastParent = itself.node.parent;
 
-        // // 启动父节点变化检测定时器
+        //  启动父节点变化检测定时器
         itself._parentCheckInterval = setInterval(() => {
             itself.checkParentChanged();
         }, 200);
@@ -338,6 +350,9 @@ export class StateSelect extends cc.Component {
             let oldParent = itself._lastParent;
             itself._lastParent = currentParent;
 
+            // 🔧 新增：检查控制器承接
+            itself.handleControllerTransition(oldParent, currentParent);
+
             // 只有当有Position属性被控制时才需要转换坐标
             let pageData = itself.getPageData();
             let hasPositionControl = false;
@@ -361,6 +376,146 @@ export class StateSelect extends cc.Component {
     private _parentChanged(oldParent: cc.Node) {
         let itself = this;
         itself.transPosition(oldParent);
+    }
+
+    /** 处理控制器承接 */
+    private handleControllerTransition(oldParent: cc.Node, newParent: cc.Node) {
+        let itself = this;
+
+        // 获取旧控制器
+        let oldCtrls = oldParent ? itself.getCtrls(oldParent) : [];
+        let oldCtrl = oldCtrls.find(ctrl => ctrl._ctrlId === itself.currCtrlId);
+
+        // 获取新控制器
+        let newCtrls = newParent ? itself.getCtrls(newParent) : [];
+        let newCtrl = itself.selectBestController(newCtrls, oldCtrl);
+
+        // 如果新旧都有控制器且不同，执行数据承接
+        if (oldCtrl && newCtrl && oldCtrl._ctrlId !== newCtrl._ctrlId) {
+            cc.log('🔄 控制器承接:', `从 ${oldCtrl.ctrlName} → ${newCtrl.ctrlName}`);
+
+            // 1. 备份当前状态数据
+            let oldCtrlData = itself._ctrlData[oldCtrl._ctrlId];
+
+            if (oldCtrlData) {
+                // 2. 将数据迁移到新控制器
+                // 需要根据新控制器的状态数量调整数据结构
+                let transferredData = itself.adaptDataToNewController(oldCtrlData, newCtrl);
+                itself._ctrlData[newCtrl._ctrlId] = transferredData;
+
+                // 3. 清理旧控制器数据
+                delete itself._ctrlData[oldCtrl._ctrlId];
+
+                // 4. 更新控制器映射和当前控制器ID
+                itself.updateCtrlName(newParent);
+                itself._currCtrlId = newCtrl._ctrlId;
+
+                // 5. 更新界面
+                itself.updateCtrlPage(newCtrl);
+                itself.refProp();
+
+                cc.log('✅ 控制器承接完成:', `数据已从 ${oldCtrl.ctrlName} 迁移到 ${newCtrl.ctrlName}`);
+            }
+        } else if (newCtrl && !oldCtrl) {
+            // 从无控制器环境移动到有控制器环境
+            cc.log('🆕 绑定到新控制器:', newCtrl.ctrlName);
+            itself.updateCtrlName(newParent);
+            if (!itself.currCtrlId) {
+                itself._currCtrlId = newCtrl._ctrlId;
+                itself.updateCtrlPage(newCtrl);
+                itself.refProp();
+            }
+        } else if (oldCtrl && !newCtrl) {
+            // 从有控制器环境移动到无控制器环境
+            cc.log('🔌 断开控制器连接:', oldCtrl.ctrlName);
+            // 保留数据但清除当前绑定
+            itself._currCtrlId = null;
+            itself._propKey = EnumPropName.Non;
+        }
+    }
+
+    /** 适配数据到新控制器 */
+    private adaptDataToNewController(oldData: any, newCtrl: StateController): any {
+        let itself = this;
+        let newData: any = {};
+
+        // 复制默认数据
+        if (oldData.$$default$$) {
+            newData.$$default$$ = itself.deepCloneStateData(oldData.$$default$$);
+        }
+
+        // 根据新控制器的状态数量适配状态数据
+        for (let stateIndex = 0; stateIndex < newCtrl.states.length; stateIndex++) {
+            if (oldData[stateIndex]) {
+                // 如果旧数据有对应状态，直接复制
+                newData[stateIndex] = itself.deepCloneStateData(oldData[stateIndex]);
+            } else if (newData.$$default$$) {
+                // 如果旧数据没有对应状态，使用默认数据创建新状态
+                newData[stateIndex] = itself.deepCloneStateData(newData.$$default$$);
+                // 清除新状态的lastProp，让用户重新选择
+                delete newData[stateIndex].$$lastProp$$;
+            }
+        }
+
+        return newData;
+    }
+
+    /** 深度克隆状态数据 */
+    private deepCloneStateData(data: any): any {
+        if (!data || typeof data !== 'object') {
+            return data;
+        }
+
+        let cloned: any = {};
+        for (let key in data) {
+            let value = data[key];
+            if (value && typeof value === 'object') {
+                // 处理Cocos Creator特殊对象
+                if (value instanceof cc.Vec3) {
+                    cloned[key] = cc.v3(value);
+                } else if (value instanceof cc.Vec2) {
+                    cloned[key] = cc.v2(value);
+                } else if (value instanceof cc.Color) {
+                    cloned[key] = cc.color(value.r, value.g, value.b, value.a);
+                } else if (value instanceof cc.Size) {
+                    cloned[key] = cc.size(value.width, value.height);
+                } else if (value instanceof cc.Asset) {
+                    // 🔧 修复：所有Cocos Creator资源对象(包括SpriteFrame、Font等)直接保留引用
+                    // 资源对象不应该被克隆，因为它们是引用类型的资源
+                    cloned[key] = value;
+                } else {
+                    // 其他对象直接复制引用（如$$changedProp$$对象）
+                    cloned[key] = { ...value };
+                }
+            } else {
+                cloned[key] = value;
+            }
+        }
+        return cloned;
+    }
+
+    /** 选择最佳控制器用于承接 */
+    private selectBestController(newCtrls: StateController[], oldCtrl: StateController): StateController {
+        if (!newCtrls || newCtrls.length === 0) {
+            return null;
+        }
+
+        // 如果只有一个控制器，直接返回
+        if (newCtrls.length === 1) {
+            return newCtrls[0];
+        }
+
+        // 如果有多个控制器，优先选择状态数量相同的控制器
+        if (oldCtrl) {
+            let oldStatesCount = oldCtrl.states.length;
+            let matchingCtrl = newCtrls.find(ctrl => ctrl.states.length === oldStatesCount);
+            if (matchingCtrl) {
+                return matchingCtrl;
+            }
+        }
+
+        // 如果没有状态数量匹配的，选择第一个控制器
+        return newCtrls[0];
     }
     /** 节点active改变 */
     private _activeChanged(node: cc.Node) {
@@ -516,13 +671,35 @@ export class StateSelect extends cc.Component {
         if (!ctrl) {
             return;
         }
+        cc.log("StateSelect updateState ctrl: ", ctrl);
         itself._isFromCtrl = true;
+
+        // 🔧 优化：保存当前选中的属性，用于状态切换后的PropKey保持
+        let currentPropKey = itself.propKey;
+        let isAutoSync = itself.syncMode === SyncMode.AutoSync;
+        let shouldKeepPropKey = isAutoSync && currentPropKey !== EnumPropName.Non;
+
         let propData = itself.getPropData(ctrl.selectedIndex, ctrl._ctrlId);
         let defaultData = itself.getDefaultData(ctrl._ctrlId);
         for (let key in defaultData) {
             let value = propData[key] == void 0 ? defaultData[key] : propData[key];
             itself.updateUI(Number(key), value)
         }
+        cc.log("StateSelect updateState propData: ", propData);
+        cc.log("StateSelect updateState defaultData: ", defaultData);
+
+        // 🔧 优化：在自动同步模式下保持PropKey选择
+        if (shouldKeepPropKey) {
+            // 直接设置PropKey为当前选中的属性，无论新状态是否有这个属性
+            // 如果新状态没有这个属性，setter会自动添加
+            cc.log("🔧 自动同步模式：状态切换前PropKey =", EnumPropName[currentPropKey], "，切换后保持选择");
+            itself.propKey = currentPropKey;
+        } else {
+            // 非自动同步模式：使用新状态的lastProp
+            cc.log("🔧 非自动同步模式：使用新状态的lastProp");
+            itself.refProp();
+        }
+
         itself._isFromCtrl = false;
     }
     updateUI(type: EnumPropName, value: TPropValue) {
@@ -806,10 +983,11 @@ export class StateSelect extends cc.Component {
         let itself = this;
         let value = itself.getPropValue(EnumPropName.Position) as cc.Vec3;
         if (value == void 0) {
-            value = itself.node.position;
+            // 🔧 修复：创建新的Vec3对象，避免引用共享
+            value = cc.v3(itself.node.position);
             let defaultData = itself.getDefaultData();
             if (defaultData[EnumPropName.Position] == void 0) {
-                defaultData[EnumPropName.Position] = itself.node.position;
+                defaultData[EnumPropName.Position] = cc.v3(itself.node.position);
             }
         }
         return value;
@@ -859,10 +1037,12 @@ export class StateSelect extends cc.Component {
         let itself = this;
         let value = itself.getPropValue(EnumPropName.Size) as cc.Size;
         if (value == void 0) {
-            value = itself.node.getContentSize();
+            // 🔧 修复：创建新的Size对象，避免引用共享
+            let nodeSize = itself.node.getContentSize();
+            value = cc.size(nodeSize.width, nodeSize.height);
             let defaultData = itself.getDefaultData();
             if (defaultData[EnumPropName.Size] == void 0) {
-                defaultData[EnumPropName.Size] = itself.node.getContentSize();
+                defaultData[EnumPropName.Size] = cc.size(nodeSize.width, nodeSize.height);
             }
         }
         return value;
@@ -872,10 +1052,11 @@ export class StateSelect extends cc.Component {
         let itself = this;
         let value = itself.getPropValue(EnumPropName.Color) as cc.Color;
         if (value == void 0) {
-            value = itself.node.color;
+            // 🔧 修复：创建新的Color对象，避免引用共享
+            value = cc.color(itself.node.color.r, itself.node.color.g, itself.node.color.b, itself.node.color.a);
             let defaultData = itself.getDefaultData();
             if (defaultData[EnumPropName.Color] == void 0) {
-                defaultData[EnumPropName.Color] = itself.node.color;
+                defaultData[EnumPropName.Color] = cc.color(itself.node.color.r, itself.node.color.g, itself.node.color.b, itself.node.color.a);
             }
         }
         return value;
@@ -954,10 +1135,11 @@ export class StateSelect extends cc.Component {
             if (!labelOutline) {
                 return void 0;
             }
-            value = labelOutline.color;
+            // 🔧 修复：创建新的Color对象，避免引用共享
+            value = cc.color(labelOutline.color.r, labelOutline.color.g, labelOutline.color.b, labelOutline.color.a);
             let defaultData = itself.getDefaultData();
             if (defaultData[EnumPropName.LabelOutline] == void 0) {
-                defaultData[EnumPropName.LabelOutline] = value;
+                defaultData[EnumPropName.LabelOutline] = cc.color(labelOutline.color.r, labelOutline.color.g, labelOutline.color.b, labelOutline.color.a);
             }
         }
         return value;
@@ -1026,6 +1208,12 @@ export class StateSelect extends cc.Component {
         let ctrl = itself.getCurrCtrl();
         if (!ctrl) return;
 
+        // 🔧 修复：不同步Non属性
+        if (propKey === EnumPropName.Non) {
+            console.warn("不能同步Non属性");
+            return;
+        }
+
         let pageData = itself.getPageData();
         let currentStateValue = itself.handleValue(propKey); // 获取当前节点的属性值作为默认值
 
@@ -1039,6 +1227,11 @@ export class StateSelect extends cc.Component {
             // 如果该状态还没有这个属性，则添加（使用当前节点的值）
             if (statePropData[propKey] == void 0) {
                 statePropData[propKey] = currentStateValue;
+
+                // 🔧 修复：同步属性时，只在该状态没有lastProp时才设置，避免覆盖用户的选择
+                if (!statePropData.$$lastProp$$) {
+                    statePropData.$$lastProp$$ = propKey;
+                }
 
                 // 更新该状态的changedProp记录
                 statePropData.$$changedProp$$ = statePropData.$$changedProp$$ || {};
