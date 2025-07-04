@@ -1,24 +1,8 @@
 /**
- * 开发中遇到的一些问题：
- * 1、节点没激活，不会执行：__preload()等生命周期函数
- * 2、一个对象里有"_"开头的key，不会被序列化
- * 3、@executeInEditMode(true)代码修改，回到界面组件会先被销毁然后重新添加
- * 4、属性里对象的赋值，是克隆对象里的值，并不是改变指向的地址
- * 5、关闭编辑后再打开，uuid会改变
- * 6、编辑器删除节点，parent改变的监听也会收到，注意处理
- * 7、使用setTimeout的地方都是为了延迟执行
- * 
- * 
  * 控制器已知问题：
- * 1、改变文本只能在propvalue那里设置。从自带的string那里改变没有监听方法,
- * 2、改变：透明度（UIOpacity）、变灰、描边颜色、字体 ===》同个问题。
- * 
- * 3、改变四元数也有问题，只做了改变欧拉角。
- * 4、不能使用ctrl+z（撤销），否则一些数据会没掉,
- * 5、好像删除不可逆
+ * 1.有些属性只能从PropValue设置没有监听方法如：Label_String,Opacity,Font等等。
+ * 2.SpirteFrame不能在PropValue设置，只能从编辑器设置
  */
-
-
 
 const { ccclass, property, menu, executeInEditMode } = cc._decorator;
 import { EnumStateName, EnumUpdataType } from './StateEnum';
@@ -151,7 +135,6 @@ export class StateController extends cc.Component {
         let newLen = value.length;
         let deleteIndex = -1;
         if (oldLen > newLen) {
-            //被删除状态
             for (let index = 0; index < oldLen; index++) {
                 let oldS = itself._pageNames[index];
                 let newS = value[index];
@@ -167,7 +150,6 @@ export class StateController extends cc.Component {
                 }
             }
         } else if (newLen > oldLen) {
-            //最新的几个没有值
             for (let index = itself._pageNames.length, len = value.length; index < len; index++) {
                 let val = value[index];
                 val.name = "" + itself.stateIdAuto;
@@ -209,11 +191,10 @@ export class StateController extends cc.Component {
             }
         }
     }
-    /** 更新状态 */
-    private updateState(type: EnumUpdataType, value?: any) {
+    /** 🔧 优化：更新状态，使用更严格的类型定义 */
+    private updateState(type: EnumUpdataType, value?: number) {
         let itself = this;
 
-        // 🔧 优化：使用队列替代递归，避免深度递归的性能问题
         let updateChild = function (rootNode: cc.Node) {
             let nodeQueue: cc.Node[] = [rootNode];
             let processedNodes = new Set<cc.Node>(); // 防止重复处理
@@ -233,7 +214,6 @@ export class StateController extends cc.Component {
                 for (let index = 0; index < len; index++) {
                     let child = children[index];
 
-                    // 🔧 优化：一次性获取所需组件，减少getComponent调用
                     let childStateController = child.getComponent(StateController);
                     let stateSelect = child.getComponent(StateSelect);
 
@@ -254,8 +234,6 @@ export class StateController extends cc.Component {
                         }
                     }
 
-                    // 🔧 优化：只有在没有StateController的节点才继续遍历子节点
-                    // 这样避免了不必要的深度遍历
                     if (!childStateController && child.children && child.children.length > 0) {
                         nodeQueue.push(child);
                     }

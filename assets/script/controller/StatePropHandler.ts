@@ -1,6 +1,7 @@
 import { EnumPropName } from "./StateEnum";
 import { TPropValue } from "./StateSelect";
 
+/** 🔧 优化：属性处理器接口 */
 interface IPropHandler {
     /** 获取属性值 */
     getValue(node: cc.Node): TPropValue | undefined;
@@ -10,6 +11,7 @@ interface IPropHandler {
     getDefaultValue(node: cc.Node): TPropValue | undefined;
 }
 
+/** 🔧 优化：属性处理器管理类 */
 export class PropHandlerManager {
     private static handlers = new Map<EnumPropName, IPropHandler>();
 
@@ -44,7 +46,7 @@ export class PropHandlerManager {
     }
 }
 
-/** 🔧 新增：各种属性处理器实现 */
+/** 🔧 基础属性处理器实现 */
 class ActivePropHandler implements IPropHandler {
     getValue(node: cc.Node) { return node.active; }
     setValue(node: cc.Node, value: TPropValue) { node.active = value as boolean; }
@@ -52,11 +54,65 @@ class ActivePropHandler implements IPropHandler {
 }
 
 class PositionPropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.position; }
+    getValue(node: cc.Node) { return cc.v3(node.position); }
     setValue(node: cc.Node, value: TPropValue) { node.position = value as cc.Vec3; }
-    getDefaultValue(node: cc.Node) { return node.position; }
+    getDefaultValue(node: cc.Node) { return cc.v3(node.position); }
 }
 
+class EulerPropHandler implements IPropHandler {
+    getValue(node: cc.Node) { return cc.v3(node.eulerAngles); }
+    setValue(node: cc.Node, value: TPropValue) { node.eulerAngles = value as cc.Vec3; }
+    getDefaultValue(node: cc.Node) { return cc.v3(node.eulerAngles); }
+}
+
+class ScalePropHandler implements IPropHandler {
+    getValue(node: cc.Node) { return node.scale; }
+    setValue(node: cc.Node, value: TPropValue) { node.scale = value as number; }
+    getDefaultValue(node: cc.Node) { return node.scale; }
+}
+
+class AnchorPropHandler implements IPropHandler {
+    getValue(node: cc.Node) { return cc.v2(node.anchorX, node.anchorY); }
+    setValue(node: cc.Node, value: TPropValue) {
+        const anchor = value as cc.Vec2;
+        node.setAnchorPoint(anchor);
+    }
+    getDefaultValue(node: cc.Node) { return cc.v2(node.anchorX, node.anchorY); }
+}
+
+class SizePropHandler implements IPropHandler {
+    getValue(node: cc.Node) {
+        const size = node.getContentSize();
+        return cc.size(size.width, size.height);
+    }
+    setValue(node: cc.Node, value: TPropValue) {
+        node.setContentSize(value as cc.Size);
+    }
+    getDefaultValue(node: cc.Node) {
+        const size = node.getContentSize();
+        return cc.size(size.width, size.height);
+    }
+}
+
+class ColorPropHandler implements IPropHandler {
+    getValue(node: cc.Node) {
+        const color = node.color;
+        return cc.color(color.r, color.g, color.b, color.a);
+    }
+    setValue(node: cc.Node, value: TPropValue) { node.color = value as cc.Color; }
+    getDefaultValue(node: cc.Node) {
+        const color = node.color;
+        return cc.color(color.r, color.g, color.b, color.a);
+    }
+}
+
+class OpacityPropHandler implements IPropHandler {
+    getValue(node: cc.Node) { return node.opacity; }
+    setValue(node: cc.Node, value: TPropValue) { node.opacity = value as number; }
+    getDefaultValue(node: cc.Node) { return node.opacity; }
+}
+
+/** 🔧 组件相关属性处理器 */
 class LabelPropHandler implements IPropHandler {
     getValue(node: cc.Node) {
         const label = node.getComponent(cc.Label);
@@ -65,6 +121,44 @@ class LabelPropHandler implements IPropHandler {
     setValue(node: cc.Node, value: TPropValue) {
         const label = node.getComponent(cc.Label);
         if (label) label.string = value as string;
+    }
+    getDefaultValue(node: cc.Node) { return this.getValue(node); }
+}
+
+class FontPropHandler implements IPropHandler {
+    getValue(node: cc.Node) {
+        const label = node.getComponent(cc.Label);
+        return label ? label.font : undefined;
+    }
+    setValue(node: cc.Node, value: TPropValue) {
+        const label = node.getComponent(cc.Label);
+        if (label) label.font = value as cc.Font;
+    }
+    getDefaultValue(node: cc.Node) { return this.getValue(node); }
+}
+
+class LabelOutlinePropHandler implements IPropHandler {
+    getValue(node: cc.Node) {
+        const labelOutline = node.getComponent(cc.LabelOutline);
+        if (!labelOutline) return undefined;
+        const color = labelOutline.color;
+        return cc.color(color.r, color.g, color.b, color.a);
+    }
+    setValue(node: cc.Node, value: TPropValue) {
+        const labelOutline = node.getComponent(cc.LabelOutline);
+        if (labelOutline) labelOutline.color = value as cc.Color;
+    }
+    getDefaultValue(node: cc.Node) { return this.getValue(node); }
+}
+
+class SpriteFramePropHandler implements IPropHandler {
+    getValue(node: cc.Node) {
+        const sprite = node.getComponent(cc.Sprite);
+        return sprite ? sprite.spriteFrame : undefined;
+    }
+    setValue(node: cc.Node, value: TPropValue) {
+        const sprite = node.getComponent(cc.Sprite);
+        if (sprite) sprite.spriteFrame = value as cc.SpriteFrame;
     }
     getDefaultValue(node: cc.Node) { return this.getValue(node); }
 }
@@ -93,109 +187,50 @@ class EditBoxPropHandler implements IPropHandler {
     getDefaultValue(node: cc.Node) { return this.getValue(node); }
 }
 
-/** 🔧 新增：其他常用属性处理器 */
-class EulerPropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.eulerAngles; }
-    setValue(node: cc.Node, value: TPropValue) { node.eulerAngles = value as cc.Vec3; }
-    getDefaultValue(node: cc.Node) { return node.eulerAngles; }
-}
-
-class ScalePropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.scale; }
-    setValue(node: cc.Node, value: TPropValue) { node.scale = value as number; }
-    getDefaultValue(node: cc.Node) { return node.scale; }
-}
-
-class ColorPropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.color; }
-    setValue(node: cc.Node, value: TPropValue) { node.color = value as cc.Color; }
-    getDefaultValue(node: cc.Node) { return node.color; }
-}
-
-class OpacityPropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.opacity; }
-    setValue(node: cc.Node, value: TPropValue) { node.opacity = value as number; }
-    getDefaultValue(node: cc.Node) { return node.opacity; }
-}
-
-class FontPropHandler implements IPropHandler {
-    getValue(node: cc.Node) {
-        const label = node.getComponent(cc.Label);
-        return label ? label.font : undefined;
-    }
-    setValue(node: cc.Node, value: TPropValue) {
-        const label = node.getComponent(cc.Label);
-        if (label) label.font = value as cc.Font;
-    }
-    getDefaultValue(node: cc.Node) { return this.getValue(node); }
-}
-
-class SpriteFramePropHandler implements IPropHandler {
+class GrayScalePropHandler implements IPropHandler {
     getValue(node: cc.Node) {
         const sprite = node.getComponent(cc.Sprite);
-        return sprite ? sprite.spriteFrame : undefined;
+        if (!sprite) return undefined;
+        // 在 2.x 中，灰度需要通过材质实现，这里暂时返回 false
+        return false;
     }
     setValue(node: cc.Node, value: TPropValue) {
         const sprite = node.getComponent(cc.Sprite);
-        if (sprite) sprite.spriteFrame = value as cc.SpriteFrame;
+        // 在 2.x 中，灰度需要通过材质实现，这里暂时不做处理
+        if (sprite && CC_EDITOR) {
+            console.warn('GrayScale属性在Cocos Creator 2.x中需要通过材质实现');
+        }
     }
     getDefaultValue(node: cc.Node) { return this.getValue(node); }
 }
-
-class LabelOutlinePropHandler implements IPropHandler {
-    getValue(node: cc.Node) {
-        const labelOutline = node.getComponent(cc.LabelOutline);
-        return labelOutline ? labelOutline.color : null;
-    }
-    setValue(node: cc.Node, value: TPropValue) {
-        const labelOutline = node.getComponent(cc.LabelOutline);
-        if (labelOutline) labelOutline.color = value as cc.Color;
-    }
-    getDefaultValue(node: cc.Node) { return this.getValue(node); }
-}
-
-class AnchorPropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.getAnchorPoint(); }
-    setValue(node: cc.Node, value: TPropValue) { node.setAnchorPoint(value as cc.Vec2); }
-    getDefaultValue(node: cc.Node) { return node.getAnchorPoint(); }
-}
-
-class SizePropHandler implements IPropHandler {
-    getValue(node: cc.Node) { return node.getContentSize(); }
-    setValue(node: cc.Node, value: TPropValue) { node.setContentSize(value as cc.Size); }
-    getDefaultValue(node: cc.Node) { return node.getContentSize(); }
-}
-
-
 
 // 🔧 注册所有属性处理器
 PropHandlerManager.register(EnumPropName.Active, new ActivePropHandler());
 PropHandlerManager.register(EnumPropName.Position, new PositionPropHandler());
-PropHandlerManager.register(EnumPropName.Label_String, new LabelPropHandler());
-PropHandlerManager.register(EnumPropName.Slider_Progress, new SliderPropHandler());
-PropHandlerManager.register(EnumPropName.Editbox_String, new EditBoxPropHandler());
 PropHandlerManager.register(EnumPropName.Euler, new EulerPropHandler());
 PropHandlerManager.register(EnumPropName.Scale, new ScalePropHandler());
-PropHandlerManager.register(EnumPropName.Color, new ColorPropHandler());
-PropHandlerManager.register(EnumPropName.Opacity, new OpacityPropHandler());
-PropHandlerManager.register(EnumPropName.Font, new FontPropHandler());
-PropHandlerManager.register(EnumPropName.SpriteFrame, new SpriteFramePropHandler());
-PropHandlerManager.register(EnumPropName.LabelOutline, new LabelOutlinePropHandler());
 PropHandlerManager.register(EnumPropName.Anchor, new AnchorPropHandler());
 PropHandlerManager.register(EnumPropName.Size, new SizePropHandler());
+PropHandlerManager.register(EnumPropName.Color, new ColorPropHandler());
+PropHandlerManager.register(EnumPropName.Opacity, new OpacityPropHandler());
+PropHandlerManager.register(EnumPropName.Label_String, new LabelPropHandler());
+PropHandlerManager.register(EnumPropName.Font, new FontPropHandler());
+PropHandlerManager.register(EnumPropName.LabelOutline_Color, new LabelOutlinePropHandler());
+PropHandlerManager.register(EnumPropName.SpriteFrame, new SpriteFramePropHandler());
+PropHandlerManager.register(EnumPropName.Slider_Progress, new SliderPropHandler());
+PropHandlerManager.register(EnumPropName.Editbox_String, new EditBoxPropHandler());
 
-/** 🔧 新增：属性处理器接口 */
-
-/** 🔧 新增：属性处理器管理类 */
-
-/** 🔧 扩展示例：添加新组件支持只需要3步
+/** 🔧 扩展指南：添加新组件支持
  * 
- * 步骤1: 在StateEnum.ts中添加枚举值
- * 步骤2: 创建对应的PropHandler类
- * 步骤3: 注册到PropHandlerManager
+ * 添加新属性处理器只需3步：
  * 
- * 例如添加Button组件支持：
+ * 1. 在StateEnum.ts中添加枚举值
+ * 2. 创建对应的PropHandler类，实现IPropHandler接口
+ * 3. 注册到PropHandlerManager
  * 
+ * 示例 - 添加Button组件支持：
+ * 
+ * ```typescript
  * class ButtonPropHandler implements IPropHandler {
  *     getValue(node: cc.Node) { 
  *         const button = node.getComponent(cc.Button);
@@ -209,4 +244,7 @@ PropHandlerManager.register(EnumPropName.Size, new SizePropHandler());
  * }
  * 
  * PropHandlerManager.register(EnumPropName.Button_Interactable, new ButtonPropHandler());
+ * ```
+ * 
+ * 这样设计极大地简化了扩展新组件的流程！
  */

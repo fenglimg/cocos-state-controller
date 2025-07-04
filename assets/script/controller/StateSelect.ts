@@ -32,6 +32,7 @@ const { ccclass, property, menu, executeInEditMode, disallowMultiple } = cc._dec
 import { StateController } from './StateController';
 import { EnumCtrlName, EnumPropName, EnumStateName } from './StateEnum';
 import { PropHandlerManager } from './StatePropHandler';
+import { StateErrorManager, ErrorLevel } from './StateErrorManager';
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
 cc.Enum(EnumPropName);
@@ -48,7 +49,8 @@ enum SyncMode {
 cc.Enum(SyncMode);
 
 /** 属性类型 */
-export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font;
+export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font | undefined;
+
 export type TProp = {
     /** 上一次选择的属性 */
     $$lastProp$$?: number;
@@ -56,6 +58,7 @@ export type TProp = {
     $$changedProp$$?: { [name: string]: EnumPropName };
     [key: number]: TPropValue,
 }
+
 type TPage = {
     /** 上次选择的状态 */
     // $$lastState$$?: number,
@@ -63,9 +66,11 @@ type TPage = {
     $$default$$?: TProp;
     [state: number]: TProp
 }
+
 type TCtrl = {
     [stateId: string]: TPage;
 }
+
 @ccclass('StateSelect')
 @executeInEditMode()
 @disallowMultiple()
@@ -76,9 +81,6 @@ export class StateSelect extends cc.Component {
     /** 当前选中的ctrl名称对应的ctrlId */
     @property(EnumCtrlName)
     private _currCtrlId: number = null;
-    // /** 当前选中的状态 */
-    // @property(EnumStateName)
-    // private _currState: number = null;
     @property
     private _root: cc.Node = null;
     /** 当前状态要改变的属性 */
@@ -86,7 +88,7 @@ export class StateSelect extends cc.Component {
     private _propKey: EnumPropName = null;
     /** 当前状态要改变的属性值 */
     @property
-    private _propValue: any = null;
+    private _propValue: TPropValue = null;
     @property
     private _isDeleteCurr: boolean = false;
 
@@ -116,7 +118,6 @@ export class StateSelect extends cc.Component {
     }
     private set ctrlState(value: number) {
         let itself = this;
-        cc.log("StateSelect itself.getCurrCtrl(): ", itself.getCurrCtrl());
         if (itself.getCurrCtrl()) {
             itself.getCurrCtrl().selectedIndex = value;
         } else {
@@ -162,7 +163,6 @@ export class StateSelect extends cc.Component {
         itself._propKey = value;
         let propData = itself.getPropData();
 
-        // 🔧 修复：只有非Non属性才需要存储到propData
         if (value !== EnumPropName.Non) {
             propData.$$lastProp$$ = value;
             let propValue = itself.setPropValue(value);
@@ -178,6 +178,7 @@ export class StateSelect extends cc.Component {
                 }
             }
         }
+
         // 注意：当选择Non时，不存储任何数据，保持原有代码结构
         itself.updateChangedProp();
     }
@@ -247,10 +248,29 @@ export class StateSelect extends cc.Component {
         if (!CC_EDITOR || !value) {
             return;
         }
-        if (!itself.currCtrlId || itself.propKey == EnumPropName.Non) {
-            console.warn("请先选择控制器和属性");
+
+        // 🔧 使用新的错误处理机制
+        if (!itself.currCtrlId) {
+            StateErrorManager.userFriendlyError(
+                '请先选择一个状态控制器',
+                '在同步属性之前需要先选择要操作的控制器',
+                { component: 'StateSelect', method: 'syncCurrentProp' }
+            );
             return;
         }
+
+        if (!StateErrorManager.validatePropType(itself.propKey, {
+            component: 'StateSelect',
+            method: 'syncCurrentProp'
+        }) || itself.propKey == EnumPropName.Non) {
+            StateErrorManager.userFriendlyError(
+                '请先选择要同步的属性',
+                '需要先选择一个有效的属性类型才能进行同步操作',
+                { component: 'StateSelect', method: 'syncCurrentProp' }
+            );
+            return;
+        }
+
         itself.syncPropToAllStatesInternal(itself.propKey);
     }
 
@@ -265,14 +285,11 @@ export class StateSelect extends cc.Component {
         let lastProp = propData.$$lastProp$$;
 
         // 🔧 修复：确保lastProp不为0（EnumPropName.Non），因为0代表"不选择"状态
-        if (lastProp && lastProp !== EnumPropName.Non) {
+        if (lastProp && lastProp > EnumPropName.Non) {
             itself.propKey = lastProp;
         } else {
             itself.propKey = EnumPropName.Non;
         }
-        cc.log("StateSelect refProp propData: ", propData);
-        cc.log("StateSelect refProp lastProp: ", lastProp);
-        cc.log("StateSelect refProp propKey: ", itself.propKey);
     }
 
     _isPreload = false;
@@ -302,7 +319,6 @@ export class StateSelect extends cc.Component {
         }
     }
     protected onLoad() {
-        cc.log("StateSelect onLoad")
         let itself = this;
         if (!CC_EDITOR) {
             return;
@@ -310,11 +326,10 @@ export class StateSelect extends cc.Component {
 
         //  记录初始父节点
         itself._lastParent = itself.node.parent;
-
-        // 🔧 优化：降低父节点检测频率，减少CPU占用
+        // 2.x没有父节点变化监听，需要定时检测
         itself._parentCheckInterval = setInterval(() => {
             itself.checkParentChanged();
-        }, 1000); // 从200ms优化到1000ms，减少80%的检查频率
+        }, 1000);
 
         itself.node.on('active-in-hierarchy-changed', itself._activeChanged, itself);
         itself.node.on('position-changed', itself._positionChanged, itself);
@@ -334,7 +349,6 @@ export class StateSelect extends cc.Component {
             itself._parentCheckInterval = null;
         }
 
-        // 🔧 优化：清理事件监听器，防止内存泄漏
         if (itself.node && itself.node.isValid) {
             itself.node.off('active-in-hierarchy-changed', itself._activeChanged, itself);
             itself.node.off('position-changed', itself._positionChanged, itself);
@@ -346,7 +360,6 @@ export class StateSelect extends cc.Component {
             itself.node.off('spriteframe-changed', itself._spriteFrameChanged, itself);
         }
     }
-    //==============一些监听、设置默认属性=================
 
     /** 检查父节点是否变化 */
     private checkParentChanged() {
@@ -363,7 +376,7 @@ export class StateSelect extends cc.Component {
             let oldParent = itself._lastParent;
             itself._lastParent = currentParent;
 
-            // 🔧 新增：检查控制器承接
+            // 新增：检查控制器承接
             itself.handleControllerTransition(oldParent, currentParent);
 
             // 只有当有Position属性被控制时才需要转换坐标
@@ -377,10 +390,7 @@ export class StateSelect extends cc.Component {
             }
 
             if (hasPositionControl) {
-                cc.log('父节点变化检测:', '→', '- 执行坐标转换');
                 itself._parentChanged(oldParent);
-            } else {
-                cc.log('父节点变化检测:', '→', '- 无需坐标转换');
             }
         }
     }
@@ -405,8 +415,6 @@ export class StateSelect extends cc.Component {
 
         // 如果新旧都有控制器且不同，执行数据承接
         if (oldCtrl && newCtrl && oldCtrl._ctrlId !== newCtrl._ctrlId) {
-            cc.log('🔄 控制器承接:', `从 ${oldCtrl.ctrlName} → ${newCtrl.ctrlName}`);
-
             // 1. 备份当前状态数据
             let oldCtrlData = itself._ctrlData[oldCtrl._ctrlId];
 
@@ -440,7 +448,6 @@ export class StateSelect extends cc.Component {
             }
         } else if (oldCtrl && !newCtrl) {
             // 从有控制器环境移动到无控制器环境
-            cc.log('🔌 断开控制器连接:', oldCtrl.ctrlName);
             // 保留数据但清除当前绑定
             itself._currCtrlId = null;
             itself._propKey = EnumPropName.Non;
@@ -473,36 +480,53 @@ export class StateSelect extends cc.Component {
         return newData;
     }
 
-    /** 深度克隆状态数据 */
+    /** 🚀 优化后的深度克隆状态数据方法 */
     private deepCloneStateData(data: any): any {
+        // 🔧 快速退出：处理非对象类型
         if (!data || typeof data !== 'object') {
             return data;
         }
 
+        // 🔧 优化：预检查对象属性数量，空对象直接返回
+        let keys = Object.keys(data);
+        if (keys.length === 0) {
+            return {};
+        }
+
         let cloned: any = {};
-        for (let key in data) {
+
+        for (let i = 0, len = keys.length; i < len; i++) {
+            let key = keys[i];
             let value = data[key];
-            if (value && typeof value === 'object') {
-                // 处理Cocos Creator特殊对象
-                if (value instanceof cc.Vec3) {
-                    cloned[key] = cc.v3(value);
-                } else if (value instanceof cc.Vec2) {
-                    cloned[key] = cc.v2(value);
-                } else if (value instanceof cc.Color) {
-                    cloned[key] = cc.color(value.r, value.g, value.b, value.a);
-                } else if (value instanceof cc.Size) {
-                    cloned[key] = cc.size(value.width, value.height);
-                } else if (value instanceof cc.Asset) {
-                    // 🔧 修复：所有Cocos Creator资源对象(包括SpriteFrame、Font等)直接保留引用
-                    cloned[key] = value;
-                } else {
-                    // 其他对象直接复制引用（如$$changedProp$$对象）
-                    cloned[key] = { ...value };
-                }
-            } else {
+
+            // 🔧 快速处理：基本类型直接复制
+            if (!value || typeof value !== 'object') {
                 cloned[key] = value;
+                continue;
+            }
+
+            let constructor = value.constructor;
+            if (constructor === cc.Vec3) {
+                // 🔧 Vec3: 直接使用现有值创建新对象
+                cloned[key] = cc.v3(value.x, value.y, value.z);
+            } else if (constructor === cc.Vec2) {
+                // 🔧 Vec2: 直接使用现有值创建新对象
+                cloned[key] = cc.v2(value.x, value.y);
+            } else if (constructor === cc.Color) {
+                // 🔧 Color: 直接使用RGBA值创建新对象
+                cloned[key] = cc.color(value.r, value.g, value.b, value.a);
+            } else if (constructor === cc.Size) {
+                // 🔧 Size: 直接使用宽高值创建新对象
+                cloned[key] = cc.size(value.width, value.height);
+            } else if (value instanceof cc.Asset) {
+                // 🔧 Asset对象：直接保留引用（SpriteFrame、Font等）
+                cloned[key] = value;
+            } else {
+                // 🔧 其他对象：浅拷贝（如$$changedProp$$等元数据对象）
+                cloned[key] = { ...value };
             }
         }
+
         return cloned;
     }
 
@@ -664,7 +688,6 @@ export class StateSelect extends cc.Component {
         if (!ctrl || ctrl._ctrlId != itself.currCtrlId) {
             return;
         }
-        cc.log("StateSelect updatePreLoad")
         itself.__preload();
     }
     updateProp(ctrl: StateController) {
@@ -683,10 +706,9 @@ export class StateSelect extends cc.Component {
         if (!ctrl) {
             return;
         }
-        cc.log("StateSelect updateState ctrl: ", ctrl);
         itself._isFromCtrl = true;
 
-        // 🔧 优化：保存当前选中的属性，用于状态切换后的PropKey保持
+        // 保存当前选中的属性，用于状态切换后的PropKey保持
         let currentPropKey = itself.propKey;
         let isAutoSync = itself.syncMode === SyncMode.AutoSync;
         let shouldKeepPropKey = isAutoSync && currentPropKey !== EnumPropName.Non;
@@ -694,7 +716,6 @@ export class StateSelect extends cc.Component {
         let propData = itself.getPropData(ctrl.selectedIndex, ctrl._ctrlId);
         let defaultData = itself.getDefaultData(ctrl._ctrlId);
 
-        // 🔧 优化：批量收集需要更新的属性，减少DOM操作次数
         let updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
 
         for (let key in defaultData) {
@@ -702,46 +723,59 @@ export class StateSelect extends cc.Component {
             updateBatch.push({ type: Number(key), value: value });
         }
 
-        // 🔧 优化：一次性批量应用所有属性更新
+        // 一次性批量应用所有属性更新
         itself.batchUpdateUI(updateBatch);
 
-        cc.log("StateSelect updateState propData: ", propData);
-        cc.log("StateSelect updateState defaultData: ", defaultData);
-
-        // 🔧 优化：在自动同步模式下保持PropKey选择
+        // 在自动同步模式下保持PropKey选择
         if (shouldKeepPropKey) {
             // 直接设置PropKey为当前选中的属性，无论新状态是否有这个属性
             // 如果新状态没有这个属性，setter会自动添加
-            cc.log("🔧 自动同步模式：状态切换前PropKey =", EnumPropName[currentPropKey], "，切换后保持选择");
             itself.propKey = currentPropKey;
         } else {
             // 非自动同步模式：使用新状态的lastProp
-            cc.log("🔧 非自动同步模式：使用新状态的lastProp");
             itself.refProp();
         }
 
         itself._isFromCtrl = false;
     }
 
-    /** 🔧 优化：批量更新UI，使用属性处理器系统大幅简化代码 */
+    /** 🔧 优化：批量更新UI，使用属性处理器系统和错误处理机制 */
     private batchUpdateUI(updateBatch: { type: EnumPropName, value: TPropValue }[]) {
         let itself = this;
+
+        // 🔧 验证节点有效性
+        if (!StateErrorManager.validateNode(itself.node, {
+            component: 'StateSelect',
+            method: 'batchUpdateUI',
+            params: { batchSize: updateBatch.length }
+        })) {
+            return;
+        }
 
         // 批量应用所有更新
         for (let update of updateBatch) {
             let { type, value } = update;
 
-            if (type === EnumPropName.Non) {
+            if (type === EnumPropName.Non || value === undefined) {
                 continue;
             }
 
-            // 🔧 使用属性处理器系统，将60行代码简化为1行
-            const handler = PropHandlerManager.getHandler(type);
-            if (handler) {
-                handler.setValue(itself.node, value);
-            } else {
-                cc.warn("🔧 尚未迁移到属性处理器的属性：", EnumPropName[type]);
-            }
+            // 🔧 使用属性处理器系统，带错误处理
+            StateErrorManager.gracefulFallback(
+                () => {
+                    const handler = PropHandlerManager.getHandler(type);
+                    if (handler) {
+                        handler.setValue(itself.node, value);
+                    } else {
+                        StateErrorManager.log(ErrorLevel.WARN,
+                            `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
+                            { component: 'StateSelect', method: 'batchUpdateUI', params: { propType: type } }
+                        );
+                    }
+                },
+                undefined,
+                `设置属性值失败: ${EnumPropName[type]}`
+            );
         }
     }
 
@@ -811,41 +845,42 @@ export class StateSelect extends cc.Component {
         return value;
     }
 
-    /** 🔧 优化：解析并返回属性值，使用属性处理器系统简化代码 */
+    /** 🔧 优化：解析并返回属性值，使用属性处理器系统和错误处理机制 */
     private handleValue(type: EnumPropName): TPropValue {
         let itself = this;
 
         if (type === EnumPropName.Non) {
-            return void 0;
+            return undefined;
         }
 
-        // 🔧 使用属性处理器系统，将60行代码简化为几行
-        const handler = PropHandlerManager.getHandler(type);
-        if (handler) {
-            return handler.getValue(itself.node);
+        // 🔧 验证节点有效性
+        if (!StateErrorManager.validateNode(itself.node, {
+            component: 'StateSelect',
+            method: 'handleValue',
+            params: { propType: EnumPropName[type] }
+        })) {
+            return undefined;
         }
 
-        cc.warn("🔧 尚未迁移到属性处理器的属性：", EnumPropName[type]);
-        return void 0;
+        // 🔧 使用属性处理器系统，带错误处理
+        return StateErrorManager.gracefulFallback(
+            () => {
+                const handler = PropHandlerManager.getHandler(type);
+                if (handler) {
+                    return handler.getValue(itself.node);
+                }
+
+                StateErrorManager.log(ErrorLevel.WARN,
+                    `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
+                    { component: 'StateSelect', method: 'handleValue', params: { propType: type } }
+                );
+                return undefined;
+            },
+            undefined,
+            `获取属性值失败: ${EnumPropName[type]}`
+        );
     }
 
-    /** 🔧 回退方法：处理尚未迁移到属性处理器的属性 */
-    // private fallbackGetValue(type: EnumPropName): TPropValue {
-    //     let itself = this;
-    //     switch (type) {
-    //         case EnumPropName.Euler: return itself.getEuler();
-    //         case EnumPropName.Scale: return itself.getScale();
-    //         case EnumPropName.Anchor: return itself.getAnchor();
-    //         case EnumPropName.Size: return itself.getSize();
-    //         case EnumPropName.Color: return itself.getColor();
-    //         case EnumPropName.Opacity: return itself.getOpacity();
-    //         case EnumPropName.GrayScale: return itself.getGrayScale();
-    //         case EnumPropName.Font: return itself.getFont();
-    //         case EnumPropName.LabelOutline: return itself.getLabelOutline();
-    //         case EnumPropName.SpriteFrame: return itself.getSpriteFrame();
-    //         default: return void 0;
-    //     }
-    // }
     /** 编辑器改变、改变对于状态属性（最开始是说改变默认属性） */
     private setDefaultPorp(type: EnumPropName) {
         let itself = this;
@@ -883,12 +918,12 @@ export class StateSelect extends cc.Component {
                 }
                 getPropData[EnumPropName.Font] = label.font;
             } break;
-            case EnumPropName.LabelOutline: {
+            case EnumPropName.LabelOutline_Color: {
                 let labelOutline = itself.node.getComponent(cc.LabelOutline);
                 if (!labelOutline) {
                     return;
                 }
-                (getPropData[EnumPropName.LabelOutline] as cc.Color).set(labelOutline.color);
+                (getPropData[EnumPropName.LabelOutline_Color] as cc.Color).set(labelOutline.color);
             } break;
             case EnumPropName.SpriteFrame: {
                 let sprite = itself.node.getComponent(cc.Sprite);
@@ -922,14 +957,6 @@ export class StateSelect extends cc.Component {
             case EnumPropName.Opacity: {
                 getPropData[EnumPropName.Opacity] = itself.node.opacity;
             } break;
-            case EnumPropName.GrayScale: {
-                let sprite = itself.node.getComponent(cc.Sprite);
-                if (!sprite) {
-                    return;
-                }
-                // 在 2.x 中，灰度设置需要使用材质
-                getPropData[EnumPropName.GrayScale] = false; // 暂时设为 false
-            } break;
             case EnumPropName.Slider_Progress: {
                 let slider = itself.node.getComponent(cc.Slider);
                 if (!slider) {
@@ -943,6 +970,7 @@ export class StateSelect extends cc.Component {
             itself._propValue = propData[itself.propKey];
         }
     }
+
     /** 父节点改变，转换已经缓存的位置 */
     private transPosition(oldParent: cc.Node) {
         if (!CC_EDITOR) {

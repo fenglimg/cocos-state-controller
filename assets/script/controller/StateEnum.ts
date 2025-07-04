@@ -31,7 +31,7 @@ export enum EnumPropName {
     /** 文本 */
     Label_String,
     /** 描边 */
-    LabelOutline,
+    LabelOutline_Color,
     /** 图片 */
     SpriteFrame,
     // /** 旋转、四元数*/
@@ -48,8 +48,6 @@ export enum EnumPropName {
     Color,
     /** 透明度 */
     Opacity,
-    /** 灰度 */
-    GrayScale,
     /** 字体 */
     Font,
     /** 滑动条 */
