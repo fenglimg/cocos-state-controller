@@ -964,6 +964,9 @@ export class StateSelect extends cc.Component {
                 }
                 getPropData[EnumPropName.Slider_Progress] = slider.progress;
             } break;
+            case EnumPropName.GrayScale: {
+                cc.error('GrayScale属性在Cocos Creator 2.x中需要通过材质实现');
+            } break;
         }
         if (type == itself.propKey) {
             let propData = itself.getPropData();
