@@ -177,6 +177,9 @@ export class StateSelect extends cc.Component {
                     itself.syncPropToAllStatesInternal(value);
                 }
             }
+        } else {
+            // 🔧 修复：当选择Non时，同步更新PropValue为undefined并隐藏PropValue字段
+            itself.setPropValue(EnumPropName.Non);
         }
 
         // 注意：当选择Non时，不存储任何数据，保持原有代码结构
@@ -217,16 +220,27 @@ export class StateSelect extends cc.Component {
         let pageData = itself.getPageData();
         let propData = itself.getPropData();
         let propKey = itself.propKey;
-        delete propData[propKey];
 
-        let $$changedProp$$ = propData.$$changedProp$$ || {};
-        let name = EnumPropName[propKey];
-        delete $$changedProp$$[name];
-        let isHas = itself.isOtherHans(itself.getCurrCtrl(), propKey);
-        if (!isHas) {
-            delete pageData.$$default$$[propKey]
+        // 🔧 自动同步模式：删除属性时同步删除其他状态的该属性
+        if (itself.syncMode === SyncMode.AutoSync) {
+            itself.syncDeletePropFromAllStates(propKey);
+        } else {
+            // 非自动同步模式：只删除当前状态的属性
+            delete propData[propKey];
+
+            let $$changedProp$$ = propData.$$changedProp$$ || {};
+            let name = EnumPropName[propKey];
+            delete $$changedProp$$[name];
+
+            // 检查其他状态是否还有这个属性，如果没有则删除默认属性
+            let isHas = itself.isOtherHans(itself.getCurrCtrl(), propKey);
+            if (!isHas) {
+                delete pageData.$$default$$[propKey]
+            }
         }
+
         itself.propKey = EnumPropName.Non;
+
     }
 
     /** 属性同步模式 */
@@ -480,7 +494,7 @@ export class StateSelect extends cc.Component {
         return newData;
     }
 
-    /** 🚀 优化后的深度克隆状态数据方法 */
+    /** 深度克隆状态数据方法 */
     private deepCloneStateData(data: any): any {
         // 🔧 快速退出：处理非对象类型
         if (!data || typeof data !== 'object') {
@@ -504,7 +518,6 @@ export class StateSelect extends cc.Component {
                 cloned[key] = value;
                 continue;
             }
-
             let constructor = value.constructor;
             if (constructor === cc.Vec3) {
                 // 🔧 Vec3: 直接使用现有值创建新对象
@@ -1058,6 +1071,47 @@ export class StateSelect extends cc.Component {
         }
 
         console.log(`已将属性 ${EnumPropName[propKey]} 同步到所有状态`);
+        itself.updateChangedProp();
+    }
+
+    /** 🔧 新增：同步删除所有状态的指定属性 */
+    private syncDeletePropFromAllStates(propKey: EnumPropName) {
+        let itself = this;
+        let ctrl = itself.getCurrCtrl();
+        if (!ctrl) return;
+
+        // 🔧 修复：不删除Non属性
+        if (propKey === EnumPropName.Non) {
+            console.warn("不能删除Non属性");
+            return;
+        }
+
+        let pageData = itself.getPageData();
+        let name = EnumPropName[propKey];
+
+        // 遍历所有状态，删除指定属性
+        for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
+            let statePropData = pageData[stateIndex];
+            if (statePropData) {
+                // 删除属性值
+                delete statePropData[propKey];
+
+                // 删除changedProp记录
+                let $$changedProp$$ = statePropData.$$changedProp$$ || {};
+                delete $$changedProp$$[name];
+
+                // 如果删除的是当前状态的lastProp，重置为Non
+                if (statePropData.$$lastProp$$ === propKey) {
+                    statePropData.$$lastProp$$ = EnumPropName.Non;
+                }
+            }
+        }
+
+        // 删除默认状态的属性
+        let defaultData = itself.getDefaultData();
+        delete defaultData[propKey];
+
+        console.log(`已从所有状态中删除属性 ${name}`);
         itself.updateChangedProp();
     }
 }
