@@ -421,29 +421,29 @@ export class StateSelect extends cc.Component {
 
         // 获取旧控制器
         let oldCtrls = oldParent ? itself.getCtrls(oldParent) : [];
-        let oldCtrl = oldCtrls.find(ctrl => ctrl._ctrlId === itself.currCtrlId);
+        let oldCtrl = oldCtrls.find(ctrl => ctrl.ctrlId === itself.currCtrlId);
 
         // 获取新控制器
         let newCtrls = newParent ? itself.getCtrls(newParent) : [];
         let newCtrl = itself.selectBestController(newCtrls, oldCtrl);
 
         // 如果新旧都有控制器且不同，执行数据承接
-        if (oldCtrl && newCtrl && oldCtrl._ctrlId !== newCtrl._ctrlId) {
+        if (oldCtrl && newCtrl && oldCtrl.ctrlId !== newCtrl.ctrlId) {
             // 1. 备份当前状态数据
-            let oldCtrlData = itself._ctrlData[oldCtrl._ctrlId];
+            let oldCtrlData = itself._ctrlData[oldCtrl.ctrlId];
 
             if (oldCtrlData) {
                 // 2. 将数据迁移到新控制器
                 // 需要根据新控制器的状态数量调整数据结构
                 let transferredData = itself.adaptDataToNewController(oldCtrlData, newCtrl);
-                itself._ctrlData[newCtrl._ctrlId] = transferredData;
+                itself._ctrlData[newCtrl.ctrlId] = transferredData;
 
                 // 3. 清理旧控制器数据
-                delete itself._ctrlData[oldCtrl._ctrlId];
+                delete itself._ctrlData[oldCtrl.ctrlId];
 
                 // 4. 更新控制器映射和当前控制器ID
                 itself.updateCtrlName(newParent);
-                itself._currCtrlId = newCtrl._ctrlId;
+                itself._currCtrlId = newCtrl.ctrlId;
 
                 // 5. 更新界面
                 itself.updateCtrlPage(newCtrl);
@@ -456,7 +456,7 @@ export class StateSelect extends cc.Component {
             cc.log('🆕 绑定到新控制器:', newCtrl.ctrlName);
             itself.updateCtrlName(newParent);
             if (!itself.currCtrlId) {
-                itself._currCtrlId = newCtrl._ctrlId;
+                itself._currCtrlId = newCtrl.ctrlId;
                 itself.updateCtrlPage(newCtrl);
                 itself.refProp();
             }
@@ -616,10 +616,10 @@ export class StateSelect extends cc.Component {
         let itself = this;
         let ctrls = itself.getCtrls(node);
         let arr = ctrls.map((val, i) => {
-            if (itself._ctrlsMap[val._ctrlId] == void 0) {
-                itself._ctrlsMap[val._ctrlId] = val;
+            if (itself._ctrlsMap[val.ctrlId] == void 0) {
+                itself._ctrlsMap[val.ctrlId] = val;
             }
-            return { name: val.ctrlName, value: val._ctrlId }
+            return { name: val.ctrlName, value: val.ctrlId }
         })
         //@ts-ignore
         cc.Class.Attr.setClassAttr(itself, "currCtrlId", "enumList", arr);
@@ -639,7 +639,7 @@ export class StateSelect extends cc.Component {
     /** 更新状态数量 */
     updateCtrlPage(ctrl: StateController, deleteIndex?: number) {
         let itself = this;
-        if (!ctrl || ctrl._ctrlId != itself.currCtrlId) {
+        if (!ctrl || ctrl.ctrlId != itself.currCtrlId) {
             return;
         }
         if (deleteIndex != void 0 && deleteIndex != -1) {
@@ -675,8 +675,8 @@ export class StateSelect extends cc.Component {
             return;
         }
         let itself = this;
-        delete itself._ctrlData[ctrl._ctrlId];
-        if (itself.currCtrlId == ctrl._ctrlId) {
+        delete itself._ctrlData[ctrl.ctrlId];
+        if (itself.currCtrlId == ctrl.ctrlId) {
             //@ts-ignore
             itself._onPreDestroy();
         } else {
@@ -698,14 +698,14 @@ export class StateSelect extends cc.Component {
     /** 确保节点在隐藏的时候也会执行__preload（负责stateSelect的显示） */
     updatePreLoad(ctrl: StateController) {
         let itself = this;
-        if (!ctrl || ctrl._ctrlId != itself.currCtrlId) {
+        if (!ctrl || ctrl.ctrlId != itself.currCtrlId) {
             return;
         }
         itself.__preload();
     }
     updateProp(ctrl: StateController) {
         let itself = this;
-        if (!ctrl || ctrl._ctrlId != itself.currCtrlId) {
+        if (!ctrl || ctrl.ctrlId != itself.currCtrlId) {
             return;
         }
         itself.refProp();
@@ -726,8 +726,8 @@ export class StateSelect extends cc.Component {
         let isAutoSync = itself.syncMode === SyncMode.AutoSync;
         let shouldKeepPropKey = isAutoSync && currentPropKey !== EnumPropName.Non;
 
-        let propData = itself.getPropData(ctrl.selectedIndex, ctrl._ctrlId);
-        let defaultData = itself.getDefaultData(ctrl._ctrlId);
+        let propData = itself.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+        let defaultData = itself.getDefaultData(ctrl.ctrlId);
 
         let updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
 
