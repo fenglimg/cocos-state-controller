@@ -1,9 +1,11 @@
 /** 🔧 错误级别枚举 */
 export enum ErrorLevel {
-    INFO = 'info',
-    WARN = 'warn',
-    ERROR = 'error',
-    FATAL = 'fatal'
+    DEBUG = 0,
+    INFO = 1,
+    WARN = 2,
+    ERROR = 3,
+    FATAL = 4,
+    SILENT = 5  // 特殊级别：完全静音
 }
 
 /** 🔧 错误处理上下文接口 */
@@ -23,9 +25,29 @@ export interface IErrorContext {
  * 3. 编辑器和运行时环境的适配
  * 4. 优雅的降级处理机制
  * 5. 常见错误场景的验证工具
+ * 6. 可配置的日志级别控制
  */
 export class StateErrorManager {
     private static readonly COMPONENT_NAME = 'StateController';
+
+    /** 🔧 当前日志输出级别，只有高于或等于此级别的日志才会输出 */
+    private static _logLevel: ErrorLevel = ErrorLevel.WARN;
+
+    /** 🔧 设置日志输出级别 */
+    static setLogLevel(level: ErrorLevel) {
+        this._logLevel = level;
+        this.info(`日志级别已设置为: ${ErrorLevel[level]}`);
+    }
+
+    /** 🔧 获取当前日志级别 */
+    static getLogLevel(): ErrorLevel {
+        return this._logLevel;
+    }
+
+    /** 🔧 检查是否应该输出指定级别的日志 */
+    private static shouldLog(level: ErrorLevel): boolean {
+        return level >= this._logLevel;
+    }
 
     /** 
      * 🔧 统一日志输出方法 - 根据不同错误级别和环境选择合适的输出方式
@@ -34,16 +56,34 @@ export class StateErrorManager {
      * @param message 错误消息
      * @param context 错误上下文，包含组件、方法、参数等详细信息
      */
-    static log(level: ErrorLevel, message: string, context?: IErrorContext) {
-        const prefix = `[${this.COMPONENT_NAME}]`;
+    private static log(level: ErrorLevel, message: string, context?: IErrorContext) {
+        // 🔧 级别检查：如果当前级别低于设定级别，则不输出
+        if (!this.shouldLog(level)) {
+            return;
+        }
+
+        const levelName = ErrorLevel[level];
+        const prefix = `[${this.COMPONENT_NAME}][${levelName}]`;
         const fullMessage = context
             ? `${prefix} ${message} | Context: ${JSON.stringify(context)}`
             : `${prefix} ${message}`;
 
         // 🔧 根据错误级别选择不同的输出方式
         switch (level) {
+            case ErrorLevel.DEBUG:
+                // 🔧 调试信息：仅在开发模式下输出，使用较低的优先级
+                if (CC_EDITOR) {
+                    cc.log(`🔍 ${fullMessage}`);
+                } else {
+                    console.debug ? console.debug(fullMessage) : console.log(fullMessage);
+                }
+                break;
             case ErrorLevel.INFO:
-                console.log(fullMessage);
+                if (CC_EDITOR) {
+                    cc.log(fullMessage);
+                } else {
+                    console.log(fullMessage);
+                }
                 break;
             case ErrorLevel.WARN:
                 // 🔧 编辑器环境使用cc.warn，运行时使用console.warn
@@ -142,5 +182,32 @@ export class StateErrorManager {
             return false;
         }
         return true;
+    }
+
+    // 🔧 便捷方法：直接调用不同级别的日志
+
+    /** 调试日志 */
+    static debug(message: string, context?: IErrorContext) {
+        this.log(ErrorLevel.DEBUG, message, context);
+    }
+
+    /** 信息日志 */
+    static info(message: string, context?: IErrorContext) {
+        this.log(ErrorLevel.INFO, message, context);
+    }
+
+    /** 警告日志 */
+    static warn(message: string, context?: IErrorContext) {
+        this.log(ErrorLevel.WARN, message, context);
+    }
+
+    /** 错误日志 */
+    static error(message: string, context?: IErrorContext) {
+        this.log(ErrorLevel.ERROR, message, context);
+    }
+
+    /** 致命错误日志 */
+    static fatal(message: string, context?: IErrorContext) {
+        this.log(ErrorLevel.FATAL, message, context);
     }
 }
