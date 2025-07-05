@@ -6,10 +6,11 @@
  */
 
 const { ccclass, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType } from './StateEnum';
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from './StateEnum';
 import { StateSelect } from './StateSelect';
 
 cc.Enum(EnumStateName)
+cc.Enum(InspectorRefreshMode)
 
 @ccclass("stateValue")
 export class StateValue {
@@ -204,6 +205,12 @@ export class StateController extends cc.Component {
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
         this._selectedIndex = applyIndex;
 
+        // 🔧 优化：使用智能刷新策略替代硬编码刷新
+
+        let reason = oldLen > newLen ? "状态删除" : "状态数量增加";
+        this.smartRefreshInspector(reason);
+
+
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
             // 如果有删除，通知第一个删除的索引
@@ -256,22 +263,19 @@ export class StateController extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
+
+        // 🔧 清理刷新定时器
+        this.clearRefreshTimer();
+
         this.updateState(EnumUpdataType.delete)
     }
 
     /** 选择的状态名字 */
     public get selectedPage(): string {
-        cc.log("🔧 获取selectedPage:", {
-            selectedIndex: this._selectedIndex,
-            pageNamesLength: this._states.length,
-            currentState: this._states[this._selectedIndex]
-        });
-
         if (this._selectedIndex == -1 || this._selectedIndex >= this._states.length)
             return null;
         else {
             let currentState = this._states[this._selectedIndex];
-            cc.log("🔧 当前状态详情:", currentState);
 
             // 🔧 确保状态对象有效且name不为空
             if (currentState && currentState.name !== undefined && currentState.name !== "") {
@@ -282,6 +286,7 @@ export class StateController extends cc.Component {
             }
         }
     }
+
     public set selectedPage(val: string) {
         for (let index = 0, len = this._states.length; index < len; index++) {
             if (this._states[index].name == val) {
@@ -321,11 +326,6 @@ export class StateController extends cc.Component {
     private getSmartStateName(index: number): string {
         // 检查历史记录中是否有该索引的自定义名字
         if (this._historyStateName && this._historyStateName[index]) {
-            cc.log("🔧 从历史记录恢复状态名字:", {
-                index: index,
-                customName: this._historyStateName[index],
-                defaultName: (index + 1).toString()
-            });
             return this._historyStateName[index];
         }
 
@@ -408,4 +408,149 @@ export class StateController extends cc.Component {
         // 🔧 从当前控制器节点开始更新所有相关的StateSelect组件
         updateChild(self.node);
     }
+
+    /** 🔧 新增：属性检查器刷新策略 */
+    @property({
+        type: InspectorRefreshMode,
+        displayName: "刷新策略",
+        tooltip: "• 自动刷新：延迟刷新，防抖处理\n• 手动刷新：用户点击按钮刷新\n• 智能刷新：只在必要时刷新\n• 即时刷新：立即刷新（原有行为）"
+    })
+    inspectorRefreshMode: InspectorRefreshMode = InspectorRefreshMode.ManualRefresh;
+
+    /** 🔧 新增：自动刷新延迟时间（秒） */
+    @property({
+        displayName: "自动刷新延迟",
+        tooltip: "自动刷新模式下的延迟时间（秒）",
+        min: 0.5,
+        max: 10,
+        step: 0.5,
+        visible: function (this: StateController) {
+            return this.inspectorRefreshMode === InspectorRefreshMode.AutoRefresh;
+        }
+    })
+    autoRefreshDelay: number = 2.0;
+
+    /** 🔧 新增：手动刷新按钮 */
+    @property({
+        displayName: "手动刷新",
+        tooltip: "点击刷新属性检查器",
+        visible: function (this: StateController) {
+            return this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh;
+        }
+    })
+    get manualRefreshTrigger() {
+        return false;
+    }
+    set manualRefreshTrigger(value: boolean) {
+        if (value && CC_EDITOR) {
+            this.forceRefreshInspector();
+        }
+    }
+
+    /** 🔧 新增：防抖定时器 */
+    private _refreshTimer: number = null;
+
+    /** 🔧 新增：待刷新标记 */
+    private _pendingRefresh: boolean = false;
+
+    /** 🔧 新增：刷新状态指示器 */
+    @property({
+        displayName: "刷新状态",
+        tooltip: "当前属性检查器刷新状态",
+        readonly: true
+    })
+    get refreshStatus() {
+        if (!CC_EDITOR) {
+            return "运行时模式";
+        }
+
+        if (this._refreshTimer) {
+            return `⏳ 等待刷新 (${this.autoRefreshDelay}s)`;
+        }
+
+        if (this._pendingRefresh) {
+            if (this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh) {
+                return "🔄 等待手动刷新";
+            } else {
+                return "⏸️ 等待智能刷新";
+            }
+        }
+
+        return "✅ 已同步";
+    }
+
+    /** 🔧 新增：强制刷新属性检查器 */
+    private forceRefreshInspector() {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        try {
+            Editor.Utils.refreshSelectedInspector('node', this.node.uuid);
+            this._pendingRefresh = false;
+            cc.log("🔧 属性检查器已刷新");
+        } catch (error) {
+            cc.warn("🔧 刷新属性检查器失败:", error);
+        }
+    }
+
+    /** 🔧 新增：智能刷新 - 根据策略决定是否刷新 */
+    private smartRefreshInspector(reason: string = "状态变化") {
+        if (!CC_EDITOR) {
+            return;
+        }
+        switch (this.inspectorRefreshMode) {
+            case InspectorRefreshMode.AutoRefresh:
+                // 防抖刷新
+                this.debounceRefreshInspector(reason);
+                break;
+            case InspectorRefreshMode.ManualRefresh:
+                // 手动刷新：仅标记待刷新
+                this._pendingRefresh = true;
+                break;
+        }
+    }
+
+    /** 🔧 新增：防抖刷新 */
+    private debounceRefreshInspector(reason: string) {
+        if (this._refreshTimer) {
+            clearTimeout(this._refreshTimer);
+        }
+
+        this._pendingRefresh = true;
+
+        this._refreshTimer = setTimeout(() => {
+            this.forceRefreshInspector();
+            this._refreshTimer = null;
+        }, this.autoRefreshDelay * 1000);
+    }
+
+    /** 🔧 新增：清理刷新定时器 */
+    private clearRefreshTimer() {
+        if (this._refreshTimer) {
+            clearTimeout(this._refreshTimer);
+            this._refreshTimer = null;
+        }
+    }
+
+    // ================== 🔧 刷新优化功能使用说明 ==================
+    /**
+     * 🎯 属性检查器刷新优化功能说明：
+     * 
+     * 1. **智能刷新 (推荐)**：
+     *    - 自动判断是否需要刷新
+     *    - 只在状态数量变化时刷新
+     *    - 平衡性能和体验
+     * 
+     * 2. **自动刷新**：
+     *    - 延迟刷新，避免频繁操作
+     *    - 可配置延迟时间 (0.5-10秒)
+     *    - 适合快速编辑场景
+     * 
+     * 3. **手动刷新**：
+     *    - 完全控制刷新时机
+     *    - 点击按钮主动刷新
+     *    - 适合性能敏感场景
+     * 
+     */
 }

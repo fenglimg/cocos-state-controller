@@ -5,17 +5,17 @@ export enum EnumStateName {
 /** 更新选择器的类型 */
 export enum EnumUpdataType {
     /** 名字 */
-    name = 0,
+    name = 1,
     /** 可选状态 */
-    selPage,
+    selPage = 2,
     /** 状态 */
-    state,
+    state = 0,
     /** 删除控制器 */
-    delete,
+    delete = 4,
     /** 初始化 */
-    init,
+    init = 3,
     /** 更新选中的属性 */
-    prop,
+    prop = 5,
 }
 /** 控制器名字 */
 export enum EnumCtrlName {
@@ -75,4 +75,12 @@ export enum EnumPropName {
     // 🔧 注意：旋转四元数暂时不支持，因为编辑器操作复杂
     // /** 旋转、四元数*/
     // Rotation,
+}
+
+/** 🔧 新增：属性检查器刷新策略 */
+export enum InspectorRefreshMode {
+    /** 自动刷新：延迟刷新，防抖处理 */
+    AutoRefresh = 0,
+    /** 手动刷新：用户点击按钮刷新 */
+    ManualRefresh = 1,
 }
