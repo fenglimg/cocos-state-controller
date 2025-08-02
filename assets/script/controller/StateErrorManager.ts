@@ -5,20 +5,20 @@ export enum ErrorLevel {
     WARN = 2,
     ERROR = 3,
     FATAL = 4,
-    SILENT = 5  // 特殊级别：完全静音
+    SILENT = 5, // 特殊级别：完全静音
 }
 
 /** 🔧 错误处理上下文接口 */
 export interface IErrorContext {
-    component?: string;
-    method?: string;
-    params?: any;
-    node?: cc.Node;
+    component?: string
+    method?: string
+    params?: any
+    node?: cc.Node
 }
 
-/** 
+/**
  * 🔧 统一错误处理类 - 为整个状态控制器系统提供统一的错误处理机制
- * 
+ *
  * 核心功能：
  * 1. 统一的日志格式和输出
  * 2. 按级别分类的错误处理
@@ -28,19 +28,19 @@ export interface IErrorContext {
  * 6. 可配置的日志级别控制
  */
 export class StateErrorManager {
-    private static readonly COMPONENT_NAME = 'StateController';
+    private static readonly COMPONENT_NAME = "StateController";
 
     /** 🔧 当前日志输出级别，只有高于或等于此级别的日志才会输出 */
     private static _logLevel: ErrorLevel = ErrorLevel.WARN;
 
     /** 🔧 设置日志输出级别 */
-    static setLogLevel(level: ErrorLevel) {
+    public static setLogLevel(level: ErrorLevel) {
         this._logLevel = level;
         this.info(`日志级别已设置为: ${ErrorLevel[level]}`);
     }
 
     /** 🔧 获取当前日志级别 */
-    static getLogLevel(): ErrorLevel {
+    public static getLogLevel(): ErrorLevel {
         return this._logLevel;
     }
 
@@ -49,9 +49,9 @@ export class StateErrorManager {
         return level >= this._logLevel;
     }
 
-    /** 
+    /**
      * 🔧 统一日志输出方法 - 根据不同错误级别和环境选择合适的输出方式
-     * 
+     *
      * @param level 错误级别
      * @param message 错误消息
      * @param context 错误上下文，包含组件、方法、参数等详细信息
@@ -74,14 +74,16 @@ export class StateErrorManager {
                 // 🔧 调试信息：仅在开发模式下输出，使用较低的优先级
                 if (CC_EDITOR) {
                     cc.log(`🔍 ${fullMessage}`);
-                } else {
+                }
+                else {
                     console.debug ? console.debug(fullMessage) : console.log(fullMessage);
                 }
                 break;
             case ErrorLevel.INFO:
                 if (CC_EDITOR) {
                     cc.log(fullMessage);
-                } else {
+                }
+                else {
                     console.log(fullMessage);
                 }
                 break;
@@ -89,7 +91,8 @@ export class StateErrorManager {
                 // 🔧 编辑器环境使用cc.warn，运行时使用console.warn
                 if (CC_EDITOR) {
                     cc.warn(fullMessage);
-                } else {
+                }
+                else {
                     console.warn(fullMessage);
                 }
                 break;
@@ -97,7 +100,8 @@ export class StateErrorManager {
                 // 🔧 编辑器环境使用cc.error，运行时使用console.error
                 if (CC_EDITOR) {
                     cc.error(fullMessage);
-                } else {
+                }
+                else {
                     console.error(fullMessage);
                 }
                 break;
@@ -105,7 +109,8 @@ export class StateErrorManager {
                 // 🔧 致命错误：使用特殊标识符，便于快速定位严重问题
                 if (CC_EDITOR) {
                     cc.error(`💥 FATAL: ${fullMessage}`);
-                } else {
+                }
+                else {
                     console.error(`💥 FATAL: ${fullMessage}`);
                 }
                 break;
@@ -113,58 +118,57 @@ export class StateErrorManager {
     }
 
     /** 友好的用户提示 */
-    static userFriendlyError(userMessage: string, technicalDetails?: string, context?: IErrorContext) {
+    public static userFriendlyError(userMessage: string, technicalDetails?: string, context?: IErrorContext) {
         this.log(ErrorLevel.ERROR, userMessage, context);
         if (technicalDetails) {
             this.log(ErrorLevel.INFO, `技术细节: ${technicalDetails}`, context);
         }
     }
 
-    /** 
+    /**
      * 🔧 核心方法：优雅降级处理 - 在操作失败时提供安全的备选方案
-     * 
+     *
      * 这是系统稳定性的关键机制：
      * 1. 捕获所有异常，避免系统崩溃
      * 2. 提供合理的降级值，保证功能连续性
      * 3. 记录错误信息，便于问题追踪
      * 4. 对用户透明，不影响正常使用流程
-     * 
+     *
      * @param operation 要执行的操作函数
      * @param fallbackValue 操作失败时的降级返回值
      * @param errorMessage 自定义错误消息
      * @returns 操作成功时返回原值，失败时返回降级值
      */
-    static gracefulFallback<T>(operation: () => T, fallbackValue: T, errorMessage?: string): T {
+    public static gracefulFallback<T>(operation: () => T, fallbackValue: T, errorMessage?: string): T {
         try {
             return operation();
-        } catch (error) {
+        }
+        catch (error) {
             // 🔧 记录错误并返回安全的降级值，确保系统继续运行
-            this.log(ErrorLevel.WARN, errorMessage || '操作失败，使用降级处理', {
-                params: { error: error.message }
-            });
+            this.log(ErrorLevel.WARN, errorMessage || "操作失败，使用降级处理", { params: { error: error.message } });
             return fallbackValue;
         }
     }
 
-    /** 
+    /**
      * 🔧 节点有效性验证 - 防止对无效节点的操作导致系统错误
-     * 
+     *
      * 常见的节点无效场景：
      * 1. 节点被删除但引用仍然存在
      * 2. 节点在场景切换时被销毁
      * 3. 节点引用为null或undefined
      * 4. 节点的isValid属性为false
-     * 
+     *
      * @param node 要验证的节点
      * @param context 验证上下文信息
      * @returns 节点有效返回true，无效返回false
      */
-    static validateNode(node: cc.Node, context?: IErrorContext): boolean {
+    public static validateNode(node: cc.Node, context?: IErrorContext): boolean {
         if (!node || !node.isValid) {
             this.userFriendlyError(
-                '节点无效或已被销毁',
-                '请检查节点是否存在且未被删除',
-                context
+                "节点无效或已被销毁",
+                "请检查节点是否存在且未被删除",
+                context,
             );
             return false;
         }
@@ -172,12 +176,12 @@ export class StateErrorManager {
     }
 
     /** 验证属性类型 */
-    static validatePropType(propType: any, context?: IErrorContext): boolean {
+    public static validatePropType(propType: any, context?: IErrorContext): boolean {
         if (propType === undefined || propType === null) {
             this.userFriendlyError(
-                '属性类型不能为空',
-                '请选择有效的属性类型',
-                context
+                "属性类型不能为空",
+                "请选择有效的属性类型",
+                context,
             );
             return false;
         }
@@ -187,27 +191,27 @@ export class StateErrorManager {
     // 🔧 便捷方法：直接调用不同级别的日志
 
     /** 调试日志 */
-    static debug(message: string, context?: IErrorContext) {
+    public static debug(message: string, context?: IErrorContext) {
         this.log(ErrorLevel.DEBUG, message, context);
     }
 
     /** 信息日志 */
-    static info(message: string, context?: IErrorContext) {
+    public static info(message: string, context?: IErrorContext) {
         this.log(ErrorLevel.INFO, message, context);
     }
 
     /** 警告日志 */
-    static warn(message: string, context?: IErrorContext) {
+    public static warn(message: string, context?: IErrorContext) {
         this.log(ErrorLevel.WARN, message, context);
     }
 
     /** 错误日志 */
-    static error(message: string, context?: IErrorContext) {
+    public static error(message: string, context?: IErrorContext) {
         this.log(ErrorLevel.ERROR, message, context);
     }
 
     /** 致命错误日志 */
-    static fatal(message: string, context?: IErrorContext) {
+    public static fatal(message: string, context?: IErrorContext) {
         this.log(ErrorLevel.FATAL, message, context);
     }
 }

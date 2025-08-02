@@ -6,27 +6,29 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from './StateEnum';
-import { StateSelect } from './StateSelect';
-import { StateErrorManager, ErrorLevel } from './StateErrorManager';
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
+import { StateSelect } from "./StateSelect";
+import { StateErrorManager } from "./StateErrorManager";
 
-cc.Enum(EnumStateName)
-cc.Enum(InspectorRefreshMode)
+cc.Enum(EnumStateName);
+cc.Enum(InspectorRefreshMode);
 
 @ccclass("stateValue")
 export class StateValue {
     @property(cc.String)
-    name: string = "";
+    public name: string = "";
+
     @property({ type: cc.Integer, readonly: true })
-    stateId: number = 0;
+    public stateId: number = 0;
+
     constructor(name: string, stateId: number) {
         this.name = name;
         this.stateId = stateId;
     }
 }
 
-@ccclass('StateController')
-@menu('State/StateController')
+@ccclass("StateController")
+@menu("State/StateController")
 @executeInEditMode()
 export class StateController extends cc.Component {
     /** 状态id自增 */
@@ -49,15 +51,17 @@ export class StateController extends cc.Component {
     /** 控制器名字 */
     @property(cc.String)
     private _ctrlName: string = "";
+
     @property({ displayName: "name", tooltip: "控制器唯一名称" })
-    get ctrlName() {
+    public get ctrlName() {
         return this._ctrlName;
     }
-    set ctrlName(value: string) {
+
+    public set ctrlName(value: string) {
         if (!CC_EDITOR) {
             StateErrorManager.error("非编辑器环境，不更新名称", {
-                component: 'StateController',
-                method: 'ctrlName.setter'
+                component: "StateController",
+                method: "ctrlName.setter",
             });
             return;
         }
@@ -74,11 +78,13 @@ export class StateController extends cc.Component {
     /** 选中的状态下标 */
     @property(EnumStateName)
     private _selectedIndex: EnumStateName = 0;
+
     /** 选择的状态下标 */
     @property({ type: EnumStateName, displayName: "selectedState", tooltip: "当前选中的状态" })
     public get selectedIndex() {
         return this._selectedIndex;
     }
+
     public set selectedIndex(value: EnumStateName) {
         if (this.isInit || this._selectedIndex != value) {
             this.isInit = false;
@@ -89,16 +95,16 @@ export class StateController extends cc.Component {
 
             if (originalValue !== value) {
                 StateErrorManager.warn("状态索引超出范围，已自动调整", {
-                    component: 'StateController',
-                    method: 'selectedIndex.setter',
-                    params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 }
+                    component: "StateController",
+                    method: "selectedIndex.setter",
+                    params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 },
                 });
             }
 
             StateErrorManager.debug("开始状态切换", {
-                component: 'StateController',
-                method: 'selectedIndex.setter',
-                params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit }
+                component: "StateController",
+                method: "selectedIndex.setter",
+                params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit },
             });
 
             // 🔧 状态切换流程：标记正在变化 → 保存上一状态 → 更新当前状态 → 触发更新
@@ -117,9 +123,9 @@ export class StateController extends cc.Component {
             this.isChanging = false;
 
             StateErrorManager.info("状态切换完成", {
-                component: 'StateController',
-                method: 'selectedIndex.setter',
-                params: { newState: value, stateName: this.selectedPage }
+                component: "StateController",
+                method: "selectedIndex.setter",
+                params: { newState: value, stateName: this.selectedPage },
             });
         }
     }
@@ -127,15 +133,17 @@ export class StateController extends cc.Component {
     /** 状态名字列表 */
     @property(StateValue)
     private _states: StateValue[] = [];
+
     @property({ type: StateValue, tooltip: "状态数量。数组内容为状态名称" })
-    get states() {
+    public get states() {
         return this._states;
     }
+
     private set states(value: StateValue[]) {
         if (!CC_EDITOR) {
             StateErrorManager.error("非编辑器环境，不更新状态", {
-                component: 'StateController',
-                method: 'states.setter'
+                component: "StateController",
+                method: "states.setter",
             });
             return;
         }
@@ -143,9 +151,9 @@ export class StateController extends cc.Component {
         // 🔧 输入验证：确保数组有效
         if (!value || !Array.isArray(value)) {
             StateErrorManager.warn("states必须是有效的数组", {
-                component: 'StateController',
-                method: 'states.setter',
-                params: { valueType: typeof value, isArray: Array.isArray(value) }
+                component: "StateController",
+                method: "states.setter",
+                params: { valueType: typeof value, isArray: Array.isArray(value) },
             });
             return;
         }
@@ -159,15 +167,14 @@ export class StateController extends cc.Component {
         if (newLen < 2) {
             applyIndex = 0;
             StateErrorManager.warn("建议至少添加两个状态", {
-                component: 'StateController',
-                method: 'states.setter',
-                params: { currentStateCount: newLen }
+                component: "StateController",
+                method: "states.setter",
+                params: { currentStateCount: newLen },
             });
         }
 
         // 🔧 处理状态变化的核心逻辑
         let deletedIndices: number[] = [];
-
 
         // 🔧 首先检查并初始化所有未正确初始化的状态对象
         for (let index = 0; index < newLen; index++) {
@@ -176,7 +183,8 @@ export class StateController extends cc.Component {
                 let smartStateName = this.getSmartStateName(index);
                 let newStateId = this.stateIdAuto++;
                 value[index] = new StateValue(smartStateName, newStateId);
-            } else {
+            }
+            else {
                 // 🔧 检测现有状态的手动更改
                 let defaultName = (index + 1).toString();
                 let currentName = value[index].name;
@@ -191,7 +199,8 @@ export class StateController extends cc.Component {
                         }
                         this._historyStateName[index] = currentName;
                     }
-                } else {
+                }
+                else {
                     // 如果改回了默认名字，删除历史记录
                     if (this._historyStateName && this._historyStateName[index]) {
                         delete this._historyStateName[index];
@@ -220,9 +229,9 @@ export class StateController extends cc.Component {
 
         // 🔧 更新内部状态数组
         StateErrorManager.debug("开始更新状态数组", {
-            component: 'StateController',
-            method: 'states.setter',
-            params: { oldLength: oldLen, newLength: newLen, deletedCount: deletedIndices.length }
+            component: "StateController",
+            method: "states.setter",
+            params: { oldLength: oldLen, newLength: newLen, deletedCount: deletedIndices.length },
         });
 
         this._states = value;
@@ -231,9 +240,9 @@ export class StateController extends cc.Component {
         let array = value.map((val, i) => {
             if (!val) {
                 StateErrorManager.error("状态对象不能为空", {
-                    component: 'StateController',
-                    method: 'states.setter',
-                    params: { stateIndex: i }
+                    component: "StateController",
+                    method: "states.setter",
+                    params: { stateIndex: i },
                 });
                 return { name: "error", value: i };
             }
@@ -242,9 +251,9 @@ export class StateController extends cc.Component {
             if (stateMap[val.name]) {
                 let newName = val.name + "_" + i;
                 StateErrorManager.warn("检测到重复的状态名，自动重命名", {
-                    component: 'StateController',
-                    method: 'states.setter',
-                    params: { originalName: val.name, newName: newName }
+                    component: "StateController",
+                    method: "states.setter",
+                    params: { originalName: val.name, newName: newName },
                 });
                 val.name = newName;
             }
@@ -253,7 +262,7 @@ export class StateController extends cc.Component {
             return { name: val.name, value: i };
         });
 
-        //@ts-ignore
+        // @ts-ignore
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
         this._selectedIndex = applyIndex;
 
@@ -262,78 +271,77 @@ export class StateController extends cc.Component {
         let reason = oldLen > newLen ? "状态删除" : "状态数量增加";
         this.smartRefreshInspector(reason);
 
-
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
             StateErrorManager.info("状态列表更新完成（包含删除）", {
-                component: 'StateController',
-                method: 'states.setter',
-                params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex }
+                component: "StateController",
+                method: "states.setter",
+                params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex },
             });
             // 如果有删除，通知第一个删除的索引
             this.updateState(EnumUpdataType.selPage, deletedIndices[0]);
-        } else {
+        }
+        else {
             StateErrorManager.info("状态列表更新完成", {
-                component: 'StateController',
-                method: 'states.setter',
-                params: { finalStateCount: newLen, currentIndex: applyIndex }
+                component: "StateController",
+                method: "states.setter",
+                params: { finalStateCount: newLen, currentIndex: applyIndex },
             });
             this.updateState(EnumUpdataType.selPage);
         }
     }
 
-
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     protected __preload() {
         if (!CC_EDITOR) {
             return;
         }
 
         StateErrorManager.debug("开始控制器预加载", {
-            component: 'StateController',
-            method: '__preload',
-            params: { hasStates: !!this._states.length, ctrlName: this._ctrlName }
+            component: "StateController",
+            method: "__preload",
+            params: { hasStates: !!this._states.length, ctrlName: this._ctrlName },
         });
 
         if (!this._states.length) {
             // 🔧 从1开始命名状态
-            this._states = [new StateValue("1", this.stateIdAuto++), new StateValue("2", this.stateIdAuto++)]
+            this._states = [new StateValue("1", this.stateIdAuto++), new StateValue("2", this.stateIdAuto++)];
             StateErrorManager.info("创建默认状态", {
-                component: 'StateController',
-                method: '__preload',
-                params: { defaultStates: ["1", "2"] }
+                component: "StateController",
+                method: "__preload",
+                params: { defaultStates: ["1", "2"] },
             });
         }
 
         let array = this.states.map((val, i) => {
             return { name: val.name, value: i };
-        })
+        });
 
-        //@ts-ignore
+        // @ts-ignore
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
-
 
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
         if (this._states.length > 0 && (this._selectedIndex < 0 || this._selectedIndex >= this._states.length)) {
             this._selectedIndex = 0;
             StateErrorManager.info("初始化时自动设置selectedIndex为第一个状态", {
-                component: 'StateController',
-                method: '__preload'
+                component: "StateController",
+                method: "__preload",
             });
         }
 
         if (!this._ctrlName) {
             this.ctrlName = `ctrl_${Date.now().toString()}`;
             StateErrorManager.debug("生成默认控制器名称", {
-                component: 'StateController',
-                method: '__preload',
-                params: { generatedName: this._ctrlName }
+                component: "StateController",
+                method: "__preload",
+                params: { generatedName: this._ctrlName },
             });
         }
 
         StateErrorManager.info("控制器预加载完成", {
-            component: 'StateController',
-            method: '__preload',
-            params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length }
+            component: "StateController",
+            method: "__preload",
+            params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
         });
 
         this.updateState(EnumUpdataType.init);
@@ -343,7 +351,7 @@ export class StateController extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
-        this.updateState(EnumUpdataType.state)
+        this.updateState(EnumUpdataType.state);
     }
 
     protected onDestroy() {
@@ -354,7 +362,7 @@ export class StateController extends cc.Component {
         // 🔧 清理刷新定时器
         this.clearRefreshTimer();
 
-        this.updateState(EnumUpdataType.delete)
+        this.updateState(EnumUpdataType.delete);
     }
 
     /** 选择的状态名字 */
@@ -367,11 +375,12 @@ export class StateController extends cc.Component {
             // 🔧 确保状态对象有效且name不为空
             if (currentState && currentState.name !== undefined && currentState.name !== "") {
                 return currentState.name;
-            } else {
+            }
+            else {
                 StateErrorManager.warn("当前状态对象无效或名称为空", {
-                    component: 'StateController',
-                    method: 'selectedPage.getter',
-                    params: { currentState: currentState, selectedIndex: this._selectedIndex }
+                    component: "StateController",
+                    method: "selectedPage.getter",
+                    params: { currentState: currentState, selectedIndex: this._selectedIndex },
                 });
                 return null;
             }
@@ -386,12 +395,13 @@ export class StateController extends cc.Component {
             }
         }
     }
+
     /** 找到所有被删除的状态索引 */
     private findDeletedIndices(oldStates: StateValue[], newStates: StateValue[]): number[] {
         StateErrorManager.debug("开始检测删除的状态", {
-            component: 'StateController',
-            method: 'findDeletedIndices',
-            params: { oldCount: oldStates.length, newCount: newStates.length }
+            component: "StateController",
+            method: "findDeletedIndices",
+            params: { oldCount: oldStates.length, newCount: newStates.length },
         });
 
         let deletedIndices: number[] = [];
@@ -409,9 +419,9 @@ export class StateController extends cc.Component {
 
             if (!oldState || oldState.stateId === undefined) {
                 StateErrorManager.warn("发现无效的旧状态对象", {
-                    component: 'StateController',
-                    method: 'findDeletedIndices',
-                    params: { stateIndex: i }
+                    component: "StateController",
+                    method: "findDeletedIndices",
+                    params: { stateIndex: i },
                 });
                 continue;
             }
@@ -423,9 +433,9 @@ export class StateController extends cc.Component {
 
         if (deletedIndices.length > 0) {
             StateErrorManager.info("检测到删除的状态", {
-                component: 'StateController',
-                method: 'findDeletedIndices',
-                params: { deletedIndices: deletedIndices, deletedCount: deletedIndices.length }
+                component: "StateController",
+                method: "findDeletedIndices",
+                params: { deletedIndices: deletedIndices, deletedCount: deletedIndices.length },
             });
         }
 
@@ -442,13 +452,12 @@ export class StateController extends cc.Component {
         // 默认从1开始命名
         let defaultName = (index + 1).toString();
         StateErrorManager.debug("使用默认状态名字", {
-            component: 'StateController',
-            method: 'getSmartStateName',
-            params: { index: index, defaultName: defaultName }
+            component: "StateController",
+            method: "getSmartStateName",
+            params: { index: index, defaultName: defaultName },
         });
         return defaultName;
     }
-
 
     /** 🔧 核心方法：状态更新通知机制 - 将状态变化通知给所有相关的StateSelect组件 */
     private updateState(type: EnumUpdataType, value?: number) {
@@ -489,19 +498,24 @@ export class StateController extends cc.Component {
                         if (type == EnumUpdataType.state) {
                             // 🔧 状态切换：通知StateSelect组件状态已改变
                             stateSelect.updateState(self);
-                        } else if (type == EnumUpdataType.name) {
+                        }
+                        else if (type == EnumUpdataType.name) {
                             // 🔧 名称更新：通知StateSelect组件控制器名称已更改
                             stateSelect.updateCtrlName(self.node);
-                        } else if (type == EnumUpdataType.selPage) {
+                        }
+                        else if (type == EnumUpdataType.selPage) {
                             // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
                             stateSelect.updateCtrlPage(self, value);
-                        } else if (type == EnumUpdataType.delete) {
+                        }
+                        else if (type == EnumUpdataType.delete) {
                             // 🔧 删除通知：通知StateSelect组件控制器即将被删除
                             stateSelect.updateDelete(self);
-                        } else if (type == EnumUpdataType.init) {
+                        }
+                        else if (type == EnumUpdataType.init) {
                             // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
                             stateSelect.updatePreLoad(self);
-                        } else if (type == EnumUpdataType.prop) {
+                        }
+                        else if (type == EnumUpdataType.prop) {
                             // 🔧 属性更新：通知StateSelect组件属性已更改
                             stateSelect.updateProp(self);
                         }
@@ -514,7 +528,7 @@ export class StateController extends cc.Component {
                     }
                 }
             }
-        }
+        };
 
         // 🔧 从当前控制器节点开始更新所有相关的StateSelect组件
         updateChild(self.node);
@@ -523,31 +537,31 @@ export class StateController extends cc.Component {
     // ================== 🔧 刷新优化功能使用说明 ==================
     /**
      * 🎯 属性检查器刷新优化功能说明：
-     * 
+     *
      * 1. **智能刷新 (推荐)**：
      *    - 自动判断是否需要刷新
      *    - 只在状态数量变化时刷新
      *    - 平衡性能和体验
-     * 
+     *
      * 2. **自动刷新**：
      *    - 延迟刷新，避免频繁操作
      *    - 可配置延迟时间 (0.5-10秒)
      *    - 适合快速编辑场景
-     * 
+     *
      * 3. **手动刷新**：
      *    - 完全控制刷新时机
      *    - 点击按钮主动刷新
      *    - 适合性能敏感场景
-     * 
+     *
      */
 
     /** 🔧 新增：属性检查器刷新策略 */
     @property({
         type: InspectorRefreshMode,
         displayName: "刷新策略",
-        tooltip: "• 自动刷新：延迟刷新，防抖处理\n• 手动刷新：用户点击按钮刷新"
+        tooltip: "• 自动刷新：延迟刷新，防抖处理\n• 手动刷新：用户点击按钮刷新",
     })
-    inspectorRefreshMode: InspectorRefreshMode = InspectorRefreshMode.ManualRefresh;
+    private inspectorRefreshMode: InspectorRefreshMode = InspectorRefreshMode.ManualRefresh;
 
     /** 🔧 新增：自动刷新延迟时间（秒） */
     @property({
@@ -558,9 +572,9 @@ export class StateController extends cc.Component {
         step: 0.5,
         visible: function (this: StateController) {
             return this.inspectorRefreshMode === InspectorRefreshMode.AutoRefresh;
-        }
+        },
     })
-    autoRefreshDelay: number = 2.0;
+    private autoRefreshDelay: number = 2.0;
 
     /** 🔧 新增：手动刷新按钮 */
     @property({
@@ -568,12 +582,13 @@ export class StateController extends cc.Component {
         tooltip: "点击刷新属性检查器",
         visible: function (this: StateController) {
             return this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh;
-        }
+        },
     })
-    get manualRefreshTrigger() {
+    public get manualRefreshTrigger() {
         return false;
     }
-    set manualRefreshTrigger(value: boolean) {
+
+    public set manualRefreshTrigger(value: boolean) {
         if (value && CC_EDITOR) {
             this.forceRefreshInspector();
         }
@@ -589,9 +604,9 @@ export class StateController extends cc.Component {
     @property({
         displayName: "刷新状态",
         tooltip: "当前属性检查器刷新状态",
-        readonly: true
+        readonly: true,
     })
-    get refreshStatus() {
+    public get refreshStatus() {
         if (!CC_EDITOR) {
             return "运行时模式";
         }
@@ -603,7 +618,8 @@ export class StateController extends cc.Component {
         if (this._pendingRefresh) {
             if (this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh) {
                 return "🔄 等待手动刷新";
-            } else {
+            }
+            else {
                 return "⏸️ 等待智能刷新";
             }
         }
@@ -618,17 +634,19 @@ export class StateController extends cc.Component {
         }
 
         try {
-            Editor.Utils.refreshSelectedInspector('node', this.node.uuid);
+            // @ts-ignore
+            Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
             this._pendingRefresh = false;
             StateErrorManager.info("属性检查器已刷新", {
-                component: 'StateController',
-                method: 'forceRefreshInspector'
+                component: "StateController",
+                method: "forceRefreshInspector",
             });
-        } catch (error) {
+        }
+        catch (error) {
             StateErrorManager.warn("刷新属性检查器失败", {
-                component: 'StateController',
-                method: 'forceRefreshInspector',
-                params: { error: error.message }
+                component: "StateController",
+                method: "forceRefreshInspector",
+                params: { error: error.message },
             });
         }
     }

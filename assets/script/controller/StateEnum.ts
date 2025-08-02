@@ -20,15 +20,15 @@ export enum EnumUpdataType {
 /** 控制器名字 */
 export enum EnumCtrlName {
 }
-/** 
+/**
  * 🔧 核心枚举：属性名 - 定义所有支持的UI属性类型
- * 
+ *
  * 这是整个状态控制器系统的基础枚举：
  * 1. 每个枚举值对应一种UI属性类型
  * 2. 枚举值的顺序决定了编辑器中的显示顺序
  * 3. 添加新属性类型需要同步更新属性处理器
  * 4. Non=0 是特殊值，表示"不选择任何属性"
- * 
+ *
  * 扩展方式：
  * 1. 在此枚举中添加新的属性类型
  * 2. 在StatePropHandler.ts中实现对应的处理器
@@ -58,17 +58,17 @@ export enum EnumPropName {
 
     // 🔧 组件相关属性
     /** 文本 */
-    Label_String = 3,
+    LabelString = 3,
     /** 描边 */
-    LabelOutline_Color = 4,
+    LabelOutlineColor = 4,
     /** 图片 */
     SpriteFrame = 5,
     /** 字体 */
     Font = 12,
     /** 滑动条 */
-    Slider_Progress = 13,
+    SliderProgress = 13,
     /** 编辑框 */
-    Editbox_String = 14,
+    EditboxString = 14,
     /** 灰度 */
     GrayScale = 15,
 
