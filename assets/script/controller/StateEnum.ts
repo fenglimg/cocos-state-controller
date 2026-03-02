@@ -5,17 +5,19 @@ export enum EnumStateName {
 /** 更新选择器的类型 */
 export enum EnumUpdataType {
     /** 名字 */
-    name = 1,
+    Name = 1,
     /** 可选状态 */
-    selPage = 2,
+    SelPage = 2,
     /** 状态 */
-    state = 0,
+    State = 0,
     /** 删除控制器 */
-    delete = 4,
+    Delete = 4,
     /** 初始化 */
-    init = 3,
+    Init = 3,
     /** 更新选中的属性 */
-    prop = 5,
+    Prop = 5,
+    /** 状态顺序变更 */
+    Move = 6,
 }
 /** 控制器名字 */
 export enum EnumCtrlName {
@@ -71,6 +73,58 @@ export enum EnumPropName {
     EditboxString = 14,
     /** 灰度 */
     GrayScale = 15,
+    /** 按钮交互 */
+    ButtonInteractable = 16,
+
+    /** 进度条(ProgressBar) 进度 */
+    ProgressBarProgress = 17,
+    /** Toggle 选中状态 */
+    ToggleIsChecked = 18,
+    /** RichText 文本内容 */
+    RichTextString = 19,
+    /** ScrollView 启用状态 */
+    ScrollViewEnabled = 20,
+    /** Mask 组件启用状态 */
+    MaskEnabled = 21,
+
+    /** Label 字体大小 */
+    LabelFontSize = 22,
+    /** Label 行高 */
+    LabelLineHeight = 23,
+    /** Label 字符间距 (spacingX) */
+    LabelSpacingX = 24,
+    /** Label 自动换行开关 */
+    LabelWrapEnable = 25,
+    /** Sprite 填充范围 (fillRange) */
+    SpriteFillRange = 26,
+    /** Widget 启用状态 */
+    WidgetEnabled = 27,
+    /** Widget 对齐刷新模式 */
+    WidgetAlignMode = 28,
+    /** Widget 顶部对齐开关 */
+    WidgetIsAlignTop = 29,
+    /** Widget 底部对齐开关 */
+    WidgetIsAlignBottom = 30,
+    /** Widget 左侧对齐开关 */
+    WidgetIsAlignLeft = 31,
+    /** Widget 右侧对齐开关 */
+    WidgetIsAlignRight = 32,
+    /** Widget 水平居中开关 */
+    WidgetIsAlignHorizontalCenter = 33,
+    /** Widget 垂直居中开关 */
+    WidgetIsAlignVerticalCenter = 34,
+    /** Widget 顶部边距 */
+    WidgetTop = 35,
+    /** Widget 底部边距 */
+    WidgetBottom = 36,
+    /** Widget 左侧边距 */
+    WidgetLeft = 37,
+    /** Widget 右侧边距 */
+    WidgetRight = 38,
+    /** Widget 水平居中偏移 */
+    WidgetHorizontalCenter = 39,
+    /** Widget 垂直居中偏移 */
+    WidgetVerticalCenter = 40,
 
     // 🔧 注意：旋转四元数暂时不支持，因为编辑器操作复杂
     // /** 旋转、四元数*/

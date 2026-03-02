@@ -12,7 +12,7 @@ export enum ErrorLevel {
 export interface IErrorContext {
     component?: string
     method?: string
-    params?: any
+    params?: unknown
     node?: cc.Node
 }
 
@@ -76,7 +76,7 @@ export class StateErrorManager {
                     cc.log(`🔍 ${fullMessage}`);
                 }
                 else {
-                    console.debug ? console.debug(fullMessage) : console.log(fullMessage);
+                    // console.debug ? console.debug(fullMessage) : console.log(fullMessage);
                 }
                 break;
             case ErrorLevel.INFO:
@@ -84,7 +84,7 @@ export class StateErrorManager {
                     cc.log(fullMessage);
                 }
                 else {
-                    console.log(fullMessage);
+                    // console.log(fullMessage);
                 }
                 break;
             case ErrorLevel.WARN:
@@ -93,7 +93,7 @@ export class StateErrorManager {
                     cc.warn(fullMessage);
                 }
                 else {
-                    console.warn(fullMessage);
+                    // console.warn(fullMessage);
                 }
                 break;
             case ErrorLevel.ERROR:
@@ -102,7 +102,7 @@ export class StateErrorManager {
                     cc.error(fullMessage);
                 }
                 else {
-                    console.error(fullMessage);
+                    // console.error(fullMessage);
                 }
                 break;
             case ErrorLevel.FATAL:
@@ -111,7 +111,7 @@ export class StateErrorManager {
                     cc.error(`💥 FATAL: ${fullMessage}`);
                 }
                 else {
-                    console.error(`💥 FATAL: ${fullMessage}`);
+                    // console.error(`💥 FATAL: ${fullMessage}`);
                 }
                 break;
         }
@@ -176,7 +176,7 @@ export class StateErrorManager {
     }
 
     /** 验证属性类型 */
-    public static validatePropType(propType: any, context?: IErrorContext): boolean {
+    public static validatePropType(propType: unknown, context?: IErrorContext): boolean {
         if (propType === undefined || propType === null) {
             this.userFriendlyError(
                 "属性类型不能为空",

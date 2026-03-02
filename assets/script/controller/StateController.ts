@@ -7,8 +7,8 @@
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
-import { StateSelect } from "./StateSelect";
 import { StateErrorManager } from "./StateErrorManager";
+import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
 cc.Enum(InspectorRefreshMode);
@@ -66,7 +66,7 @@ export class StateController extends cc.Component {
             return;
         }
         this._ctrlName = value;
-        this.updateState(EnumUpdataType.name);
+        this.updateState(EnumUpdataType.Name);
     }
 
     private _previousIndex: number = -1;
@@ -79,6 +79,66 @@ export class StateController extends cc.Component {
     @property(EnumStateName)
     private _selectedIndex: EnumStateName = 0;
 
+    /** 状态顺序上移触发 */
+    @property({
+        displayName: "状态上移",
+        tooltip: "将当前选中的状态上移一位",
+    })
+    public get moveStateUp() {
+        return false;
+    }
+
+    public set moveStateUp(value: boolean) {
+        if (value) {
+            this.adjustSelectedStateOrder(-1);
+        }
+    }
+
+    /** 状态顺序下移触发 */
+    @property({
+        displayName: "状态下移",
+        tooltip: "将当前选中的状态下移一位",
+    })
+    public get moveStateDown() {
+        return false;
+    }
+
+    public set moveStateDown(value: boolean) {
+        if (value) {
+            this.adjustSelectedStateOrder(1);
+        }
+    }
+
+    /** 复制当前状态触发 */
+    @property({
+        displayName: "复制当前状态",
+        tooltip: "以当前状态为模板复制并插入到下一位",
+    })
+    public get duplicateCurrentState() {
+        return false;
+    }
+
+    public set duplicateCurrentState(value: boolean) {
+        if (value) {
+            this.copySelectedState();
+        }
+    }
+
+    /** 删除当前状态触发 */
+    @property({
+        displayName: "删除当前状态",
+        tooltip: "删除当前选中的状态并自动选择相邻状态",
+    })
+    public get deleteCurrentState() {
+        return false;
+    }
+
+    public set deleteCurrentState(value: boolean) {
+        if (value) {
+            this.removeSelectedState();
+        }
+    }
+
     /** 选择的状态下标 */
     @property({ type: EnumStateName, displayName: "selectedState", tooltip: "当前选中的状态" })
     public get selectedIndex() {
@@ -89,7 +149,7 @@ export class StateController extends cc.Component {
         if (this.isInit || this._selectedIndex != value) {
             this.isInit = false;
 
-            let originalValue = value;
+            const originalValue = value;
             // 🔧 边界检查：确保状态索引在有效范围内
             value = Math.max(0, Math.min(this._states.length - 1, value));
 
@@ -113,11 +173,11 @@ export class StateController extends cc.Component {
             this._selectedIndex = value;
 
             // 🔧 通知所有相关组件状态已改变
-            this.updateState(EnumUpdataType.state);
+            this.updateState(EnumUpdataType.State);
 
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {
-                this.updateState(EnumUpdataType.prop);
+                this.updateState(EnumUpdataType.Prop);
             }
 
             this.isChanging = false;
@@ -158,8 +218,8 @@ export class StateController extends cc.Component {
             return;
         }
 
-        let oldLen = this._states.length;
-        let newLen = value.length;
+        const oldLen = this._states.length;
+        const newLen = value.length;
 
         let applyIndex: number = this._selectedIndex;
 
@@ -180,14 +240,14 @@ export class StateController extends cc.Component {
         for (let index = 0; index < newLen; index++) {
             if (!value[index] || value[index].name === undefined || value[index].stateId === undefined) {
                 // 🔧 使用智能命名方法生成状态名字
-                let smartStateName = this.getSmartStateName(index);
-                let newStateId = this.stateIdAuto++;
+                const smartStateName = this.getSmartStateName(index);
+                const newStateId = this.stateIdAuto++;
                 value[index] = new StateValue(smartStateName, newStateId);
             }
             else {
                 // 🔧 检测现有状态的手动更改
-                let defaultName = (index + 1).toString();
-                let currentName = value[index].name;
+                const defaultName = (index + 1).toString();
+                const currentName = value[index].name;
 
                 // 只有当名字不是默认名字时，才可能是手动修改的
                 if (currentName !== defaultName) {
@@ -214,7 +274,7 @@ export class StateController extends cc.Component {
             deletedIndices = this.findDeletedIndices(this._states, value);
             let adjustment = 0;
             // 计算需要调整的量
-            for (let deletedIndex of deletedIndices) {
+            for (const deletedIndex of deletedIndices) {
                 if (deletedIndex <= applyIndex) {
                     adjustment++;
                 }
@@ -236,8 +296,8 @@ export class StateController extends cc.Component {
 
         this._states = value;
 
-        let stateMap: { [key: string]: boolean } = {};
-        let array = value.map((val, i) => {
+        const stateMap: { [key: string]: boolean } = {};
+        const array = value.map((val, i) => {
             if (!val) {
                 StateErrorManager.error("状态对象不能为空", {
                     component: "StateController",
@@ -249,7 +309,7 @@ export class StateController extends cc.Component {
 
             // 🔧 处理重复状态名
             if (stateMap[val.name]) {
-                let newName = val.name + "_" + i;
+                const newName = val.name + "_" + i;
                 StateErrorManager.warn("检测到重复的状态名，自动重命名", {
                     component: "StateController",
                     method: "states.setter",
@@ -262,13 +322,13 @@ export class StateController extends cc.Component {
             return { name: val.name, value: i };
         });
 
-        // @ts-ignore
+        // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
         this._selectedIndex = applyIndex;
 
         // 🔧 优化：使用智能刷新策略替代硬编码刷新
 
-        let reason = oldLen > newLen ? "状态删除" : "状态数量增加";
+        const reason = oldLen > newLen ? "状态删除" : "状态数量增加";
         this.smartRefreshInspector(reason);
 
         // 🔧 通知相关组件状态列表已更新
@@ -279,7 +339,7 @@ export class StateController extends cc.Component {
                 params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex },
             });
             // 如果有删除，通知第一个删除的索引
-            this.updateState(EnumUpdataType.selPage, deletedIndices[0]);
+            this.updateState(EnumUpdataType.SelPage, deletedIndices[0]);
         }
         else {
             StateErrorManager.info("状态列表更新完成", {
@@ -287,8 +347,225 @@ export class StateController extends cc.Component {
                 method: "states.setter",
                 params: { finalStateCount: newLen, currentIndex: applyIndex },
             });
-            this.updateState(EnumUpdataType.selPage);
+            this.updateState(EnumUpdataType.SelPage);
         }
+    }
+
+    /** 🔧 调整当前选中状态的顺序 */
+    private adjustSelectedStateOrder(offset: number) {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中调整状态顺序", {
+                component: "StateController",
+                method: "adjustSelectedStateOrder",
+            });
+            return;
+        }
+
+        if (!this._states || this._states.length === 0) {
+            StateErrorManager.warn("当前没有可调整的状态", {
+                component: "StateController",
+                method: "adjustSelectedStateOrder",
+            });
+            return;
+        }
+
+        const fromIndex = this._selectedIndex;
+        if (fromIndex < 0 || fromIndex >= this._states.length) {
+            StateErrorManager.warn("选中的状态索引无效，无法调整顺序", {
+                component: "StateController",
+                method: "adjustSelectedStateOrder",
+                params: { selectedIndex: fromIndex, stateCount: this._states.length },
+            });
+            return;
+        }
+
+        const targetIndex = fromIndex + offset;
+        if (targetIndex < 0 || targetIndex >= this._states.length) {
+            StateErrorManager.warn("已到达边界，无法继续移动", {
+                component: "StateController",
+                method: "adjustSelectedStateOrder",
+                params: { fromIndex: fromIndex, targetIndex: targetIndex, stateCount: this._states.length },
+            });
+            return;
+        }
+
+        const newStates = [...this._states];
+        const [moved] = newStates.splice(fromIndex, 1);
+        newStates.splice(targetIndex, 0, moved);
+
+        // 🔧 同步历史命名记录的顺序，避免新增状态时名称错位
+        this.reorderHistoryNames(fromIndex, targetIndex);
+
+        // 先更新选中索引，再触发 setter 以同步 inspector
+        this._selectedIndex = targetIndex;
+        this.states = newStates;
+
+        // 🔧 通知 StateSelect 携带数据一起移动
+        this.updateState(EnumUpdataType.Move, { fromIndex: fromIndex, toIndex: targetIndex });
+
+        StateErrorManager.info("状态顺序已调整", {
+            component: "StateController",
+            method: "adjustSelectedStateOrder",
+            params: { fromIndex: fromIndex, toIndex: targetIndex, stateName: moved?.name },
+        });
+    }
+
+    /** 🔧 辅助：同步_historyStateName 顺序 */
+    private reorderHistoryNames(fromIndex: number, toIndex: number) {
+        if (!this._historyStateName) {
+            return;
+        }
+
+        const newHistory: { [key: number]: string } = {};
+
+        Object.keys(this._historyStateName).forEach((key) => {
+            const idx = parseInt(key, 10);
+            if (isNaN(idx)) {
+                return;
+            }
+
+            const name = this._historyStateName[idx];
+
+            if (idx === fromIndex) {
+                newHistory[toIndex] = name;
+            }
+            else if (fromIndex < toIndex && idx > fromIndex && idx <= toIndex) {
+                // 向下移动：中间元素整体上移一位
+                newHistory[idx - 1] = name;
+            }
+            else if (fromIndex > toIndex && idx >= toIndex && idx < fromIndex) {
+                // 向上移动：中间元素整体下移一位
+                newHistory[idx + 1] = name;
+            }
+            else {
+                newHistory[idx] = name;
+            }
+        });
+
+        this._historyStateName = newHistory;
+    }
+
+    /** 🔧 复制当前选中的状态并插入到下一位 */
+    private copySelectedState() {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中复制状态", {
+                component: "StateController",
+                method: "copySelectedState",
+            });
+            return;
+        }
+
+        if (!this._states || this._states.length === 0) {
+            StateErrorManager.warn("当前没有可复制的状态", {
+                component: "StateController",
+                method: "copySelectedState",
+            });
+            return;
+        }
+
+        const index = this._selectedIndex;
+        if (index < 0 || index >= this._states.length) {
+            StateErrorManager.warn("选中的状态索引无效，无法复制", {
+                component: "StateController",
+                method: "copySelectedState",
+                params: { selectedIndex: index, stateCount: this._states.length },
+            });
+            return;
+        }
+
+        const origin = this._states[index];
+        const baseName = origin && origin.name ? origin.name : this.getSmartStateName(this._states.length);
+        const copyName = `${baseName}_copy`;
+        const newState = new StateValue(copyName, this.stateIdAuto++);
+
+        const newStates = [...this._states];
+        const insertIndex = newStates.length;
+        newStates.push(newState);
+
+        this._selectedIndex = insertIndex;
+        this.states = newStates;
+        this.updateState(EnumUpdataType.State);
+
+        StateErrorManager.info("已复制当前状态", {
+            component: "StateController",
+            method: "copySelectedState",
+            params: { fromIndex: index, insertIndex: insertIndex, originName: baseName, newName: copyName },
+        });
+    }
+
+    /** 🔧 删除当前选中的状态，至少保留一个 */
+    private removeSelectedState() {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中删除状态", {
+                component: "StateController",
+                method: "removeSelectedState",
+            });
+            return;
+        }
+
+        if (!this._states || this._states.length === 0) {
+            StateErrorManager.warn("当前没有可删除的状态", {
+                component: "StateController",
+                method: "removeSelectedState",
+            });
+            return;
+        }
+
+        if (this._states.length <= 1) {
+            StateErrorManager.warn("至少保留一个状态，已取消删除", {
+                component: "StateController",
+                method: "removeSelectedState",
+                params: { stateCount: this._states.length },
+            });
+            return;
+        }
+
+        const index = this._selectedIndex;
+        if (index < 0 || index >= this._states.length) {
+            StateErrorManager.warn("选中的状态索引无效，无法删除", {
+                component: "StateController",
+                method: "removeSelectedState",
+                params: { selectedIndex: index, stateCount: this._states.length },
+            });
+            return;
+        }
+
+        const removed = this._states[index];
+        const newStates = [...this._states];
+        newStates.splice(index, 1);
+
+        // 🔧 同步历史命名，保持索引与状态对齐
+        if (this._historyStateName) {
+            const newHistory: { [key: number]: string } = {};
+            Object.keys(this._historyStateName).forEach((key) => {
+                const oldIdx = parseInt(key, 10);
+                if (isNaN(oldIdx)) return;
+                if (oldIdx < index) {
+                    newHistory[oldIdx] = this._historyStateName[oldIdx];
+                }
+                else if (oldIdx > index) {
+                    newHistory[oldIdx - 1] = this._historyStateName[oldIdx];
+                }
+            });
+            this._historyStateName = newHistory;
+        }
+
+        // 🔧 预设新的选中索引，避免 setter 收到越界值
+        const newIndex = Math.min(index, newStates.length - 1);
+        this._selectedIndex = newIndex;
+
+        this.states = newStates;
+
+        StateErrorManager.info("已删除当前状态", {
+            component: "StateController",
+            method: "removeSelectedState",
+            params: {
+                removedIndex: index,
+                removedName: removed?.name,
+                newSelectedIndex: newIndex,
+                remainingCount: newStates.length,
+            },
+        });
     }
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -313,11 +590,11 @@ export class StateController extends cc.Component {
             });
         }
 
-        let array = this.states.map((val, i) => {
+        const array = this.states.map((val, i) => {
             return { name: val.name, value: i };
         });
 
-        // @ts-ignore
+        // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
 
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
@@ -344,14 +621,14 @@ export class StateController extends cc.Component {
             params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
         });
 
-        this.updateState(EnumUpdataType.init);
+        this.updateState(EnumUpdataType.Init);
     }
 
     protected onLoad() {
         if (!CC_EDITOR) {
             return;
         }
-        this.updateState(EnumUpdataType.state);
+        this.updateState(EnumUpdataType.State);
     }
 
     protected onDestroy() {
@@ -362,7 +639,7 @@ export class StateController extends cc.Component {
         // 🔧 清理刷新定时器
         this.clearRefreshTimer();
 
-        this.updateState(EnumUpdataType.delete);
+        this.updateState(EnumUpdataType.Delete);
     }
 
     /** 选择的状态名字 */
@@ -370,7 +647,7 @@ export class StateController extends cc.Component {
         if (this._selectedIndex == -1 || this._selectedIndex >= this._states.length)
             return null;
         else {
-            let currentState = this._states[this._selectedIndex];
+            const currentState = this._states[this._selectedIndex];
 
             // 🔧 确保状态对象有效且name不为空
             if (currentState && currentState.name !== undefined && currentState.name !== "") {
@@ -404,9 +681,9 @@ export class StateController extends cc.Component {
             params: { oldCount: oldStates.length, newCount: newStates.length },
         });
 
-        let deletedIndices: number[] = [];
+        const deletedIndices: number[] = [];
 
-        let newStateIds = new Set<number>();
+        const newStateIds = new Set<number>();
 
         for (let i = 0; i < newStates.length; i++) {
             if (newStates[i] && newStates[i].stateId !== undefined) {
@@ -415,7 +692,7 @@ export class StateController extends cc.Component {
         }
 
         for (let i = 0; i < oldStates.length; i++) {
-            let oldState = oldStates[i];
+            const oldState = oldStates[i];
 
             if (!oldState || oldState.stateId === undefined) {
                 StateErrorManager.warn("发现无效的旧状态对象", {
@@ -450,7 +727,7 @@ export class StateController extends cc.Component {
         }
 
         // 默认从1开始命名
-        let defaultName = (index + 1).toString();
+        const defaultName = (index + 1).toString();
         StateErrorManager.debug("使用默认状态名字", {
             component: "StateController",
             method: "getSmartStateName",
@@ -460,8 +737,7 @@ export class StateController extends cc.Component {
     }
 
     /** 🔧 核心方法：状态更新通知机制 - 将状态变化通知给所有相关的StateSelect组件 */
-    private updateState(type: EnumUpdataType, value?: number) {
-        let self = this;
+    private updateState(type: EnumUpdataType, value?: unknown) {
         /**
          * 🔧 递归子节点更新函数：使用广度优先搜索遍历整个节点树
          * 关键优化点：
@@ -469,13 +745,13 @@ export class StateController extends cc.Component {
          * 2. 处理节点去重，防止重复处理
          * 3. 智能跳过有子控制器的节点，避免跨控制器污染
          */
-        let updateChild = function (rootNode: cc.Node) {
+        const updateChild = (rootNode: cc.Node) => {
             // 🔧 使用队列实现广度优先搜索，性能更好且避免递归深度问题
-            let nodeQueue: cc.Node[] = [rootNode];
-            let processedNodes = new Set<cc.Node>(); // 防止重复处理
+            const nodeQueue: cc.Node[] = [rootNode];
+            const processedNodes = new Set<cc.Node>(); // 防止重复处理
 
             while (nodeQueue.length > 0) {
-                let parent = nodeQueue.shift();
+                const parent = nodeQueue.shift();
 
                 // 🔧 安全检查：确保节点有效且未被处理过
                 if (!parent || !parent.children || processedNodes.has(parent)) {
@@ -483,41 +759,46 @@ export class StateController extends cc.Component {
                 }
                 processedNodes.add(parent);
 
-                let children = parent.children;
-                let len = children.length;
+                const children = parent.children;
+                const len = children.length;
 
                 // 🔧 遍历所有子节点，寻找StateSelect组件
                 for (let index = 0; index < len; index++) {
-                    let child = children[index];
+                    const child = children[index];
 
-                    let childStateController = child.getComponent(StateController);
-                    let stateSelect = child.getComponent(StateSelect);
+                    const childStateController = child.getComponent(StateController);
+                    const stateSelect = child.getComponent(StateSelect);
 
                     // 🔧 找到StateSelect组件，根据更新类型执行相应操作
                     if (stateSelect) {
-                        if (type == EnumUpdataType.state) {
+                        if (type == EnumUpdataType.State) {
                             // 🔧 状态切换：通知StateSelect组件状态已改变
-                            stateSelect.updateState(self);
+                            stateSelect.updateState(this);
                         }
-                        else if (type == EnumUpdataType.name) {
+                        else if (type == EnumUpdataType.Name) {
                             // 🔧 名称更新：通知StateSelect组件控制器名称已更改
-                            stateSelect.updateCtrlName(self.node);
+                            stateSelect.updateCtrlName(this.node);
                         }
-                        else if (type == EnumUpdataType.selPage) {
+                        else if (type == EnumUpdataType.SelPage) {
                             // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
-                            stateSelect.updateCtrlPage(self, value);
+                            stateSelect.updateCtrlPage(this, value as number);
                         }
-                        else if (type == EnumUpdataType.delete) {
+                        else if (type == EnumUpdataType.Delete) {
                             // 🔧 删除通知：通知StateSelect组件控制器即将被删除
-                            stateSelect.updateDelete(self);
+                            stateSelect.updateDelete(this);
                         }
-                        else if (type == EnumUpdataType.init) {
+                        else if (type == EnumUpdataType.Init) {
                             // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
-                            stateSelect.updatePreLoad(self);
+                            stateSelect.updatePreLoad(this);
                         }
-                        else if (type == EnumUpdataType.prop) {
+                        else if (type == EnumUpdataType.Prop) {
                             // 🔧 属性更新：通知StateSelect组件属性已更改
-                            stateSelect.updateProp(self);
+                            stateSelect.updateProp(this);
+                        }
+                        else if (type == EnumUpdataType.Move) {
+                            // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
+                            // @ts-expect-error 允许使用该方法
+                            stateSelect.updateStateMove(this, value);
                         }
                     }
 
@@ -531,7 +812,7 @@ export class StateController extends cc.Component {
         };
 
         // 🔧 从当前控制器节点开始更新所有相关的StateSelect组件
-        updateChild(self.node);
+        updateChild(this.node);
     }
 
     // ================== 🔧 刷新优化功能使用说明 ==================
@@ -634,7 +915,6 @@ export class StateController extends cc.Component {
         }
 
         try {
-            // @ts-ignore
             Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
             this._pendingRefresh = false;
             StateErrorManager.info("属性检查器已刷新", {
@@ -669,7 +949,7 @@ export class StateController extends cc.Component {
     }
 
     /** 🔧 新增：防抖刷新 */
-    private debounceRefreshInspector(reason: string) {
+    private debounceRefreshInspector(_reason: string) {
         if (this._refreshTimer) {
             clearTimeout(this._refreshTimer);
         }

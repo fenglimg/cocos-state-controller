@@ -31,10 +31,15 @@
 const {
     ccclass, property, menu, executeInEditMode, disallowMultiple,
 } = cc._decorator;
+import { StateComponentProps } from "./Props/StateComponentProps";
+import { StateNodeProps } from "./Props/StateNodeProps";
+import { StateToolsProps } from "./Props/StateToolsProps";
+import { StateWidgetProps } from "./Props/StateWidgetProps";
 import { StateController } from "./StateController";
 import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
+import { StateErrorManager } from "./StateErrorManager";
 import { PropHandlerManager } from "./StatePropHandler";
-import { StateErrorManager, ErrorLevel } from "./StateErrorManager";
+
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
 cc.Enum(EnumPropName);
@@ -42,10 +47,14 @@ cc.Enum(EnumPropName);
 /** 属性类型 */
 export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font | undefined;
 
+type TPropDictionary = {
+    [propType: number]: TPropValue
+};
+
 /** 🔧 架构重构：新的属性数据结构 */
-export type TProp = {
+export type TProp = TPropDictionary & {
     /** 上一次选择的属性 */
-    $$lastProp$$?: number
+    $$lastProp$$?: EnumPropName
 
     /** 🔧 新增：受控属性列表（控制复选框状态） */
     $$controlledProps$$?: { [propName: string]: EnumPropName }
@@ -55,9 +64,6 @@ export type TProp = {
 
     /** 🔧 兼容性：保留原有的changedProp结构（逐步迁移） */
     $$changedProp$$?: { [name: string]: EnumPropName }
-
-    /** 🔧 兼容性：保留原有的直接属性存储（逐步迁移） */
-    [key: number]: TPropValue
 };
 
 type TPage = {
@@ -89,14 +95,14 @@ export class StateSelect extends cc.Component {
     private _root: cc.Node = null;
 
     /** 控制器所在节点 */
-    @property({ type: cc.Node, tooltip: "控制器所在节点，仅提示用" })
+    @property({ type: cc.Node, tooltip: "控制器所在节点，仅提示用", readonly: true })
     public get root() {
         return this._root;
     }
 
     /** 当前状态要改变的属性 */
     @property({ type: EnumPropName })
-    private _propKey: EnumPropName = null;
+    private _propKey: EnumPropName = EnumPropName.Non;
 
     /** 当前状态要改变的属性值 */
     @property
@@ -109,6 +115,79 @@ export class StateSelect extends cc.Component {
     @property
     private _isDeleteCurr: boolean = false;
 
+    // #endregion
+
+    /** 工具按钮 - inspector 中显示为可折叠分组 */
+    @property({
+        type: StateToolsProps,
+        displayName: "工具",
+        tooltip: "工具按钮（刷新、同步、删除等）",
+        editorOnly: true,
+        serializable: false,
+    })
+    public toolsProps = new StateToolsProps();
+
+    // #region 属性值
+    @property({
+        tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值",
+        visible: true,
+        displayName: "🔸 当前属性值",
+        editorOnly: true,
+    })
+    public get propValue() {
+        return this._propValue;
+    }
+
+    private set propValue(value: TPropValue) {
+        if (!CC_EDITOR) {
+            return;
+        }
+        StateErrorManager.debug("设置属性值", {
+            component: "StateSelect",
+            method: "propValue.setter",
+            params: {
+                propKey: EnumPropName[this.propKey],
+                valueType: typeof value,
+                oldValue: this._propValue,
+            },
+        });
+
+        this._propValue = value;
+        const propData = this.getPropData();
+        propData[this.propKey] = value;
+        this.updateState(this.getCurrCtrl());
+    }
+
+    /** 节点基础属性 - inspector 中显示为可折叠分组 */
+    @property({
+        type: StateNodeProps,
+        displayName: "节点属性",
+        tooltip: "节点基础属性（Active, Position, Scale, Color, Size, Euler, Anchor, Opacity）",
+        editorOnly: true,
+        serializable: false,
+    })
+    public nodeProps = new StateNodeProps();
+
+    /** 组件属性 - inspector 中显示为可折叠分组 */
+    @property({
+        type: StateComponentProps,
+        displayName: "组件属性",
+        tooltip: "组件相关属性（Label, Sprite, Button, Toggle 等）",
+        editorOnly: true,
+        serializable: false,
+    })
+    public componentProps = new StateComponentProps();
+
+    /** Widget属性 - inspector 中显示为可折叠分组 */
+    @property({
+        type: StateWidgetProps,
+        displayName: "Widget属性",
+        tooltip: "Widget 布局相关属性",
+        editorOnly: true,
+        serializable: false,
+    })
+    public widgetProps = new StateWidgetProps();
+
     /** 状态数据 */
     @property
     private _ctrlData: TCtrl = {};
@@ -117,10 +196,10 @@ export class StateSelect extends cc.Component {
     private lastParent: cc.Node = null;
     private parentCheckInterval: number = null;
 
-    //#region 控制器当前状态
+    // #region 控制器当前状态
     @property({ type: EnumStateName, tooltip: "控制器当前状态" })
     public get ctrlState() {
-        let ctrl = this.getCurrCtrl();
+        const ctrl = this.getCurrCtrl();
         if (!ctrl) {
             StateErrorManager.warn("ctrlState getter: 控制器为空", {
                 component: "StateSelect",
@@ -130,8 +209,9 @@ export class StateSelect extends cc.Component {
         }
         return ctrl.selectedIndex;
     }
+
     private set ctrlState(value: number) {
-        let ctrl = this.getCurrCtrl();
+        const ctrl = this.getCurrCtrl();
         if (!ctrl) {
             StateErrorManager.warn("ctrlState setter: 控制器为空", {
                 component: "StateSelect",
@@ -141,13 +221,14 @@ export class StateSelect extends cc.Component {
         }
         ctrl.selectedIndex = value;
     }
-    //#endregion
+    // #endregion
 
-    //#region 控制器名称
+    // #region 控制器名称
     @property({ type: EnumCtrlName, displayName: "Ctrl Name", tooltip: "选择的控制器" })
     public get currCtrlId() {
         return this._currCtrlId;
     }
+
     private set currCtrlId(value: number) {
         if (!CC_EDITOR) {
             return;
@@ -163,108 +244,13 @@ export class StateSelect extends cc.Component {
         this._currCtrlId = value;
         this.updateCtrlPage(this.getCurrCtrl());
     }
-    //#endregion
-
-    //#region  手动刷新检查器
-    @property({
-        displayName: "🔧 手动刷新检查器",
-        tooltip: "强制刷新属性检查器界面，用于解决界面显示异常问题"
-    })
-    public get manualRefreshInspector() { return false; }
-    public set manualRefreshInspector(value: boolean) {
-        if (CC_EDITOR && value) {
-            this.forceRefreshInspector();
-        }
-    }
-    //#endregion
-
-    //#region 从内存同步数据
-    @property({
-        displayName: "📥 从内存同步数据",
-        tooltip: "从内存中获取已保存的属性数据并更新当前的属性列表显示"
-    })
-    public get syncFromMemory() { return false; }
-    public set syncFromMemory(value: boolean) {
-        if (CC_EDITOR && value) {
-            this.syncDataFromMemory();
-        }
-    }
-    //#endregion
-
-    //#region 刷新属性列表
-    @property({
-        displayName: "🔄 刷新属性列表",
-        tooltip: "重新检测当前节点支持的属性类型并更新复选框列表"
-    })
-    public get refreshPropList() { return false; }
-    public set refreshPropList(value: boolean) {
-        if (CC_EDITOR && value) {
-            this.updateAvailableProps();
-        }
-    }
-    //#endregion
-
-    //#region 删除当前属性
-    @property({
-        displayName: "🗑️ 删除当前属性",
-        tooltip: "真正删除内存中的当前属性数据（需要二次确认）"
-    })
-    public get deleteCurrentProperty() { return false; }
-    public set deleteCurrentProperty(value: boolean) {
-        if (CC_EDITOR && value) {
-            this.deletePropertyWithConfirmation();
-        }
-    }
-    //#endregion
-
-    //#region 重新获取控制器
-    /** 🔧 恢复：重新获取StateController功能 */
-    @property({
-        displayName: "🔄 重新获取控制器",
-        tooltip: "手动获取和刷新当前StateSelect组件管理的StateController实例\n\n用途：当StateController发生变化或初始化异常时使用"
-    })
-    public get reloadController() { return false; }
-    public set reloadController(value: boolean) {
-        if (CC_EDITOR && value) {
-            this.manualReloadController();
-        }
-    }
-    //#endregion
-
-    //#region 属性值
-    @property({
-        tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值",
-        visible: true,
-        displayName: "🔸 当前属性值"
-    })
-    public get propValue() {
-        return this._propValue;
-    }
-    private set propValue(value: any) {
-        if (!CC_EDITOR) {
-            return;
-        }
-        StateErrorManager.debug("设置属性值", {
-            component: "StateSelect",
-            method: "propValue.setter",
-            params: {
-                propKey: EnumPropName[this.propKey],
-                valueType: typeof value,
-                oldValue: this._propValue,
-            },
-        });
-
-        this._propValue = value;
-        let propData = this.getPropData();
-        propData[this.propKey] = value;
-        this.updateState(this.getCurrCtrl());
-    }
-    //#endregion
+    // #endregion
 
     /** 🔧 简化：当前选中的属性（内部使用，不显示在编辑器中） */
     public get propKey() {
         return this._propKey;
     }
+
     private set propKey(value: EnumPropName) {
         if (!CC_EDITOR) {
             return;
@@ -277,7 +263,7 @@ export class StateSelect extends cc.Component {
         });
 
         // 🔧 第一步：验证控制器有效性
-        let ctrl = this.getCurrCtrl();
+        const ctrl = this.getCurrCtrl();
         if (!ctrl) {
             StateErrorManager.warn("propKey setter: 控制器为空", {
                 component: "StateSelect",
@@ -311,7 +297,7 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 新增：处理有效属性选择 */
     private handleValidPropSelection(value: EnumPropName) {
-        let propValue = this.handleValue(value);
+        const propValue = this.handleValue(value);
         if (propValue === undefined) {
             StateErrorManager.warn("无法获取属性值", {
                 component: "StateSelect",
@@ -337,8 +323,7 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 新增：更新属性数据 */
     private updatePropData(propKey: EnumPropName, propValue: TPropValue) {
-        let itself = this;
-        let propData = itself.getPropData();
+        const propData = this.getPropData();
 
         // 🔧 设置属性值
         propData[propKey] = propValue;
@@ -356,8 +341,8 @@ export class StateSelect extends cc.Component {
 
     /** 刷新上次选中属性 */
     private refProp() {
-        let propData = this.getPropData();
-        let lastProp = propData.$$lastProp$$;
+        const propData = this.getPropData();
+        const lastProp = propData.$$lastProp$$;
 
         // 🔧 修复：确保lastProp不为0（EnumPropName.Non），因为0代表"不选择"状态
         if (lastProp && lastProp > EnumPropName.Non) {
@@ -367,7 +352,6 @@ export class StateSelect extends cc.Component {
             this.propKey = EnumPropName.Non;
         }
     }
-
 
     private _isPreload = false;
 
@@ -385,6 +369,12 @@ export class StateSelect extends cc.Component {
         }
         this._isPreload = true;
 
+        // 初始化嵌套 CCClass 的 owner 引用
+        this.nodeProps.owner = this;
+        this.componentProps.owner = this;
+        this.widgetProps.owner = this;
+        this.toolsProps.owner = this;
+
         StateErrorManager.debug("开始StateSelect预加载", {
             component: "StateSelect",
             method: "__preload",
@@ -396,7 +386,7 @@ export class StateSelect extends cc.Component {
 
         // 🔧 第二步：如果没有当前控制器，尝试自动选择第一个
         if (!this.currCtrlId) {
-            let ctrlIdKeys = Object.keys(this._ctrlsMap);
+            const ctrlIdKeys = Object.keys(this._ctrlsMap);
             if (ctrlIdKeys.length > 0) {
                 // 找到控制器，设置为当前控制器并初始化
                 this.currCtrlId = Number(ctrlIdKeys[0]);
@@ -414,7 +404,7 @@ export class StateSelect extends cc.Component {
                     component: "StateSelect",
                     method: "__preload",
                 });
-                // @ts-ignore
+                // @ts-expect-error _onPreDestroy is not typed
                 this._onPreDestroy();
             }
         }
@@ -483,7 +473,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 节点active改变 */
-    private activeChanged(node: cc.Node) {
+    private activeChanged(_node: cc.Node) {
         this.setDefaultPorp(EnumPropName.Active);
     }
 
@@ -503,22 +493,22 @@ export class StateSelect extends cc.Component {
     }
 
     /** 节点大小改变 */
-    private sizeChanged(size: cc.Size) {
+    private sizeChanged(_size: cc.Size) {
         this.setDefaultPorp(EnumPropName.Size);
     }
 
     /** 锚点改变 */
-    private anchorChanged(anchor: cc.Vec2) {
+    private anchorChanged(_anchor: cc.Vec2) {
         this.setDefaultPorp(EnumPropName.Anchor);
     }
 
     /** 颜色改变 */
-    private colorChanged(color: cc.Color) {
+    private colorChanged(_color: cc.Color) {
         this.setDefaultPorp(EnumPropName.Color);
     }
 
     /** 图片改变 */
-    private spriteFrameChanged(sprite: cc.Sprite) {
+    private spriteFrameChanged(_sprite: cc.Sprite) {
         this.setDefaultPorp(EnumPropName.SpriteFrame);
     }
 
@@ -529,19 +519,19 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        let currentParent = this.node.parent;
+        const currentParent = this.node.parent;
 
         if (this.lastParent !== currentParent) {
-            let oldParent = this.lastParent;
+            const oldParent = this.lastParent;
             this.lastParent = currentParent;
 
             // 新增：检查控制器承接
             this.handleControllerTransition(oldParent, currentParent);
 
             // 只有当有Position属性被控制时才需要转换坐标
-            let pageData = this.getPageData();
+            const pageData = this.getPageData();
             let hasPositionControl = false;
-            for (let state in pageData) {
+            for (const state in pageData) {
                 if (pageData[state] && pageData[state][EnumPropName.Position] !== undefined) {
                     hasPositionControl = true;
                     break;
@@ -567,12 +557,12 @@ export class StateSelect extends cc.Component {
         });
 
         // 获取旧控制器
-        let oldCtrls = oldParent ? this.getCtrls(oldParent) : [];
-        let oldCtrl = oldCtrls.find(ctrl => ctrl.ctrlId === this.currCtrlId);
+        const oldCtrls = oldParent ? this.getCtrls(oldParent) : [];
+        const oldCtrl = oldCtrls.find(ctrl => ctrl.ctrlId === this.currCtrlId);
 
         // 获取新控制器
-        let newCtrls = newParent ? this.getCtrls(newParent) : [];
-        let newCtrl = this.selectBestController(newCtrls, oldCtrl);
+        const newCtrls = newParent ? this.getCtrls(newParent) : [];
+        const newCtrl = this.selectBestController(newCtrls, oldCtrl);
 
         StateErrorManager.debug("控制器分析结果", {
             component: "StateSelect",
@@ -590,12 +580,12 @@ export class StateSelect extends cc.Component {
         // 如果新旧都有控制器且不同，执行数据承接
         if (oldCtrl && newCtrl && oldCtrl.ctrlId !== newCtrl.ctrlId) {
             // 1. 备份当前状态数据
-            let oldCtrlData = this._ctrlData[oldCtrl.ctrlId];
+            const oldCtrlData = this._ctrlData[oldCtrl.ctrlId];
 
             if (oldCtrlData) {
                 // 2. 将数据迁移到新控制器
                 // 需要根据新控制器的状态数量调整数据结构
-                let transferredData = this.adaptDataToNewController(oldCtrlData, newCtrl);
+                const transferredData = this.adaptDataToNewController(oldCtrlData, newCtrl);
                 this._ctrlData[newCtrl.ctrlId] = transferredData;
 
                 // 3. 清理旧控制器数据
@@ -639,8 +629,8 @@ export class StateSelect extends cc.Component {
     }
 
     /** 适配数据到新控制器 */
-    private adaptDataToNewController(oldData: any, newCtrl: StateController): any {
-        let newData: any = {};
+    private adaptDataToNewController(oldData: TPage, newCtrl: StateController): TPage {
+        const newData: TPage = {};
 
         // 复制默认数据
         if (oldData.$$default$$) {
@@ -665,45 +655,53 @@ export class StateSelect extends cc.Component {
     }
 
     /** 深度克隆状态数据方法 */
-    private deepCloneStateData(data: any): any {
-        // 🔧 快速退出：处理非对象类型
-        if (!data || typeof data !== "object") {
-            return data;
+    private deepCloneStateData(data?: TProp): TProp {
+        if (!data) {
+            return {} as TProp;
         }
 
-        // 🔧 优化：预检查对象属性数量，空对象直接返回
-        let keys = Object.keys(data);
-        if (keys.length === 0) {
-            return {};
-        }
-
-        let cloned: any = {};
+        const cloned: Record<string, unknown> = {};
+        const keys = Object.keys(data);
 
         for (let i = 0, len = keys.length; i < len; i++) {
-            let key = keys[i];
-            let value = data[key];
+            const key = keys[i];
+            const value = (data as Record<string, unknown>)[key];
+
+            if (key === "$$changedProp$$" || key === "$$controlledProps$$" || key === "$$propertyData$$") {
+                cloned[key] = value ? { ...(value as object) } : value;
+                continue;
+            }
+
+            if (key === "$$lastProp$$") {
+                cloned[key] = value;
+                continue;
+            }
 
             // 🔧 快速处理：基本类型直接复制
             if (!value || typeof value !== "object") {
                 cloned[key] = value;
                 continue;
             }
-            let constructor = value.constructor;
+            const constructor = value.constructor;
             if (constructor === cc.Vec3) {
                 // 🔧 Vec3: 直接使用现有值创建新对象
-                cloned[key] = cc.v3(value.x, value.y, value.z);
+                const vec3Value = value as cc.Vec3;
+                cloned[key] = cc.v3(vec3Value.x, vec3Value.y, vec3Value.z);
             }
             else if (constructor === cc.Vec2) {
                 // 🔧 Vec2: 直接使用现有值创建新对象
-                cloned[key] = cc.v2(value.x, value.y);
+                const vec2Value = value as cc.Vec2;
+                cloned[key] = cc.v2(vec2Value.x, vec2Value.y);
             }
             else if (constructor === cc.Color) {
                 // 🔧 Color: 直接使用RGBA值创建新对象
-                cloned[key] = cc.color(value.r, value.g, value.b, value.a);
+                const color = value as cc.Color;
+                cloned[key] = cc.color(color.r, color.g, color.b, color.a);
             }
             else if (constructor === cc.Size) {
                 // 🔧 Size: 直接使用宽高值创建新对象
-                cloned[key] = cc.size(value.width, value.height);
+                const size = value as cc.Size;
+                cloned[key] = cc.size(size.width, size.height);
             }
             else if (value instanceof cc.Asset) {
                 // 🔧 Asset对象：直接保留引用（SpriteFrame、Font等）
@@ -711,11 +709,11 @@ export class StateSelect extends cc.Component {
             }
             else {
                 // 🔧 其他对象：浅拷贝（如$$changedProp$$等元数据对象）
-                cloned[key] = { ...value };
+                cloned[key] = { ...(value as object) };
             }
         }
 
-        return cloned;
+        return cloned as TProp;
     }
 
     /** 选择最佳控制器用于承接 */
@@ -731,8 +729,8 @@ export class StateSelect extends cc.Component {
 
         // 如果有多个控制器，优先选择状态数量相同的控制器
         if (oldCtrl) {
-            let oldStatesCount = oldCtrl.states.length;
-            let matchingCtrl = newCtrls.find(ctrl => ctrl.states.length === oldStatesCount);
+            const oldStatesCount = oldCtrl.states.length;
+            const matchingCtrl = newCtrls.find(ctrl => ctrl.states.length === oldStatesCount);
             if (matchingCtrl) {
                 return matchingCtrl;
             }
@@ -762,14 +760,14 @@ export class StateSelect extends cc.Component {
             params: { nodeName: node.name },
         });
 
-        let ctrls = this.getCtrls(node);
-        let arr = ctrls.map((val, i) => {
+        const ctrls = this.getCtrls(node);
+        const arr = ctrls.map((val) => {
             if (this._ctrlsMap[val.ctrlId] == void 0) {
                 this._ctrlsMap[val.ctrlId] = val;
             }
             return { name: val.ctrlName, value: val.ctrlId };
         });
-        // @ts-ignore
+        // @ts-expect-error setClassAttr is unavailable in Cocos Creator d.ts
         cc.Class.Attr.setClassAttr(this, "currCtrlId", "enumList", arr);
 
         StateErrorManager.info("控制器名称更新完成", {
@@ -790,7 +788,7 @@ export class StateSelect extends cc.Component {
             }
             return [];
         }
-        let ctrls = node.getComponents(StateController);
+        const ctrls = node.getComponents(StateController);
         if (ctrls.length) {
             this._root = node;
             StateErrorManager.debug("找到控制器", {
@@ -805,21 +803,64 @@ export class StateSelect extends cc.Component {
 
     /** 更新状态数量 */
     public updateCtrlPage(ctrl: StateController, deleteIndex?: number) {
-        let itself = this;
         if (!CC_EDITOR) {
             return;
         }
 
-        if (!ctrl || ctrl.ctrlId != itself.currCtrlId) {
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) {
             return;
         }
 
         if (deleteIndex != void 0 && deleteIndex != -1) {
-            itself.handleStateDelete(ctrl, deleteIndex);
+            this.handleStateDelete(ctrl, deleteIndex);
         }
 
         // 🔧 更新状态枚举列表
-        itself.updateStateEnumList(ctrl);
+        this.updateStateEnumList(ctrl);
+    }
+
+    /** 🔧 新增：处理状态顺序变更（上移/下移） */
+    public updateStateMove(ctrl: StateController, moveInfo: { fromIndex: number, toIndex: number }) {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) {
+            return;
+        }
+
+        if (!moveInfo || moveInfo.fromIndex === undefined || moveInfo.toIndex === undefined) {
+            StateErrorManager.warn("状态移动信息无效", {
+                component: "StateSelect",
+                method: "updateStateMove",
+                params: { moveInfo },
+            });
+            return;
+        }
+
+        const { fromIndex, toIndex } = moveInfo;
+        if (fromIndex === toIndex) {
+            return;
+        }
+
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= ctrl.states.length || toIndex >= ctrl.states.length) {
+            StateErrorManager.warn("状态移动索引越界，取消同步", {
+                component: "StateSelect",
+                method: "updateStateMove",
+                params: { fromIndex, toIndex, stateCount: ctrl.states.length },
+            });
+            return;
+        }
+
+        const pageData = this.getPageData();
+        this.reorderStateData(pageData, fromIndex, toIndex, ctrl.states.length);
+        this.updateChangedProp();
+
+        StateErrorManager.info("状态数据顺序已同步", {
+            component: "StateSelect",
+            method: "updateStateMove",
+            params: { fromIndex, toIndex, stateCount: ctrl.states.length },
+        });
     }
 
     /** 🔧 新增：处理状态删除逻辑 */
@@ -840,7 +881,7 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        let pageData = this.getPageData();
+        const pageData = this.getPageData();
         if (!pageData) {
             StateErrorManager.warn("页面数据为空", {
                 component: "StateSelect",
@@ -863,10 +904,10 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 新增：迁移状态数据 */
-    private migrateStateData(pageData: any, deleteIndex: number, statesLength: number) {
+    private migrateStateData(pageData: TPage, deleteIndex: number, statesLength: number) {
         // 🔧 将删除位置后面的状态数据前移
         for (let state = deleteIndex; state < statesLength; state++) {
-            let nextStateData = pageData[state + 1];
+            const nextStateData = pageData[state + 1];
             if (nextStateData != void 0) {
                 pageData[state] = nextStateData;
             }
@@ -881,28 +922,22 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 新增：清理被删除状态的属性 */
-    private cleanupDeletedStateProps(pageData: any, ctrl: StateController, deletedStateIndex: number) {
+    private cleanupDeletedStateProps(pageData: TPage, ctrl: StateController, deletedStateIndex: number) {
         // 🔧 获取被删除状态的属性数据
-        let deletedStateData = pageData[deletedStateIndex];
+        const deletedStateData = pageData[deletedStateIndex];
         if (!deletedStateData || typeof deletedStateData !== "object") {
             return;
         }
 
         // 🔧 检查每个属性是否在其他状态中还存在
-        for (let prop in deletedStateData) {
-            // 🔧 跳过元数据属性
-            if (prop.startsWith("$$")) {
-                continue;
-            }
-
+        const propKeys = this.extractNumericPropKeys(deletedStateData);
+        const defaultData = pageData.$$default$$;
+        for (const prop of propKeys) {
             // 🔧 检查其他状态是否还有这个属性
-            let isUsedInOtherStates = this.isOtherHans(ctrl, prop);
-            if (!isUsedInOtherStates) {
+            const isUsedInOtherStates = this.isOtherHans(ctrl, prop);
+            if (!isUsedInOtherStates && defaultData && defaultData[prop] != void 0) {
                 // 🔧 如果其他状态都没有这个属性，从默认状态中删除
-                let defaultData = pageData.$$default$$;
-                if (defaultData && defaultData[prop] != void 0) {
-                    delete defaultData[prop];
-                }
+                delete defaultData[prop];
             }
         }
 
@@ -910,10 +945,31 @@ export class StateSelect extends cc.Component {
         this.updateChangedProp();
     }
 
+    /** 🔧 新增：重排状态数据，保持属性与状态顺序一致 */
+    private reorderStateData(pageData: TPage, fromIndex: number, toIndex: number, statesLength: number) {
+        // 将状态数据视为数组进行移动，保留 $$ 开头的元数据
+        const dataArray: Array<TProp | undefined> = [];
+        for (let i = 0; i < statesLength; i++) {
+            dataArray[i] = pageData[i];
+        }
+
+        const [moved] = dataArray.splice(fromIndex, 1);
+        dataArray.splice(toIndex, 0, moved);
+
+        // 回写数据，超出范围的清理掉
+        for (let i = 0; i < statesLength; i++) {
+            const stateData = dataArray[i];
+            if (stateData !== undefined) {
+                pageData[i] = stateData;
+            }
+            else {
+                delete pageData[i];
+            }
+        }
+    }
+
     /** 🔧 新增：更新状态枚举列表 */
     private updateStateEnumList(ctrl: StateController) {
-        let itself = this;
-
         if (!ctrl || !ctrl.states) {
             StateErrorManager.warn("控制器或状态数据无效", {
                 component: "StateSelect",
@@ -923,7 +979,7 @@ export class StateSelect extends cc.Component {
         }
 
         // 🔧 生成状态枚举数组
-        let enumList = ctrl.states.map((state, index) => {
+        const enumList = ctrl.states.map((state, index) => {
             if (!state || typeof state.name !== "string") {
                 StateErrorManager.warn("状态数据无效", {
                     component: "StateSelect",
@@ -937,8 +993,8 @@ export class StateSelect extends cc.Component {
 
         // 🔧 更新编辑器属性枚举列表
         try {
-            // @ts-ignore
-            cc.Class.Attr.setClassAttr(itself, "ctrlState", "enumList", enumList);
+            // @ts-expect-error cc.Class.Attr.setClassAttr is not typed
+            cc.Class.Attr.setClassAttr(this, "ctrlState", "enumList", enumList);
         }
         catch (error) {
             StateErrorManager.warn("更新状态枚举列表失败", {
@@ -956,7 +1012,7 @@ export class StateSelect extends cc.Component {
         }
         delete this._ctrlData[ctrl.ctrlId];
         if (this.currCtrlId == ctrl.ctrlId) {
-            // @ts-ignore
+            // @ts-expect-error _onPreDestroy is not typed
             this._onPreDestroy();
         }
         else {
@@ -968,17 +1024,24 @@ export class StateSelect extends cc.Component {
 
     /** 已经改变的属性 */
     public updateChangedProp() {
-        let propdata = this.getPropData();
-        let arr = [];
-        for (let name in propdata.$$changedProp$$) {
-            arr.push(name);
+        const propdata = this.getPropData();
+        const arr: string[] = [];
+        const changedProps = propdata.$$changedProp$$;
+        if (changedProps) {
+            for (const name of Object.keys(changedProps)) {
+                arr.push(name);
+            }
         }
         this.changedProp = arr;
     }
 
-
-
-
+    /** 提取数值型属性键（排除元数据） */
+    private extractNumericPropKeys(data: TProp): number[] {
+        return Object.keys(data)
+            .filter(key => !key.startsWith("$$"))
+            .map(key => Number(key))
+            .filter(key => !Number.isNaN(key));
+    }
 
     /** 🔧 新增：检查节点是否有对应属性的组件 */
     private checkNodeHasComponentForProp(propType: EnumPropName): boolean {
@@ -989,10 +1052,15 @@ export class StateSelect extends cc.Component {
         switch (propType) {
             case EnumPropName.LabelString:
             case EnumPropName.Font:
+            case EnumPropName.LabelFontSize:
+            case EnumPropName.LabelLineHeight:
+            case EnumPropName.LabelSpacingX:
+            case EnumPropName.LabelWrapEnable:
                 return !!this.node.getComponent(cc.Label);
             case EnumPropName.LabelOutlineColor:
                 return !!this.node.getComponent(cc.LabelOutline);
             case EnumPropName.SpriteFrame:
+            case EnumPropName.SpriteFillRange:
                 return !!this.node.getComponent(cc.Sprite);
             case EnumPropName.SliderProgress:
                 return !!this.node.getComponent(cc.Slider);
@@ -1001,6 +1069,33 @@ export class StateSelect extends cc.Component {
             case EnumPropName.GrayScale:
                 // GrayScale是自定义组件，这里假设检查方式
                 return !!this.node.getComponent("GrayScale");
+            case EnumPropName.ButtonInteractable:
+                return !!this.node.getComponent(cc.Button);
+            case EnumPropName.ProgressBarProgress:
+                return !!this.node.getComponent(cc.ProgressBar);
+            case EnumPropName.ToggleIsChecked:
+                return !!this.node.getComponent(cc.Toggle);
+            case EnumPropName.RichTextString:
+                return !!this.node.getComponent(cc.RichText);
+            case EnumPropName.ScrollViewEnabled:
+                return !!this.node.getComponent(cc.ScrollView);
+            case EnumPropName.MaskEnabled:
+                return !!this.node.getComponent(cc.Mask);
+            case EnumPropName.WidgetEnabled:
+            case EnumPropName.WidgetAlignMode:
+            case EnumPropName.WidgetIsAlignTop:
+            case EnumPropName.WidgetIsAlignBottom:
+            case EnumPropName.WidgetIsAlignLeft:
+            case EnumPropName.WidgetIsAlignRight:
+            case EnumPropName.WidgetIsAlignHorizontalCenter:
+            case EnumPropName.WidgetIsAlignVerticalCenter:
+            case EnumPropName.WidgetTop:
+            case EnumPropName.WidgetBottom:
+            case EnumPropName.WidgetLeft:
+            case EnumPropName.WidgetRight:
+            case EnumPropName.WidgetHorizontalCenter:
+            case EnumPropName.WidgetVerticalCenter:
+                return !!this.node.getComponent(cc.Widget);
             default:
                 return false;
         }
@@ -1048,19 +1143,40 @@ export class StateSelect extends cc.Component {
         this._isFromCtrl = true;
 
         // 🔧 第一步：保存当前属性选择状态
-        let currentPropKey = this.propKey;
-        let isAutoSync = this.autoSyncEnabled;
-        let shouldKeepPropKey = isAutoSync && currentPropKey !== EnumPropName.Non;
+        const currentPropKey = this.propKey;
+        const isAutoSync = this.autoSyncEnabled;
+        const shouldKeepPropKey = isAutoSync && currentPropKey !== EnumPropName.Non;
 
         // 🔧 第二步：获取状态数据
-        let propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-        let defaultData = this.getDefaultData(ctrl.ctrlId);
+        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+        const defaultData = this.getDefaultData(ctrl.ctrlId);
 
         // 🔧 第三步：构建属性更新批次
-        let updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
-        for (let key in defaultData) {
-            let value = propData[key] != void 0 ? propData[key] : defaultData[key];
-            updateBatch.push({ type: Number(key), value: value });
+        const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
+        const processedKeys = new Set<number>();
+
+        const defaultKeys = this.extractNumericPropKeys(defaultData);
+        for (const key of defaultKeys) {
+            const propType = key as EnumPropName;
+            const value = propData[propType] != void 0 ? propData[propType] : defaultData[propType];
+            if (value == void 0) {
+                continue;
+            }
+            updateBatch.push({ type: propType, value });
+            processedKeys.add(propType);
+        }
+
+        const stateKeys = this.extractNumericPropKeys(propData);
+        for (const key of stateKeys) {
+            if (processedKeys.has(key)) {
+                continue;
+            }
+            const propType = key as EnumPropName;
+            const value = propData[propType];
+            if (value == void 0) {
+                continue;
+            }
+            updateBatch.push({ type: propType, value });
         }
 
         StateErrorManager.debug("构建属性更新批次", {
@@ -1116,8 +1232,8 @@ export class StateSelect extends cc.Component {
         }
 
         // 批量应用所有更新
-        for (let update of updateBatch) {
-            let { type, value } = update;
+        for (const update of updateBatch) {
+            const { type, value } = update;
 
             if (type === EnumPropName.Non || value === undefined) {
                 continue;
@@ -1152,12 +1268,11 @@ export class StateSelect extends cc.Component {
      * @param ctrl
      * @param prop
      */
-    private isOtherHans(ctrl: StateController, prop: number | string) {
-        let pageData = this.getPageData();
+    private isOtherHans(ctrl: StateController, prop: number) {
+        const pageData = this.getPageData();
         for (let index = 0, len = ctrl.states.length; index < len; index++) {
-            let propData = pageData[index] || {};
-            // @ts-ignore
-            if (propData[prop] != void 0) {
+            const propData = pageData[index];
+            if (propData && propData[prop] != void 0) {
                 return true;
             }
         }
@@ -1165,41 +1280,44 @@ export class StateSelect extends cc.Component {
     }
 
     /** 获取某个控制器的状态数据 */
-    private getPageData(ctrlId?: number) {
-        ctrlId = ctrlId != void 0 ? ctrlId : this.currCtrlId;
-        if (this._ctrlData[ctrlId] == void 0) {
-            this._ctrlData[ctrlId] = {};
+    private getPageData(ctrlId?: number): TPage {
+        const targetCtrlId = ctrlId != void 0 ? ctrlId : this.currCtrlId;
+        if (targetCtrlId == null) {
+            return {} as TPage;
         }
-        return this._ctrlData[ctrlId];
+        if (this._ctrlData[targetCtrlId] == void 0) {
+            this._ctrlData[targetCtrlId] = {};
+        }
+        return this._ctrlData[targetCtrlId];
     }
 
     /** 获取某个状态的属性数据 */
-    private getPropData(state?: number, ctrlId?: number) {
-        let pageData = this.getPageData(ctrlId);
-        state = state != void 0 ? state : this.ctrlState;
-        if (pageData[state] == void 0) {
-            pageData[state] = {};
+    private getPropData(state?: number, ctrlId?: number): TProp {
+        const pageData = this.getPageData(ctrlId);
+        const targetState = state != void 0 ? state : this.ctrlState;
+        if (pageData[targetState] == void 0) {
+            pageData[targetState] = {} as TProp;
         }
-        return pageData[state];
+        return pageData[targetState];
     }
 
     /** 获取默认属性 */
-    private getDefaultData(ctrlId?: number) {
-        let pageData = this.getPageData(ctrlId);
+    private getDefaultData(ctrlId?: number): TProp {
+        const pageData = this.getPageData(ctrlId);
         if (pageData.$$default$$ == void 0) {
-            pageData.$$default$$ = {};
+            pageData.$$default$$ = {} as TProp;
         }
         return pageData.$$default$$;
     }
 
     private setPropValue(type: EnumPropName) {
-        let value = this.handleValue(type);
+        const value = this.handleValue(type);
         if (value == void 0) {
-            // @ts-ignore
+            // @ts-expect-error cc.Class.Attr.setClassAttr is not typed
             cc.Class.Attr.setClassAttr(this, "propValue", "visible", false);
             return void 0;
         }
-        // @ts-ignore
+        // @ts-expect-error cc.Class.Attr.setClassAttr is not typed
         cc.Class.Attr.setClassAttr(this, "propValue", "visible", true);
         this._propValue = value;
         return value;
@@ -1290,39 +1408,179 @@ export class StateSelect extends cc.Component {
                 (propData[EnumPropName.Position] as cc.Vec3).set(this.node.position);
             } break;
             case EnumPropName.LabelString: {
-                let label = this.node.getComponent(cc.Label);
+                const label = this.node.getComponent(cc.Label);
                 if (!label) {
                     return;
                 }
                 propData[EnumPropName.LabelString] = label.string;
             } break;
+            case EnumPropName.LabelFontSize: {
+                const label = this.node.getComponent(cc.Label);
+                if (!label) {
+                    return;
+                }
+                propData[EnumPropName.LabelFontSize] = label.fontSize;
+            } break;
+            case EnumPropName.LabelLineHeight: {
+                const label = this.node.getComponent(cc.Label);
+                if (!label) {
+                    return;
+                }
+                propData[EnumPropName.LabelLineHeight] = label.lineHeight;
+            } break;
+            case EnumPropName.LabelSpacingX: {
+                const label = this.node.getComponent(cc.Label);
+                if (!label) {
+                    return;
+                }
+                propData[EnumPropName.LabelSpacingX] = label.spacingX;
+            } break;
+            case EnumPropName.LabelWrapEnable: {
+                const label = this.node.getComponent(cc.Label);
+                if (!label) {
+                    return;
+                }
+                propData[EnumPropName.LabelWrapEnable] = label.enableWrapText;
+            } break;
             case EnumPropName.Font: {
-                let label = this.node.getComponent(cc.Label);
+                const label = this.node.getComponent(cc.Label);
                 if (!label) {
                     return;
                 }
                 propData[EnumPropName.Font] = label.font;
             } break;
             case EnumPropName.LabelOutlineColor: {
-                let labelOutline = this.node.getComponent(cc.LabelOutline);
+                const labelOutline = this.node.getComponent(cc.LabelOutline);
                 if (!labelOutline) {
                     return;
                 }
                 (propData[EnumPropName.LabelOutlineColor] as cc.Color).set(labelOutline.color);
             } break;
             case EnumPropName.SpriteFrame: {
-                let sprite = this.node.getComponent(cc.Sprite);
+                const sprite = this.node.getComponent(cc.Sprite);
                 if (!sprite) {
                     return;
                 }
                 propData[EnumPropName.SpriteFrame] = sprite.spriteFrame;
             } break;
+            case EnumPropName.SpriteFillRange: {
+                const sprite = this.node.getComponent(cc.Sprite);
+                if (!sprite) {
+                    return;
+                }
+                propData[EnumPropName.SpriteFillRange] = sprite.fillRange;
+            } break;
+            case EnumPropName.WidgetEnabled: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetEnabled] = widget.enabled;
+            } break;
+            case EnumPropName.WidgetAlignMode: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetAlignMode] = widget.alignMode;
+            } break;
+            case EnumPropName.WidgetIsAlignTop: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignTop] = widget.isAlignTop;
+            } break;
+            case EnumPropName.WidgetIsAlignBottom: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignBottom] = widget.isAlignBottom;
+            } break;
+            case EnumPropName.WidgetIsAlignLeft: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignLeft] = widget.isAlignLeft;
+            } break;
+            case EnumPropName.WidgetIsAlignRight: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignRight] = widget.isAlignRight;
+            } break;
+            case EnumPropName.WidgetIsAlignHorizontalCenter: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignHorizontalCenter] = widget.isAlignHorizontalCenter;
+            } break;
+            case EnumPropName.WidgetIsAlignVerticalCenter: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetIsAlignVerticalCenter] = widget.isAlignVerticalCenter;
+            } break;
+            case EnumPropName.WidgetTop: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetTop] = widget.top;
+            } break;
+            case EnumPropName.WidgetBottom: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetBottom] = widget.bottom;
+            } break;
+            case EnumPropName.WidgetLeft: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetLeft] = widget.left;
+            } break;
+            case EnumPropName.WidgetRight: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetRight] = widget.right;
+            } break;
+            case EnumPropName.WidgetHorizontalCenter: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetHorizontalCenter] = widget.horizontalCenter;
+            } break;
+            case EnumPropName.WidgetVerticalCenter: {
+                const widget = this.node.getComponent(cc.Widget);
+                if (!widget) {
+                    return;
+                }
+                propData[EnumPropName.WidgetVerticalCenter] = widget.verticalCenter;
+            } break;
             case EnumPropName.EditboxString: {
-                let editbox = this.node.getComponent(cc.EditBox);
+                const editbox = this.node.getComponent(cc.EditBox);
                 if (!editbox) {
                     return;
                 }
                 propData[EnumPropName.EditboxString] = editbox.string;
+            } break;
+            case EnumPropName.RichTextString: {
+                const richText = this.node.getComponent(cc.RichText);
+                if (!richText) {
+                    return;
+                }
+                propData[EnumPropName.RichTextString] = richText.string;
             } break;
             case EnumPropName.Euler: {
                 (propData[EnumPropName.Euler] as cc.Vec3).set(this.node.eulerAngles);
@@ -1343,17 +1601,52 @@ export class StateSelect extends cc.Component {
                 propData[EnumPropName.Opacity] = this.node.opacity;
             } break;
             case EnumPropName.SliderProgress: {
-                let slider = this.node.getComponent(cc.Slider);
+                const slider = this.node.getComponent(cc.Slider);
                 if (!slider) {
                     return;
                 }
                 propData[EnumPropName.SliderProgress] = slider.progress;
+            } break;
+            case EnumPropName.ProgressBarProgress: {
+                const progressBar = this.node.getComponent(cc.ProgressBar);
+                if (!progressBar) {
+                    return;
+                }
+                propData[EnumPropName.ProgressBarProgress] = progressBar.progress;
             } break;
             case EnumPropName.GrayScale: {
                 StateErrorManager.error("GrayScale属性在Cocos Creator 2.x中需要通过材质实现", {
                     component: "StateSelect",
                     method: "setDefaultPorp",
                 });
+            } break;
+            case EnumPropName.ButtonInteractable: {
+                const button = this.node.getComponent(cc.Button);
+                if (!button) {
+                    return;
+                }
+                propData[EnumPropName.ButtonInteractable] = button.interactable;
+            } break;
+            case EnumPropName.ToggleIsChecked: {
+                const toggle = this.node.getComponent(cc.Toggle);
+                if (!toggle) {
+                    return;
+                }
+                propData[EnumPropName.ToggleIsChecked] = toggle.isChecked;
+            } break;
+            case EnumPropName.ScrollViewEnabled: {
+                const scrollView = this.node.getComponent(cc.ScrollView);
+                if (!scrollView) {
+                    return;
+                }
+                propData[EnumPropName.ScrollViewEnabled] = scrollView.enabled;
+            } break;
+            case EnumPropName.MaskEnabled: {
+                const mask = this.node.getComponent(cc.Mask);
+                if (!mask) {
+                    return;
+                }
+                propData[EnumPropName.MaskEnabled] = mask.enabled;
             } break;
         }
 
@@ -1362,15 +1655,13 @@ export class StateSelect extends cc.Component {
         }
     }
 
-
-
     /** 父节点改变，转换已经缓存的位置 */
     private transPosition(oldParent: cc.Node) {
         if (!CC_EDITOR) {
             return;
         }
 
-        let parent = this.node.parent;
+        const parent = this.node.parent;
         if (!parent || !oldParent) {
             return;
         }
@@ -1392,16 +1683,16 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        let pageData = this.getPageData();
+        const pageData = this.getPageData();
 
-        for (let state in pageData) {
-            let propData = pageData[state];
-            let pos = propData[EnumPropName.Position] as cc.Vec3;
+        for (const state in pageData) {
+            const propData = pageData[state];
+            const pos = propData[EnumPropName.Position] as cc.Vec3;
             if (pos) {
                 try {
                     // 在 2.x 中，需要手动计算坐标转换
-                    let worldPos = oldParent.convertToWorldSpaceAR(pos);
-                    let localPos = parent.convertToNodeSpaceAR(worldPos);
+                    const worldPos = oldParent.convertToWorldSpaceAR(pos);
+                    const localPos = parent.convertToNodeSpaceAR(worldPos);
                     pos.set(localPos);
                 }
                 catch (error) {
@@ -1417,7 +1708,7 @@ export class StateSelect extends cc.Component {
 
     /** 同步属性到所有状态 */
     private syncPropToAllStatesInternal(propKey: EnumPropName) {
-        let ctrl = this.getCurrCtrl();
+        const ctrl = this.getCurrCtrl();
         if (!ctrl) {
             StateErrorManager.error("同步属性失败：控制器为空", {
                 component: "StateSelect",
@@ -1441,8 +1732,8 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        let pageData = this.getPageData();
-        let currentStateValue = this.handleValue(propKey); // 获取当前节点的属性值作为默认值
+        const pageData = this.getPageData();
+        const currentStateValue = this.handleValue(propKey); // 获取当前节点的属性值作为默认值
 
         if (currentStateValue === undefined) {
             StateErrorManager.error("同步失败：无法获取当前属性值", {
@@ -1459,7 +1750,7 @@ export class StateSelect extends cc.Component {
             if (pageData[stateIndex] == void 0) {
                 pageData[stateIndex] = {};
             }
-            let statePropData = pageData[stateIndex];
+            const statePropData = pageData[stateIndex];
 
             // 如果该状态还没有这个属性，则添加（使用当前节点的值）
             if (statePropData[propKey] == void 0) {
@@ -1478,7 +1769,7 @@ export class StateSelect extends cc.Component {
         }
 
         // 同时更新默认状态
-        let defaultData = this.getDefaultData();
+        const defaultData = this.getDefaultData();
         if (defaultData[propKey] == void 0) {
             defaultData[propKey] = currentStateValue;
         }
@@ -1497,7 +1788,7 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 同步删除所有状态的指定属性 */
     private syncDeletePropFromAllStates(propKey: EnumPropName) {
-        let ctrl = this.getCurrCtrl();
+        const ctrl = this.getCurrCtrl();
         if (!ctrl) {
             StateErrorManager.error("删除属性失败：控制器为空", {
                 component: "StateSelect",
@@ -1521,13 +1812,13 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        let pageData = this.getPageData();
-        let name = EnumPropName[propKey];
+        const pageData = this.getPageData();
+        const name = EnumPropName[propKey];
         let deletedFromStates = 0;
 
         // 遍历所有状态，删除指定属性
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
-            let statePropData = pageData[stateIndex];
+            const statePropData = pageData[stateIndex];
             if (statePropData) {
                 // 删除属性值
                 if (statePropData[propKey] !== undefined) {
@@ -1536,7 +1827,7 @@ export class StateSelect extends cc.Component {
                 }
 
                 // 删除changedProp记录
-                let $$changedProp$$ = statePropData.$$changedProp$$ || {};
+                const $$changedProp$$ = statePropData.$$changedProp$$ || {};
                 delete $$changedProp$$[name];
 
                 // 如果删除的是当前状态的lastProp，重置为Non
@@ -1547,7 +1838,7 @@ export class StateSelect extends cc.Component {
         }
 
         // 删除默认状态的属性
-        let defaultData = this.getDefaultData();
+        const defaultData = this.getDefaultData();
         delete defaultData[propKey];
 
         StateErrorManager.info("属性删除完成", {
@@ -1564,529 +1855,13 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 简化：固定使用自动同步模式，不再提供选择 */
     private readonly autoSyncEnabled: boolean = true;
-    //#region 属性复选框
-    /** 🔧 新增：可用属性复选框 - Active */
-    @property({
-        displayName: "☑️ 显示/隐藏 (Active)",
-        tooltip: "控制节点的显示和隐藏状态\n\n� 提示：当前选中的属性会在属性值字段中显示",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Active) && this._currentDisplayProp !== EnumPropName.Active;
-        }
-    })
-    public get propActive() {
-        return this.isPropertyControlled(EnumPropName.Active);
-    }
-    public set propActive(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Active, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Active (选中状态) */
-    @property({
-        displayName: "🔸 显示/隐藏 (Active) [当前选中]",
-        tooltip: "控制节点的显示和隐藏状态\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Active) && this._currentDisplayProp === EnumPropName.Active;
-        }
-    })
-    public get propActiveSelected() {
-        return this.isPropertyControlled(EnumPropName.Active);
-    }
-    public set propActiveSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Active, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Position */
-    @property({
-        displayName: "☑️ 位置 (Position)",
-        tooltip: "节点在父节点中的相对位置",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Position) && this._currentDisplayProp !== EnumPropName.Position;
-        }
-    })
-    public get propPosition() {
-        return this.isPropertyControlled(EnumPropName.Position);
-    }
-    public set propPosition(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Position, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Position (选中状态) */
-    @property({
-        displayName: "🔸 位置 (Position) [当前选中]",
-        tooltip: "节点在父节点中的相对位置\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Position) && this._currentDisplayProp === EnumPropName.Position;
-        }
-    })
-    public get propPositionSelected() {
-        return this.isPropertyControlled(EnumPropName.Position);
-    }
-    public set propPositionSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Position, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Scale */
-    @property({
-        displayName: "☑️ 缩放 (Scale)",
-        tooltip: "节点的缩放比例",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Scale) && this._currentDisplayProp !== EnumPropName.Scale;
-        }
-    })
-    public get propScale() {
-        return this.isPropertyControlled(EnumPropName.Scale);
-    }
-    public set propScale(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Scale, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Scale (选中状态) */
-    @property({
-        displayName: "🔸 缩放 (Scale) [当前选中]",
-        tooltip: "节点的缩放比例\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Scale) && this._currentDisplayProp === EnumPropName.Scale;
-        }
-    })
-    public get propScaleSelected() {
-        return this.isPropertyControlled(EnumPropName.Scale);
-    }
-    public set propScaleSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Scale, value);
-        }
-    }
-
-
-    /** 🔧 新增：可用属性复选框 - Color */
-    @property({
-        displayName: "☑️ 颜色 (Color)",
-        tooltip: "节点的颜色",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Color) && this._currentDisplayProp !== EnumPropName.Color;
-        }
-    })
-    public get propColor() {
-        return this.isPropertyControlled(EnumPropName.Color);
-    }
-    public set propColor(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Color, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Color (选中状态) */
-    @property({
-        displayName: "🔸 颜色 (Color) [当前选中]",
-        tooltip: "节点的颜色\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Color) && this._currentDisplayProp === EnumPropName.Color;
-        }
-    })
-    public get propColorSelected() {
-        return this.isPropertyControlled(EnumPropName.Color);
-    }
-    public set propColorSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Color, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Size */
-    @property({
-        displayName: "☑️ 尺寸 (Size)",
-        tooltip: "节点的宽度和高度",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Size) && this._currentDisplayProp !== EnumPropName.Size;
-        }
-    })
-    public get propSize() {
-        return this.isPropertyControlled(EnumPropName.Size);
-    }
-    public set propSize(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Size, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Size (选中状态) */
-
-    @property({
-        displayName: "🔸 尺寸 (Size) [当前选中]",
-        tooltip: "节点的宽度和高度\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Size) && this._currentDisplayProp === EnumPropName.Size;
-        }
-    })
-    public get propSizeSelected() {
-        return this.isPropertyControlled(EnumPropName.Size);
-    }
-    public set propSizeSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Size, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Euler */
-    @property({
-        displayName: "☑️ 旋转 (Euler)",
-        tooltip: "节点的欧拉角旋转",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Euler) && this._currentDisplayProp !== EnumPropName.Euler;
-        }
-    })
-    public get propEuler() {
-        return this.isPropertyControlled(EnumPropName.Euler);
-    }
-    public set propEuler(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Euler, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Euler (选中状态) */
-    @property({
-        displayName: "🔸 旋转 (Euler) [当前选中]",
-        tooltip: "节点的欧拉角旋转\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Euler) && this._currentDisplayProp === EnumPropName.Euler;
-        }
-    })
-    public get propEulerSelected() {
-        return this.isPropertyControlled(EnumPropName.Euler);
-    }
-    public set propEulerSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Euler, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Anchor */
-    @property({
-        displayName: "☑️ 锚点 (Anchor)",
-        tooltip: "节点的锚点位置",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Anchor) && this._currentDisplayProp !== EnumPropName.Anchor;
-        }
-    })
-    public get propAnchor() {
-        return this.isPropertyControlled(EnumPropName.Anchor);
-    }
-    public set propAnchor(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Anchor, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Anchor (选中状态) */
-    @property({
-        displayName: "🔸 锚点 (Anchor) [当前选中]",
-        tooltip: "节点的锚点位置\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Anchor) && this._currentDisplayProp === EnumPropName.Anchor;
-        }
-    })
-    public get propAnchorSelected() {
-        return this.isPropertyControlled(EnumPropName.Anchor);
-    }
-    public set propAnchorSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Anchor, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Opacity */
-    @property({
-        displayName: "☑️ 透明度 (Opacity)",
-        tooltip: "节点的透明度",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Opacity) && this._currentDisplayProp !== EnumPropName.Opacity;
-        }
-    })
-    public get propOpacity() {
-        return this.isPropertyControlled(EnumPropName.Opacity);
-    }
-    public set propOpacity(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Opacity, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Opacity (选中状态) */
-    @property({
-        displayName: "🔸 透明度 (Opacity) [当前选中]",
-        tooltip: "节点的透明度\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Opacity) && this._currentDisplayProp === EnumPropName.Opacity;
-        }
-    })
-    public get propOpacitySelected() {
-        return this.isPropertyControlled(EnumPropName.Opacity);
-    }
-    public set propOpacitySelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Opacity, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - LabelString */
-    @property({
-        displayName: "☑️ 文本内容 (LabelString)",
-        tooltip: "Label组件的文本内容",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.LabelString) && this._currentDisplayProp !== EnumPropName.LabelString;
-        }
-    })
-    public get propLabelString() {
-        return this.isPropertyControlled(EnumPropName.LabelString);
-    }
-    public set propLabelString(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.LabelString, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - LabelString (选中状态) */
-    @property({
-        displayName: "🔸 文本内容 (LabelString) [当前选中]",
-        tooltip: "Label组件的文本内容\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.LabelString) && this._currentDisplayProp === EnumPropName.LabelString;
-        }
-    })
-    public get propLabelStringSelected() {
-        return this.isPropertyControlled(EnumPropName.LabelString);
-    }
-    public set propLabelStringSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.LabelString, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - SpriteFrame */
-    @property({
-        displayName: "☑️ 图片 (SpriteFrame)",
-        tooltip: "Sprite组件的图片资源",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.SpriteFrame) && this._currentDisplayProp !== EnumPropName.SpriteFrame;
-        }
-    })
-    public get propSpriteFrame() {
-        return this.isPropertyControlled(EnumPropName.SpriteFrame);
-    }
-    public set propSpriteFrame(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.SpriteFrame, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - SpriteFrame (选中状态) */
-
-    @property({
-        displayName: "🔸 图片 (SpriteFrame) [当前选中]",
-        tooltip: "Sprite组件的图片资源\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.SpriteFrame) && this._currentDisplayProp === EnumPropName.SpriteFrame;
-        }
-    })
-    public get propSpriteFrameSelected() {
-        return this.isPropertyControlled(EnumPropName.SpriteFrame);
-    }
-    public set propSpriteFrameSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.SpriteFrame, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Font */
-    @property({
-        displayName: "☑️ 字体 (Font)",
-        tooltip: "Label组件的字体资源",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Font) && this._currentDisplayProp !== EnumPropName.Font;
-        }
-    })
-    public get propFont() {
-        return this.isPropertyControlled(EnumPropName.Font);
-    }
-    public set propFont(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Font, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - Font (选中状态) */
-
-    @property({
-        displayName: "🔸 字体 (Font) [当前选中]",
-        tooltip: "Label组件的字体资源\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.Font) && this._currentDisplayProp === EnumPropName.Font;
-        }
-    })
-    public get propFontSelected() {
-        return this.isPropertyControlled(EnumPropName.Font);
-    }
-    public set propFontSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.Font, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - LabelOutlineColor */
-    @property({
-        displayName: "☑️ 描边颜色 (LabelOutlineColor)",
-        tooltip: "Label描边组件的颜色",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.LabelOutlineColor) && this._currentDisplayProp !== EnumPropName.LabelOutlineColor;
-        }
-    })
-    public get propLabelOutlineColor() {
-        return this.isPropertyControlled(EnumPropName.LabelOutlineColor);
-    }
-    public set propLabelOutlineColor(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.LabelOutlineColor, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - LabelOutlineColor (选中状态) */
-
-    @property({
-        displayName: "🔸 描边颜色 (LabelOutlineColor) [当前选中]",
-        tooltip: "Label描边组件的颜色\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.LabelOutlineColor) && this._currentDisplayProp === EnumPropName.LabelOutlineColor;
-        }
-    })
-    public get propLabelOutlineColorSelected() {
-        return this.isPropertyControlled(EnumPropName.LabelOutlineColor);
-    }
-    public set propLabelOutlineColorSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.LabelOutlineColor, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - SliderProgress */
-    @property({
-        displayName: "☑️ 滑动条进度 (SliderProgress)",
-        tooltip: "Slider组件的进度值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.SliderProgress) && this._currentDisplayProp !== EnumPropName.SliderProgress;
-        }
-    })
-    public get propSliderProgress() {
-        return this.isPropertyControlled(EnumPropName.SliderProgress);
-    }
-    public set propSliderProgress(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.SliderProgress, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - SliderProgress (选中状态) */
-    @property({
-        displayName: "🔸 滑动条进度 (SliderProgress) [当前选中]",
-        tooltip: "Slider组件的进度值\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.SliderProgress) && this._currentDisplayProp === EnumPropName.SliderProgress;
-        }
-    })
-    public get propSliderProgressSelected() {
-        return this.isPropertyControlled(EnumPropName.SliderProgress);
-    }
-    public set propSliderProgressSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.SliderProgress, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - EditboxString */
-    @property({
-        displayName: "☑️ 输入框文本 (EditboxString)",
-        tooltip: "EditBox组件的文本内容",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.EditboxString) && this._currentDisplayProp !== EnumPropName.EditboxString;
-        }
-    })
-    public get propEditboxString() {
-        return this.isPropertyControlled(EnumPropName.EditboxString);
-    }
-    public set propEditboxString(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.EditboxString, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - EditboxString (选中状态) */
-    @property({
-        displayName: "🔸 输入框文本 (EditboxString) [当前选中]",
-        tooltip: "EditBox组件的文本内容\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.EditboxString) && this._currentDisplayProp === EnumPropName.EditboxString;
-        }
-    })
-    public get propEditboxStringSelected() {
-        return this.isPropertyControlled(EnumPropName.EditboxString);
-    }
-    public set propEditboxStringSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.EditboxString, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - GrayScale */
-    @property({
-        displayName: "☑️ 灰度效果 (GrayScale)",
-        tooltip: "灰度材质效果",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.GrayScale) && this._currentDisplayProp !== EnumPropName.GrayScale;
-        }
-    })
-    public get propGrayScale() {
-        return this.isPropertyControlled(EnumPropName.GrayScale);
-    }
-    public set propGrayScale(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.GrayScale, value);
-        }
-    }
-
-    /** 🔧 新增：可用属性复选框 - GrayScale (选中状态) */
-    @property({
-        displayName: "🔸 灰度效果 (GrayScale) [当前选中]",
-        tooltip: "灰度材质效果\n\n🔸 当前正在编辑此属性的值",
-        visible: function () {
-            return this.isPropertyAvailable(EnumPropName.GrayScale) && this._currentDisplayProp === EnumPropName.GrayScale;
-        }
-    })
-    public get propGrayScaleSelected() {
-        return this.isPropertyControlled(EnumPropName.GrayScale);
-    }
-    public set propGrayScaleSelected(value: boolean) {
-        if (CC_EDITOR) {
-            this.togglePropertyControl(EnumPropName.GrayScale, value);
-        }
-    }
-
-    //#endregion
 
     // ============== 🔧 新增：简化的属性管理方法 ==============
 
     /** 🔧 新增：获取属性的显示名称 */
     private getPropertyDisplayName(propType: EnumPropName): string {
         const propNames = {
+            [EnumPropName.Non]: "不选择",
             [EnumPropName.Active]: "显示/隐藏",
             [EnumPropName.Position]: "位置",
             [EnumPropName.Scale]: "缩放",
@@ -2101,7 +1876,32 @@ export class StateSelect extends cc.Component {
             [EnumPropName.LabelOutlineColor]: "描边颜色",
             [EnumPropName.SliderProgress]: "滑动条进度",
             [EnumPropName.EditboxString]: "输入框文本",
-            [EnumPropName.GrayScale]: "灰度效果"
+            [EnumPropName.GrayScale]: "灰度效果",
+            [EnumPropName.ButtonInteractable]: "按钮交互",
+            [EnumPropName.ProgressBarProgress]: "进度条进度",
+            [EnumPropName.ToggleIsChecked]: "Toggle选中状态",
+            [EnumPropName.RichTextString]: "富文本内容",
+            [EnumPropName.ScrollViewEnabled]: "滚动视图启用",
+            [EnumPropName.MaskEnabled]: "遮罩启用",
+            [EnumPropName.LabelFontSize]: "文本字号",
+            [EnumPropName.LabelLineHeight]: "文本行高",
+            [EnumPropName.LabelSpacingX]: "文本字距",
+            [EnumPropName.LabelWrapEnable]: "文本自动换行",
+            [EnumPropName.SpriteFillRange]: "精灵填充范围",
+            [EnumPropName.WidgetEnabled]: "Widget 启用",
+            [EnumPropName.WidgetAlignMode]: "Widget 对齐模式",
+            [EnumPropName.WidgetIsAlignTop]: "Widget 顶部对齐",
+            [EnumPropName.WidgetIsAlignBottom]: "Widget 底部对齐",
+            [EnumPropName.WidgetIsAlignLeft]: "Widget 左侧对齐",
+            [EnumPropName.WidgetIsAlignRight]: "Widget 右侧对齐",
+            [EnumPropName.WidgetIsAlignHorizontalCenter]: "Widget 水平居中",
+            [EnumPropName.WidgetIsAlignVerticalCenter]: "Widget 垂直居中",
+            [EnumPropName.WidgetTop]: "Widget Top 边距",
+            [EnumPropName.WidgetBottom]: "Widget Bottom 边距",
+            [EnumPropName.WidgetLeft]: "Widget Left 边距",
+            [EnumPropName.WidgetRight]: "Widget Right 边距",
+            [EnumPropName.WidgetHorizontalCenter]: "Widget 水平偏移",
+            [EnumPropName.WidgetVerticalCenter]: "Widget 垂直偏移",
         };
         return propNames[propType] || EnumPropName[propType];
     }
@@ -2117,7 +1917,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 检查属性是否可用（节点是否支持该属性类型） */
-    private isPropertyAvailable(propType: EnumPropName): boolean {
+    public isPropertyAvailable(propType: EnumPropName): boolean {
         if (!this.node || !this.node.isValid) {
             return false;
         }
@@ -2131,7 +1931,7 @@ export class StateSelect extends cc.Component {
             EnumPropName.Size,
             EnumPropName.Euler,
             EnumPropName.Anchor,
-            EnumPropName.Opacity
+            EnumPropName.Opacity,
         ];
 
         if (nodeBasicProps.includes(propType)) {
@@ -2143,7 +1943,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 架构重构：检查属性是否已被控制（使用新的controlledProps结构） */
-    private isPropertyControlled(propType: EnumPropName): boolean {
+    public isPropertyControlled(propType: EnumPropName): boolean {
         const propData = this.getPropData();
         if (!propData) {
             return false;
@@ -2163,7 +1963,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 切换属性控制状态 */
-    private togglePropertyControl(propType: EnumPropName, enable: boolean) {
+    public togglePropertyControl(propType: EnumPropName, enable: boolean) {
         if (!CC_EDITOR) {
             return;
         }
@@ -2171,7 +1971,7 @@ export class StateSelect extends cc.Component {
         StateErrorManager.debug("切换属性控制状态", {
             component: "StateSelect",
             method: "togglePropertyControl",
-            params: { propType: EnumPropName[propType], enable }
+            params: { propType: EnumPropName[propType], enable },
         });
 
         if (enable) {
@@ -2186,10 +1986,11 @@ export class StateSelect extends cc.Component {
                 method: "togglePropertyControl",
                 params: {
                     propType: EnumPropName[propType],
-                    currentDisplayProp: EnumPropName[this._currentDisplayProp]
-                }
+                    currentDisplayProp: EnumPropName[this._currentDisplayProp],
+                },
             });
-        } else {
+        }
+        else {
             // 🔧 第一步：禁用属性控制
             this.removePropertyControl(propType);
 
@@ -2203,10 +2004,14 @@ export class StateSelect extends cc.Component {
                 method: "togglePropertyControl",
                 params: {
                     propType: EnumPropName[propType],
-                    currentDisplayProp: EnumPropName[this._currentDisplayProp]
-                }
+                    currentDisplayProp: EnumPropName[this._currentDisplayProp],
+                },
             });
         }
+
+        // 嵌套 CCClass 的 setter 触发后，inspector 只刷新子对象区域
+        // 需要强制刷新整个 inspector 以使 propValue 可见性变更生效
+        // this.forceRefreshInspector();
     }
 
     /** 🔧 架构重构：添加属性控制（分离控制状态和数据状态） */
@@ -2216,7 +2021,7 @@ export class StateSelect extends cc.Component {
             StateErrorManager.warn("无法获取属性数据", {
                 component: "StateSelect",
                 method: "addPropertyControl",
-                params: { propType: EnumPropName[propType] }
+                params: { propType: EnumPropName[propType] },
             });
             return;
         }
@@ -2238,7 +2043,7 @@ export class StateSelect extends cc.Component {
                 StateErrorManager.warn("无法获取属性值，跳过数据创建", {
                     component: "StateSelect",
                     method: "addPropertyControl",
-                    params: { propType: propName }
+                    params: { propType: propName },
                 });
                 return;
             }
@@ -2249,7 +2054,7 @@ export class StateSelect extends cc.Component {
             StateErrorManager.debug("创建新的属性数据", {
                 component: "StateSelect",
                 method: "addPropertyControl",
-                params: { propType: propName, value: currentValue }
+                params: { propType: propName, value: currentValue },
             });
         }
 
@@ -2280,8 +2085,8 @@ export class StateSelect extends cc.Component {
             params: {
                 propType: propName,
                 hasData: propData.$$propertyData$$[propType] !== undefined,
-                isControlled: !!propData.$$controlledProps$$[propName]
-            }
+                isControlled: !!propData.$$controlledProps$$[propName],
+            },
         });
     }
 
@@ -2292,7 +2097,7 @@ export class StateSelect extends cc.Component {
             StateErrorManager.warn("无法获取属性数据", {
                 component: "StateSelect",
                 method: "removePropertyControl",
-                params: { propType: EnumPropName[propType] }
+                params: { propType: EnumPropName[propType] },
             });
             return;
         }
@@ -2336,20 +2141,20 @@ export class StateSelect extends cc.Component {
             params: {
                 propType: propName,
                 dataStillExists: propData.$$propertyData$$ && propData.$$propertyData$$[propType] !== undefined,
-                controlRemoved: !propData.$$controlledProps$$ || !propData.$$controlledProps$$[propName]
-            }
+                controlRemoved: !propData.$$controlledProps$$ || !propData.$$controlledProps$$[propName],
+            },
         });
     }
 
     /** 🔧 更新可用属性列表（刷新按钮调用） */
-    private updateAvailableProps() {
+    public updateAvailableProps() {
         if (!CC_EDITOR) {
             return;
         }
 
         StateErrorManager.info("刷新属性列表", {
             component: "StateSelect",
-            method: "updateAvailableProps"
+            method: "updateAvailableProps",
         });
 
         // 强制刷新编辑器界面（简化实现）
@@ -2357,34 +2162,16 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 恢复：强制刷新属性检查器 */
-    private forceRefreshInspector() {
+    public forceRefreshInspector() {
         if (!CC_EDITOR) {
             return;
         }
-
         try {
-            // 尝试多种刷新方式
-            if (typeof Editor !== 'undefined' && Editor.Utils && Editor.Utils.refreshSelectedInspector) {
-                // @ts-ignore
-                Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
-                StateErrorManager.info("属性检查器已刷新（方式1）", {
-                    component: "StateSelect",
-                    method: "forceRefreshInspector",
-                });
-            } else if ((cc as any).engine && (cc as any).engine.repaintInEditMode) {
-                (cc as any).engine.repaintInEditMode();
-                StateErrorManager.info("属性检查器已刷新（方式2）", {
-                    component: "StateSelect",
-                    method: "forceRefreshInspector",
-                });
-            } else {
-                // 备用方案：触发属性变化
-                this.node.emit('inspector-refresh');
-                StateErrorManager.info("属性检查器已刷新（方式3）", {
-                    component: "StateSelect",
-                    method: "forceRefreshInspector",
-                });
-            }
+            Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
+            StateErrorManager.info("属性检查器已刷新", {
+                component: "StateSelect",
+                method: "forceRefreshInspector",
+            });
         }
         catch (error) {
             StateErrorManager.warn("刷新属性检查器失败", {
@@ -2396,7 +2183,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 恢复：手动重新获取控制器 */
-    private manualReloadController() {
+    public manualReloadController() {
         if (!CC_EDITOR) {
             return;
         }
@@ -2404,7 +2191,7 @@ export class StateSelect extends cc.Component {
         StateErrorManager.info("开始手动重新获取控制器", {
             component: "StateSelect",
             method: "manualReloadController",
-            params: { currentCtrlId: this.currCtrlId }
+            params: { currentCtrlId: this.currCtrlId },
         });
 
         try {
@@ -2428,28 +2215,28 @@ export class StateSelect extends cc.Component {
                 params: {
                     newCtrlId: this.currCtrlId,
                     success: !!this.currCtrlId,
-                    propKey: this._propKey ? EnumPropName[this._propKey] : "None"
-                }
+                    propKey: this._propKey ? EnumPropName[this._propKey] : "None",
+                },
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             StateErrorManager.error("控制器重新获取失败", {
                 component: "StateSelect",
                 method: "manualReloadController",
-                params: { error: error.message }
+                params: { error: error.message },
             });
         }
     }
 
     /** 🔧 修复：从内存同步数据（包含复选框状态更新） */
-    private syncDataFromMemory() {
+    public syncDataFromMemory() {
         if (!CC_EDITOR) {
             return;
         }
 
         StateErrorManager.info("开始从内存同步数据", {
             component: "StateSelect",
-            method: "syncDataFromMemory"
+            method: "syncDataFromMemory",
         });
 
         try {
@@ -2458,7 +2245,7 @@ export class StateSelect extends cc.Component {
             if (!propData) {
                 StateErrorManager.warn("无法获取属性数据", {
                     component: "StateSelect",
-                    method: "syncDataFromMemory"
+                    method: "syncDataFromMemory",
                 });
                 return;
             }
@@ -2479,7 +2266,7 @@ export class StateSelect extends cc.Component {
             const migratedProps: string[] = [];
             for (const key in propData) {
                 // 跳过特殊键
-                if (key.startsWith('$$')) {
+                if (key.startsWith("$$")) {
                     continue;
                 }
 
@@ -2497,7 +2284,7 @@ export class StateSelect extends cc.Component {
                         StateErrorManager.debug("迁移属性数据到新结构", {
                             component: "StateSelect",
                             method: "syncDataFromMemory",
-                            params: { propName, propType, propValue }
+                            params: { propName, propType, propValue },
                         });
                     }
                 }
@@ -2549,7 +2336,7 @@ export class StateSelect extends cc.Component {
 
             // 🔧 修复：如果有上次选择的属性，恢复选择并更新界面标识
             const lastProp = propData.$$lastProp$$;
-            if (lastProp && lastProp !== EnumPropName.Non) {
+            if (lastProp) {
                 this._propKey = lastProp;
                 this._propValue = propData[lastProp];
 
@@ -2564,10 +2351,11 @@ export class StateSelect extends cc.Component {
                     method: "syncDataFromMemory",
                     params: {
                         lastProp: EnumPropName[lastProp],
-                        currentDisplayProp: EnumPropName[this._currentDisplayProp]
-                    }
+                        currentDisplayProp: EnumPropName[this._currentDisplayProp],
+                    },
                 });
-            } else {
+            }
+            else {
                 // 🔧 如果没有上次选择的属性，清空界面标识
                 this._currentDisplayProp = EnumPropName.Non;
 
@@ -2584,8 +2372,8 @@ export class StateSelect extends cc.Component {
                 params: {
                     changedPropCount: syncedProps.length,
                     syncedProps: syncedProps,
-                    currentPropKey: this._propKey ? EnumPropName[this._propKey] : "None"
-                }
+                    currentPropKey: this._propKey ? EnumPropName[this._propKey] : "None",
+                },
             });
 
             // 🔧 新增：延迟再次刷新，确保界面完全更新
@@ -2594,22 +2382,22 @@ export class StateSelect extends cc.Component {
                     this.forceRefreshInspector();
                     StateErrorManager.debug("延迟刷新完成", {
                         component: "StateSelect",
-                        method: "syncDataFromMemory"
+                        method: "syncDataFromMemory",
                     });
                 }
             }, 100);
-
-        } catch (error) {
+        }
+        catch (error) {
             StateErrorManager.error("数据同步失败", {
                 component: "StateSelect",
                 method: "syncDataFromMemory",
-                params: { error: error.message }
+                params: { error: error.message },
             });
         }
     }
 
     /** 🔧 修复：删除属性（带确认对话框，修复序列化问题） */
-    private deletePropertyWithConfirmation() {
+    public deletePropertyWithConfirmation() {
         if (!CC_EDITOR) {
             return;
         }
@@ -2619,7 +2407,7 @@ export class StateSelect extends cc.Component {
             StateErrorManager.userFriendlyError(
                 "没有选中的属性",
                 "请先选择要删除的属性",
-                { component: "StateSelect", method: "deletePropertyWithConfirmation" }
+                { component: "StateSelect", method: "deletePropertyWithConfirmation" },
             );
             return;
         }
@@ -2631,15 +2419,15 @@ export class StateSelect extends cc.Component {
         // 🔧 优化：简化Editor.Dialog调用，静默降级处理
         const useEditorDialog = () => {
             try {
-                if (typeof Editor !== 'undefined' && Editor.Dialog && Editor.Dialog.messageBox) {
+                if (typeof Editor !== "undefined" && Editor.Dialog && Editor.Dialog.messageBox) {
                     // 🔧 修复：使用简化的参数，避免传递复杂对象
                     const dialogOptions = {
-                        type: 'warning',
-                        title: '确认删除属性',
+                        type: "warning",
+                        title: "确认删除属性",
                         message: `确定要删除属性 "${propName}" 吗？\n\n此操作将：\n• 从所有状态中删除该属性数据\n• 删除默认属性值\n• 无法撤销`,
-                        buttons: ['取消', '确认删除'],
+                        buttons: ["取消", "确认删除"],
                         defaultId: 0,
-                        cancelId: 0
+                        cancelId: 0,
                     };
 
                     // 🔧 修复：使用箭头函数并捕获局部变量，避免this引用
@@ -2649,12 +2437,12 @@ export class StateSelect extends cc.Component {
                         }
                     };
 
-                    // @ts-ignore
                     Editor.Dialog.messageBox(dialogOptions, handleResponse);
                     return true;
                 }
                 return false;
-            } catch (error) {
+            }
+            catch (error) {
                 // 🔧 优化：静默处理Editor.Dialog失败，不显示错误日志
                 // 只在开发模式下记录调试信息
                 if (CC_DEV) {
@@ -2663,8 +2451,8 @@ export class StateSelect extends cc.Component {
                         method: "deletePropertyWithConfirmation",
                         params: {
                             reason: error.message,
-                            propName: propName
-                        }
+                            propName: propName,
+                        },
                     });
                 }
                 return false;
@@ -2679,7 +2467,8 @@ export class StateSelect extends cc.Component {
                     this.performPropertyDeletion(currentPropKey);
                 }
                 return true;
-            } catch (error) {
+            }
+            catch (error) {
                 // 🔧 优化：confirm对话框失败是极少见的情况，静默处理
                 if (CC_DEV) {
                     StateErrorManager.debug("确认对话框调用失败", {
@@ -2687,8 +2476,8 @@ export class StateSelect extends cc.Component {
                         method: "deletePropertyWithConfirmation",
                         params: {
                             reason: error.message,
-                            propName: propName
-                        }
+                            propName: propName,
+                        },
                     });
                 }
                 return false;
@@ -2703,7 +2492,7 @@ export class StateSelect extends cc.Component {
                 StateErrorManager.warn("无法显示任何确认对话框，删除操作已取消", {
                     component: "StateSelect",
                     method: "deletePropertyWithConfirmation",
-                    params: { propName: propName }
+                    params: { propName: propName },
                 });
             }
         }
@@ -2778,15 +2567,15 @@ export class StateSelect extends cc.Component {
                     message: "属性及其所有数据已从所有状态中彻底删除",
                     deletedFromControlledProps: true,
                     deletedFromPropertyData: true,
-                    deletedFromAllStates: true
-                }
+                    deletedFromAllStates: true,
+                },
             });
-
-        } catch (error) {
+        }
+        catch (error) {
             StateErrorManager.userFriendlyError(
                 "属性删除失败",
                 `删除属性 "${propName}" 时发生错误：${error.message}`,
-                { component: "StateSelect", method: "performPropertyDeletion" }
+                { component: "StateSelect", method: "performPropertyDeletion" },
             );
         }
     }
