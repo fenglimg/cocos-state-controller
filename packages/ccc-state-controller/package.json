@@ -1,6 +1,6 @@
 {
   "name": "ccc-state-controller",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Cocos Creator 状态控制器安装工具",
   "author": "fenglimg",
   "main": "main.js",
@@ -10,6 +10,12 @@
     },
     "i18n:MAIN_MENU.package.title/ccc-state-controller/install": {
       "message": "ccc-state-controller:install"
+    },
+    "i18n:MAIN_MENU.package.title/ccc-state-controller/update": {
+      "message": "ccc-state-controller:update"
+    },
+    "i18n:MAIN_MENU.package.title/ccc-state-controller/check-update": {
+      "message": "ccc-state-controller:check-update"
     }
   },
   "panel": {
@@ -19,7 +25,5 @@
     "width": 400,
     "height": 300
   },
-  "dependencies": {
-    "axios": "^1.6.0"
-  }
+  "dependencies": {}
 }
