@@ -1,0 +1,28 @@
+{
+  "dimension": "specs",
+  "entries": [
+    {
+      "title": "coding-conventions",
+      "file": ".ccw/specs/coding-conventions.md",
+      "dimension": "specs",
+      "category": "general",
+      "keywords": [],
+      "readMode": "optional",
+      "priority": "medium",
+      "scope": "project",
+      "contentLength": 1810
+    },
+    {
+      "title": "project-structure",
+      "file": ".ccw/specs/project-structure.md",
+      "dimension": "specs",
+      "category": "general",
+      "keywords": [],
+      "readMode": "optional",
+      "priority": "medium",
+      "scope": "project",
+      "contentLength": 1345
+    }
+  ],
+  "built_at": "2026-03-03T07:17:14.193Z"
+}
