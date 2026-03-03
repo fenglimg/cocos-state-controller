@@ -1,0 +1,34 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "node"],
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "forceConsistentCasingInFileNames": false,
+    "baseUrl": ".",
+    "paths": {
+      "assets/*": ["../assets/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.d.ts",
+    "../assets/**/*.ts",
+    "../assets/**/*.d.ts",
+    "../types/**/*.d.ts",
+    "../assets/Proto/**/*.d.ts",
+    "../wepie-proto-static.d.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "../library",
+    "../local",
+    "../temp",
+    "../build",
+    "../settings",
+    "../packages"
+  ]
+}
