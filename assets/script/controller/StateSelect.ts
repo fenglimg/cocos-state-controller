@@ -375,6 +375,9 @@ export class StateSelect extends cc.Component {
         this.widgetProps.owner = this;
         this.toolsProps.owner = this;
 
+        // 🔧 IMPL-001.6: 通知控制器缓存失效
+        this.notifyControllerCacheDirty();
+
         StateErrorManager.debug("开始StateSelect预加载", {
             component: "StateSelect",
             method: "__preload",
@@ -455,6 +458,9 @@ export class StateSelect extends cc.Component {
             this.parentCheckInterval = null;
         }
 
+        // 🔧 IMPL-001.6: 销毁时通知控制器缓存失效
+        this.notifyControllerCacheDirty();
+
         if (this.node && this.node.isValid) {
             this.node.off("active-in-hierarchy-changed", this.activeChanged, this);
             this.node.off("position-changed", this.positionChanged, this);
@@ -464,6 +470,24 @@ export class StateSelect extends cc.Component {
             this.node.off("anchor-changed", this.anchorChanged, this);
             this.node.off("color-changed", this.colorChanged, this);
             this.node.off("spriteframe-changed", this.spriteFrameChanged, this);
+        }
+    }
+
+    // ================== 🔧 IMPL-001.6: 缓存失效通知 ==================
+
+    /**
+     * 🔧 通知当前控制器缓存失效
+     * 当StateSelect组件创建/销毁/移动时调用
+     */
+    private notifyControllerCacheDirty(): void {
+        const ctrl = this.getCurrCtrl();
+        if (ctrl && ctrl.node && ctrl.node.isValid) {
+            ctrl.markCacheDirty();
+            StateErrorManager.debug("已通知控制器缓存失效", {
+                component: "StateSelect",
+                method: "notifyControllerCacheDirty",
+                params: { ctrlName: ctrl.ctrlName },
+            });
         }
     }
 

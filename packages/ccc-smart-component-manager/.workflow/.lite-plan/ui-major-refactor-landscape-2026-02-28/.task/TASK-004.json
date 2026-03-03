@@ -1,0 +1,127 @@
+{
+  "id": "TASK-004",
+  "title": "Update i18n keys + final integration and verification",
+  "description": "Update i18n/zh.js with any new or modified translation keys needed for the compact UI (settings page back button label, compact empty state text, etc.). Then perform final integration verification: ensure all 4 previous tasks work together, all contracts preserved, panel renders correctly at 300px and 450px widths. Fix any integration issues discovered.",
+  "type": "refactor",
+  "priority": "high",
+  "effort": "small",
+  "action": "Update",
+  "scope": ["i18n/zh.js", "panel/index.js"],
+  "focus_paths": ["i18n/zh.js", "panel/index.js"],
+  "depends_on": ["TASK-003"],
+  "convergence": {
+    "criteria": [
+      "All t() calls in panel/index.js resolve to valid i18n keys in zh.js",
+      "New keys added: SETTINGS.BACK_BUTTON or equivalent for back navigation label",
+      "Any removed UI elements have their unused i18n keys cleaned up or marked",
+      "Panel opens without console errors in Cocos Creator editor",
+      "Complete user flow works: search -> view results -> add component -> delete component -> settings page -> return",
+      "Panel renders correctly at 300px width (minimum usable)",
+      "Panel renders correctly at 450px width (default)",
+      "Panel renders correctly at 120px height (default)",
+      "All 17 $ element bindings resolve",
+      "All 13 IPC message handlers respond correctly",
+      "All 7 keyboard shortcuts functional"
+    ],
+    "verification": "Open panel in Cocos Creator, resize to 300px width / 120px height, execute complete user flow. Check console for errors or warnings.",
+    "definition_of_done": "The refactored panel is fully functional with compact IDE design, all i18n keys correct, all contracts preserved, no regressions."
+  },
+  "files": [
+    {
+      "path": "i18n/zh.js",
+      "action": "modify",
+      "target": "Translation keys object",
+      "changes": [
+        "Add SETTINGS.BACK or SETTINGS.BACK_BUTTON key for settings page back navigation",
+        "Review PANEL.SEARCH_PLACEHOLDER for compact empty state text",
+        "Add any new ARIA label keys needed for compact layout",
+        "Remove or mark deprecated keys from old modal pattern if any"
+      ],
+      "conflict_risk": "low"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "Various t() call sites",
+      "changes": [
+        "Update t() key references if any keys were renamed",
+        "Fix any integration issues found during testing",
+        "Ensure all dynamic content renders with correct i18n strings"
+      ],
+      "conflict_risk": "low"
+    }
+  ],
+  "implementation": [
+    {
+      "step": "1",
+      "description": "Audit and update i18n keys",
+      "actions": [
+        "Grep all t('...') calls in panel/index.js to collect required keys",
+        "Compare with i18n/zh.js exports to find missing keys",
+        "Add new keys for settings back button, any new UI labels",
+        "Mark deprecated keys (from modal pattern) with comment"
+      ]
+    },
+    {
+      "step": "2",
+      "description": "Integration testing and fixes",
+      "actions": [
+        "Open panel in Cocos Creator editor",
+        "Test at 300px width, 120px height",
+        "Test at 450px width, 120px height",
+        "Execute full user flow: search, add, delete, settings, shortcuts",
+        "Check console for errors",
+        "Fix any visual or functional issues found"
+      ]
+    },
+    {
+      "step": "3",
+      "description": "Final contract verification",
+      "actions": [
+        "Verify 17 $ bindings: log this.$btn through this.$settingsContent in ready()",
+        "Verify IPC: trigger each of the 13 message handlers",
+        "Verify keyboard shortcuts: CmdOrCtrl+F, Escape, Enter, A, D, Enter/Space on result, Escape in settings",
+        "Verify DataManager: spot-check key API calls (isFavorite, getAutoMountEnabled, etc.)"
+      ]
+    }
+  ],
+  "reference": {
+    "pattern": "i18n/zh.js key organization: MAIN_MENU, PANEL, ADVANCED_PANEL, SEARCH, SETTINGS, ARIA, COMMON sections",
+    "files": ["i18n/zh.js", "i18n-helper.js", "panel/index.js"],
+    "examples": "Keys follow dotted path convention: t('SETTINGS.FAVORITES.TITLE'), t('PANEL.SEARCH_PLACEHOLDER')"
+  },
+  "rationale": {
+    "chosen_approach": "Final integration task after all CSS/HTML/JS changes to catch cross-cutting issues and ensure i18n completeness.",
+    "alternatives_considered": [
+      "Update i18n in each previous task (splits responsibility, harder to track completeness)",
+      "Skip i18n review (risky - missing keys cause visible errors)"
+    ],
+    "decision_factors": ["Single point of i18n verification", "Integration testing after all changes", "Clean final state"],
+    "tradeoffs": "This task depends on all others completing first; cannot parallelize"
+  },
+  "test": {
+    "manual_checks": [
+      "No console errors on panel open",
+      "All visible text is properly translated (no raw key paths shown)",
+      "Settings page shows all section titles in Chinese",
+      "Empty state shows localized placeholder text",
+      "Panel resizes gracefully from 300px to 450px width"
+    ],
+    "success_metrics": [
+      "Zero missing i18n key warnings in console",
+      "All 17 $ bindings non-null",
+      "Complete user flow executes without errors",
+      "Panel usable at 300x120px minimum dimensions"
+    ]
+  },
+  "cli_execution": {
+    "id": "ui-major-refactor-landscape-2026-02-28-TASK-004",
+    "strategy": "resume",
+    "resume_from": "ui-major-refactor-landscape-2026-02-28-TASK-003"
+  },
+  "commit": {
+    "type": "refactor",
+    "scope": "panel-i18n",
+    "message_template": "refactor(panel): update i18n keys and verify full integration"
+  }
+}

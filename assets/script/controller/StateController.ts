@@ -48,6 +48,19 @@ export class StateController extends cc.Component {
     /** 是否初始 ,假设编辑器默认状态是2，代码里面正好第一次状态也是2，会导致selecteindex那里不刷新状态。 */
     private isInit: boolean = true;
 
+    // ================== 🔧 IMPL-001: BFS缓存优化 ==================
+    /**
+     * 🎯 缓存优化说明：
+     * - _stateSelectCache: 缓存当前控制器直接控制的所有StateSelect组件
+     * - _cacheDirty: 缓存脏标记，当节点结构变化时设为true
+     * - 使用缓存后，状态切换从O(n)遍历优化为O(1)查找
+     */
+    /** 🔧 缓存：存储直接控制的StateSelect组件 */
+    private _stateSelectCache: StateSelect[] = null;
+
+    /** 🔧 缓存脏标记：true表示需要重建缓存 */
+    private _cacheDirty: boolean = true;
+
     /** 控制器名字 */
     @property(cc.String)
     private _ctrlName: string = "";
@@ -178,6 +191,8 @@ export class StateController extends cc.Component {
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {
                 this.updateState(EnumUpdataType.Prop);
+                // 🔧 IMPL-002.1: 触发selectedPage变更通知
+                this._emitSelectedPageChanged();
             }
 
             this.isChanging = false;
@@ -644,6 +659,13 @@ export class StateController extends cc.Component {
 
     /** 选择的状态名字 */
     public get selectedPage(): string {
+        // 🔧 IMPL-002.4: 添加调试日志
+        StateErrorManager.debug("获取selectedPage", {
+            component: "StateController",
+            method: "selectedPage.getter",
+            params: { selectedIndex: this._selectedIndex, statesCount: this._states.length },
+        });
+
         if (this._selectedIndex == -1 || this._selectedIndex >= this._states.length)
             return null;
         else {
@@ -662,6 +684,53 @@ export class StateController extends cc.Component {
                 return null;
             }
         }
+    }
+
+    // ================== 🔧 IMPL-002: selectedPage修复 ==================
+
+    /**
+     * 🔧 IMPL-002.2: 触发selectedPage变更通知
+     * 在编辑器环境下触发属性检查器刷新
+     */
+    private _emitSelectedPageChanged(): void {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        StateErrorManager.debug("触发selectedPage变更通知", {
+            component: "StateController",
+            method: "_emitSelectedPageChanged",
+            params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
+        });
+
+        // 触发编辑器刷新（延迟一帧确保数据已更新）
+        setTimeout(() => {
+            if (this.node && this.node.isValid) {
+                this.forceRefreshInspector();
+            }
+        }, 0);
+    }
+
+    /**
+     * 🔧 IMPL-002.3: 公共方法 - 手动刷新selectedPage显示
+     * 供外部在需要时手动调用
+     */
+    public refreshSelectedPage(): void {
+        if (!CC_EDITOR) {
+            StateErrorManager.warn("refreshSelectedPage仅在编辑器环境可用", {
+                component: "StateController",
+                method: "refreshSelectedPage",
+            });
+            return;
+        }
+
+        StateErrorManager.info("手动刷新selectedPage", {
+            component: "StateController",
+            method: "refreshSelectedPage",
+            params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
+        });
+
+        this._emitSelectedPageChanged();
     }
 
     public set selectedPage(val: string) {
@@ -736,83 +805,115 @@ export class StateController extends cc.Component {
         return defaultName;
     }
 
-    /** 🔧 核心方法：状态更新通知机制 - 将状态变化通知给所有相关的StateSelect组件 */
-    private updateState(type: EnumUpdataType, value?: unknown) {
-        /**
-         * 🔧 递归子节点更新函数：使用广度优先搜索遍历整个节点树
-         * 关键优化点：
-         * 1. 队列替代递归，避免深度递归导致的栈溢出
-         * 2. 处理节点去重，防止重复处理
-         * 3. 智能跳过有子控制器的节点，避免跨控制器污染
-         */
-        const updateChild = (rootNode: cc.Node) => {
-            // 🔧 使用队列实现广度优先搜索，性能更好且避免递归深度问题
-            const nodeQueue: cc.Node[] = [rootNode];
-            const processedNodes = new Set<cc.Node>(); // 防止重复处理
+    // ================== 🔧 IMPL-001: BFS缓存优化方法 ==================
 
-            while (nodeQueue.length > 0) {
-                const parent = nodeQueue.shift();
+    /**
+     * 🔧 重建StateSelect缓存
+     * 使用getComponentsInChildren一次性获取所有StateSelect，然后过滤出直接控制的组件
+     */
+    private rebuildStateSelectCache(): void {
+        if (!this._cacheDirty && this._stateSelectCache !== null) {
+            return; // 缓存有效，无需重建
+        }
 
-                // 🔧 安全检查：确保节点有效且未被处理过
-                if (!parent || !parent.children || processedNodes.has(parent)) {
-                    continue;
-                }
-                processedNodes.add(parent);
+        StateErrorManager.debug("开始重建StateSelect缓存", {
+            component: "StateController",
+            method: "rebuildStateSelectCache",
+            params: { ctrlName: this._ctrlName },
+        });
 
-                const children = parent.children;
-                const len = children.length;
+        const allStateSelects = this.node.getComponentsInChildren(StateSelect);
+        this._stateSelectCache = allStateSelects.filter(ss => this.isDirectlyControlled(ss.node));
 
-                // 🔧 遍历所有子节点，寻找StateSelect组件
-                for (let index = 0; index < len; index++) {
-                    const child = children[index];
+        this._cacheDirty = false;
 
-                    const childStateController = child.getComponent(StateController);
-                    const stateSelect = child.getComponent(StateSelect);
+        StateErrorManager.info("StateSelect缓存重建完成", {
+            component: "StateController",
+            method: "rebuildStateSelectCache",
+            params: { cachedCount: this._stateSelectCache.length },
+        });
+    }
 
-                    // 🔧 找到StateSelect组件，根据更新类型执行相应操作
-                    if (stateSelect) {
-                        if (type == EnumUpdataType.State) {
-                            // 🔧 状态切换：通知StateSelect组件状态已改变
-                            stateSelect.updateState(this);
-                        }
-                        else if (type == EnumUpdataType.Name) {
-                            // 🔧 名称更新：通知StateSelect组件控制器名称已更改
-                            stateSelect.updateCtrlName(this.node);
-                        }
-                        else if (type == EnumUpdataType.SelPage) {
-                            // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
-                            stateSelect.updateCtrlPage(this, value as number);
-                        }
-                        else if (type == EnumUpdataType.Delete) {
-                            // 🔧 删除通知：通知StateSelect组件控制器即将被删除
-                            stateSelect.updateDelete(this);
-                        }
-                        else if (type == EnumUpdataType.Init) {
-                            // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
-                            stateSelect.updatePreLoad(this);
-                        }
-                        else if (type == EnumUpdataType.Prop) {
-                            // 🔧 属性更新：通知StateSelect组件属性已更改
-                            stateSelect.updateProp(this);
-                        }
-                        else if (type == EnumUpdataType.Move) {
-                            // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
-                            // @ts-expect-error 允许使用该方法
-                            stateSelect.updateStateMove(this, value);
-                        }
-                    }
+    /**
+     * 🔧 检查节点是否被当前控制器直接控制
+     * 直接控制 = 节点与控制器之间没有其他StateController
+     */
+    private isDirectlyControlled(targetNode: cc.Node): boolean {
+        let current: cc.Node = targetNode;
 
-                    // 🔧 智能遍历策略：如果子节点没有StateController且有子节点，则继续遍历
-                    // 这样可以避免跨控制器边界的状态污染
-                    if (!childStateController && child.children && child.children.length > 0) {
-                        nodeQueue.push(child);
-                    }
+        while (current && current !== this.node) {
+            const parent = current.parent;
+            if (!parent) break;
+
+            // 如果父节点不是当前控制器节点，检查父节点上是否有其他StateController
+            if (parent !== this.node) {
+                const parentController = parent.getComponent(StateController);
+                if (parentController && parentController !== this) {
+                    // 发现了中间控制器，该节点不是直接控制的
+                    return false;
                 }
             }
-        };
 
-        // 🔧 从当前控制器节点开始更新所有相关的StateSelect组件
-        updateChild(this.node);
+            current = parent;
+        }
+
+        return current === this.node;
+    }
+
+    /**
+     * 🔧 公共方法：标记缓存为脏，需要重建
+     * 当节点增删或StateSelect组件增删时调用
+     */
+    public markCacheDirty(): void {
+        this._cacheDirty = true;
+        StateErrorManager.debug("缓存已标记为脏", {
+            component: "StateController",
+            method: "markCacheDirty",
+            params: { ctrlName: this._ctrlName },
+        });
+    }
+
+    /** 🔧 核心方法：状态更新通知机制 - 使用缓存优化 (IMPL-001) */
+    private updateState(type: EnumUpdataType, value?: unknown) {
+        // 🔧 IMPL-001: 使用缓存替代BFS遍历
+        this.rebuildStateSelectCache();
+
+        // 🔧 直接遍历缓存的StateSelect组件
+        for (const stateSelect of this._stateSelectCache) {
+            if (!stateSelect || !stateSelect.node || !stateSelect.node.active) {
+                continue;
+            }
+
+            if (type == EnumUpdataType.State) {
+                // 🔧 状态切换：通知StateSelect组件状态已改变
+                stateSelect.updateState(this);
+            }
+            else if (type == EnumUpdataType.Name) {
+                // 🔧 名称更新：通知StateSelect组件控制器名称已更改
+                stateSelect.updateCtrlName(this.node);
+            }
+            else if (type == EnumUpdataType.SelPage) {
+                // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
+                stateSelect.updateCtrlPage(this, value as number);
+            }
+            else if (type == EnumUpdataType.Delete) {
+                // 🔧 删除通知：通知StateSelect组件控制器即将被删除
+                stateSelect.updateDelete(this);
+            }
+            else if (type == EnumUpdataType.Init) {
+                // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
+                stateSelect.updatePreLoad(this);
+            }
+            else if (type == EnumUpdataType.Prop) {
+                // 🔧 属性更新：通知StateSelect组件属性已更改
+                stateSelect.updateProp(this);
+            }
+            else if (type == EnumUpdataType.Move) {
+                // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
+                // @ts-expect-error 允许使用该方法
+                stateSelect.updateStateMove(this, value);
+            }
+        }
     }
 
     // ================== 🔧 刷新优化功能使用说明 ==================

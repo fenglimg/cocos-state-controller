@@ -1,0 +1,112 @@
+{
+  "project_structure": "Cocos Creator editor plugin with 4 layers: main.js (entry/IPC routing), panel/index.js (UI via Editor.Panel.extend), scene-accessor.js (scene-script with runtime access to cc.* APIs), data-manager.js (singleton persistence). Communication flows: Panel <-> Scene via Editor.Scene.callSceneScript + Editor.Ipc.sendToPanel callbacks. Panel <-> Main via package.json messages. DataManager notifies Panel via Editor.Ipc.sendToPanel for data changes.",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Primary UI file containing ALL $ element bindings (13 entries mapping to DOM IDs), the HTML template with required element IDs, keyboard shortcut handlers (global keydown for CmdOrCtrl+F, Escape, A/D component move), Editor.Scene.callSceneScript IPC calls (9 distinct calls), and all panel message handlers (10 message types). This is the main refactor target.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "$", "messages", "setupGlobalKeyboardShortcuts", "setupComponentMoveKeyboard", "onInput2", "addCom", "deleteComponent", "refreshCurComs", "openSettingsModal"]
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.95,
+      "rationale": "Scene-script containing all IPC endpoint implementations (add-component, del-component, del-all-components, list-current-components, input-query, move-component, get-component-indices, get-node-components, execute-auto-mount, execute-auto-mount-component, get-node-names). These function names are the IPC contract with panel/index.js via Editor.Scene.callSceneScript.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["add-component", "del-component", "del-all-components", "list-current-components", "input-query", "move-component", "get-component-indices", "get-node-components", "execute-auto-mount", "execute-auto-mount-component", "get-node-names", "ComponentOption", "InputMatch"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.9,
+      "rationale": "Singleton DataManager whose public API is called from both panel/index.js and scene-accessor.js. The getter/setter methods (getAutoMountEnabled, getAutoMountConfig, getShortcutSettings, getFocusSearchInputShortcut, setFocusSearchInputShortcut, getConfirmationSettings, getDeleteComponentConfirm, getFavoriteToggleConfirm, isFavorite, addToFavorites, removeFromFavorites, recordUsage, getUsageCount, getWeightBonus, getDisplayName, getLogLevel, setLogLevel, getStats, clearUsageStats, clearFavorites) form a stable API contract.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["DataManager", "getAutoMountEnabled", "getAutoMountConfig", "getShortcutSettings", "getFocusSearchInputShortcut", "setFocusSearchInputShortcut", "getConfirmationSettings", "isFavorite", "addToFavorites", "removeFromFavorites", "recordUsage", "getUsageCount", "getWeightBonus", "getDisplayName", "notifyDataUpdated", "getStats", "clearUsageStats", "clearFavorites"]
+    },
+    {
+      "path": "main.js",
+      "relevance": 0.7,
+      "rationale": "Plugin entry point defining main-menu IPC messages (ccc-smart-component-manager:open, ccc-smart-component-manager:close) and Editor.Panel.open/close calls. These message names are referenced in package.json main-menu config.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["open", "close", "Editor.Panel.open", "Editor.Panel.close"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.85,
+      "rationale": "Defines the plugin registration contract: panel.main path, panel.type='dockable', panel.engineSupport=true, scene-script path, main-menu message names, panel dimensions (width:450, height:120, min-height:60). Changing panel entry path or removing engineSupport would break the plugin.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "scene-script", "main-menu", "engineSupport"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.6,
+      "rationale": "SearchEngine singleton called from scene-accessor.js input-query handler. Its API (searchComponents, getFavoriteComponents, highlightMatch) is consumed indirectly. The return format (origin, displayName, score, type, isFavorite, isFrequent, usageCount) is the data contract for search results rendered in panel.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["SearchEngine", "searchComponents", "getFavoriteComponents", "calculateMatchScore"]
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": 0.5,
+      "rationale": "PropertyMounter class instantiated in scene-accessor.js performAutoMount(). Its API (autoMountProperties, formatMountResultLog) is called during component addition. Not directly UI-related but its mount result format is sent back to panel via IPC.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["PropertyMounter", "autoMountProperties", "formatMountResultLog", "parseComponentProperties"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.65,
+      "rationale": "Auto-docking script that programmatically docks the panel to the inspector tab using internal Cocos Creator renderer APIs (dockUtil, dropMgr, panelMgr). References panel ID 'add_component' and uses panelMgr.focus('inspector'). Must be preserved as-is during refactor.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr", "dropTab"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.5,
+      "rationale": "Provides t() function used extensively in panel/index.js template for all user-facing strings, ARIA labels, and settings UI text. The t() key paths are a contract that must be preserved.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["t", "I18nHelper", "setLanguage"]
+    }
+  ],
+  "patterns": "IPC Communication Pattern: Panel sends requests via Editor.Scene.callSceneScript('ccc-smart-component-manager', '<method>', data, callback). Scene-accessor processes in cc.* runtime context, then responds via Editor.Ipc.sendToPanel('ccc-smart-component-manager', 'ccc-smart-component-manager:<response-event>', data). Panel listens in messages:{} object.\n\nUI Pattern: Editor.Panel.extend({style, template, $, ready(), messages}) is the Cocos Creator panel registration API. The $ map auto-binds DOM elements by ID selector to this.$<name> properties. Template is an inline HTML string with embedded CSS.\n\nData Flow: User interaction -> panel method -> Editor.Scene.callSceneScript -> scene-accessor function -> Editor.Ipc.sendToPanel -> panel message handler -> DOM update.",
+  "dependencies": "Internal module graph: panel/index.js imports {data-manager, logger, i18n-helper}. scene-accessor.js imports {search-engine, data-manager, logger, property-mounter}. search-engine.js imports {data-manager, logger}. property-mounter.js imports {logger}. data-manager.js imports {logger}. All imports use relative require().\n\nExternal dependencies: Cocos Creator Editor API (Editor.Panel, Editor.Scene, Editor.Selection, Editor.Ipc), Cocos Creator runtime API (cc.js, cc.Component, cc.Node, cc.director, cc.Class.Attr), Node.js fs/path modules.",
+  "integration_points": "=== IPC MESSAGE CONTRACTS (MUST NOT CHANGE) ===\n\n--- Panel -> Scene (Editor.Scene.callSceneScript) ---\n1. 'input-query' : sends {comName:string} -> triggers res-input-query response\n2. 'add-component' : sends comName:string -> triggers res-add-component response + scene:set-dirty\n3. 'del-component' : sends {comName, nodeUuids} -> triggers res-del-component response\n4. 'del-all-components' : sends {comName, nodeUuids} -> triggers res-del-component response\n5. 'list-current-components' : sends {} -> triggers res-list-current-components response\n6. 'move-component' : sends {nodeUuid, componentName, fromIndex, toIndex} -> triggers component-moved response + scene:set-dirty\n7. 'get-component-indices' : sends {nodeUuid, draggedComponentName, targetComponentName} -> event.reply with indices\n8. 'get-node-components' : sends nothing -> event.reply with string[]\n9. 'execute-auto-mount' : sends {nodeUuid, nodeName} -> event.reply with mount results\n10. 'execute-auto-mount-component' : sends {nodeUuid, componentName} -> no reply (fire-and-forget)\n11. 'get-node-names' : sends string[] nodeUuids -> event.reply with string[] names\n\n--- Scene -> Panel (Editor.Ipc.sendToPanel) ---\n1. 'ccc-smart-component-manager:res-input-query' : InputMatch[]\n2. 'ccc-smart-component-manager:res-list-current-components' : {[className]: ComponentOption}\n3. 'ccc-smart-component-manager:res-add-component' : ComponentOption\n4. 'ccc-smart-component-manager:res-del-component' : string (comName)\n5. 'ccc-smart-component-manager:component-moved' : {success, componentName, fromIndex, toIndex} | {success:false, error}\n6. 'ccc-smart-component-manager:data-updated' : {type: 'usage-cleared'|'favorites-cleared'}\n\n--- External Messages (Panel listens) ---\n7. 'selection:selected' : triggers refresh()\n8. 'selection:unselected' : triggers refresh()\n9. 'ccc-smart-component-manager:dock' : no-op\n10. 'ccc-smart-component-manager:refresh-search' : re-triggers search\n\n--- Main Entry Messages (package.json) ---\n11. 'ccc-smart-component-manager:open' : Editor.Panel.open\n12. 'ccc-smart-component-manager:close' : Editor.Panel.close\n\n--- Scene -> Main (Editor.Ipc.sendToMain) ---\n13. 'scene:set-dirty' : marks scene as modified\n\n=== $ ELEMENT BINDINGS (DOM IDs MUST EXIST) ===\nbtn -> #btn (add component button)\nrefreshBtn -> #refresh-btn (refresh button)\neb -> #com_name (search input)\nlist -> #list (search results container)\nlistItems -> #list-items (search results list)\nlistLoading -> #list-loading (loading indicator)\nlistEmpty -> #list-empty (empty state)\nresultCount -> #result-count (result count display)\nmain -> #main (main container)\ntip -> #tip (tip/status text)\ncurComs -> #coms (current components toolbar)\ncurComsWrap -> #coms-wrap (components scroll wrapper)\nsettingsBtn -> #settings-btn (settings button)\nsettingsModal -> #settings-modal (settings modal overlay)\nsettingsDialog -> .settings-dialog (settings dialog, CSS class selector)\nsettingsContent -> #settings-content (settings body)\ncloseSettingsBtn -> #close-settings-btn (close settings button)\n\n=== KEYBOARD SHORTCUTS (MUST PRESERVE) ===\n1. Configurable focus shortcut (default: CmdOrCtrl+F) -> focusSearchInput()\n2. Escape -> clearSearchInput() (hardcoded)\n3. Enter in search input (keyCode 13) -> addCom(first match)\n4. 'A' key (when hovering component) -> moveHoveredComponentLeft()\n5. 'D' key (when hovering component) -> moveHoveredComponentRight()\n6. Enter/Space on search result -> addCom()\n7. Escape in settings modal -> closeSettingsModal()\n\n=== DATAMANAGER API CALLS FROM PANEL ===\ndataManager.getShortcutSettings()\ndataManager.getFocusSearchInputShortcut()\ndataManager.setFocusSearchInputShortcut(shortcut)\ndataManager.getAutoMountEnabled()\ndataManager.getAutoMountConfig()\ndataManager.updateAutoMountConfig(config)\ndataManager.setAutoMountEnabled(enabled)\ndataManager.getLogLevel()\ndataManager.setLogLevel(level)\ndataManager.getConfirmationSettings()\ndataManager.getDeleteComponentConfirm()\ndataManager.setDeleteComponentConfirm(enabled)\ndataManager.getFavoriteToggleConfirm()\ndataManager.setFavoriteToggleConfirm(enabled)\ndataManager.isFavorite(componentName)\ndataManager.addToFavorites(componentName)\ndataManager.removeFromFavorites(componentName)\ndataManager.getStats()\ndataManager.clearUsageStats()\ndataManager.clearFavorites()\ndataManager.getDisplayName(componentName)\ndataManager.getAutoMountSettings()\ndataManager.setAutoMountSettings(settings)",
+  "constraints": "1. Editor.Panel.extend() structure is mandatory - Cocos Creator requires specific shape: {style, template, $, ready(), messages}. Cannot switch to a different component model.\n2. The $ map keys auto-generate this.$<key> references used throughout all panel methods. Every DOM element referenced in $ MUST exist in the template HTML with the matching ID/selector.\n3. IPC message names are string-based contracts shared between panel/index.js and scene-accessor.js. Any rename requires synchronized changes in both files.\n4. scene-accessor.js runs in the Cocos Creator scene runtime (has access to cc.* globals). panel/index.js runs in the Electron renderer process. They CANNOT share object references, only serializable data via IPC.\n5. template-auto-dock.js uses internal Cocos Creator renderer APIs (dock-utils, drag-drop, renderer/panel) which are undocumented and version-sensitive.\n6. The settings modal is rendered inline in the template (not a separate panel), so all settings DOM element IDs must coexist with the main UI.\n7. package.json panel.engineSupport=true is required for Editor.Scene.callSceneScript to work.\n8. DataManager is a singleton (module.exports = new DataManager()) - all callers share the same instance.\n9. Keyboard shortcuts must not conflict with Cocos Creator editor shortcuts. The A/D keys only activate when hovering a component button (not in input fields).",
+  "clarification_needs": [
+    {
+      "question": "Should the settings modal remain inline in the panel template, or should it be extracted to a separate Cocos Creator panel?",
+      "context": "Currently the settings modal is a full-screen overlay rendered inside the panel template with ~130 lines of HTML and ~20 DOM element IDs. Extracting it would simplify the main panel template but would require a new IPC communication channel between panels.",
+      "options": [
+        "Keep settings modal inline in the panel template (simpler IPC, current pattern)",
+        "Extract settings to a separate Editor.Panel (cleaner separation, more IPC complexity)",
+        "Extract settings HTML to a separate template file but keep it as inline modal (file organization only)"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "How should the template HTML be structured after refactoring - single inline string or external file?",
+      "context": "The current template is a ~640-line inline template string in panel/index.js. Cocos Creator 2.x requires the template property in Editor.Panel.extend(). External files would need to be loaded via fs.readFileSync at startup.",
+      "options": [
+        "Keep as inline template string (Cocos Creator standard pattern)",
+        "Load from external HTML file via fs.readFileSync (better separation but runtime file read)",
+        "Split into sub-template functions that compose the final string (modular inline)"
+      ],
+      "recommended": 2
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "Major UI refactor. Map all integration boundaries that MUST NOT change: IPC message names/data contracts, DataManager getter/setter API, Editor.Panel.extend() structure, keyboard shortcuts, element bindings in $ map.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "integration-points",
+    "exploration_index": 3,
+    "total_explorations": 4,
+    "duration_seconds": 45
+  }
+}

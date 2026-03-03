@@ -1,0 +1,94 @@
+{
+  "id": "TASK-004",
+  "title": "Renovate settings page UI and add i18n keys for new UI text",
+  "description": "Redesign the settings page and modal with improved visual hierarchy, consistent form controls, and better organization of settings groups. Update i18n/zh.js with all new translation keys introduced across the renovation (ARIA labels, empty states, loading text, result counts, new settings labels). Ensure settings page maintains full backward compatibility with DataManager getter/setter API.",
+  "type": "enhancement",
+  "priority": "medium",
+  "effort": "medium",
+  "action": "Update",
+  "scope": ["panel/index.js", "i18n/zh.js"],
+  "focus_paths": ["panel/index.js", "i18n/zh.js"],
+  "depends_on": [],
+  "parallel_group": 1,
+  "convergence": {
+    "criteria": [
+      "Settings page has clear visual hierarchy: section headers with consistent typography, grouped settings with subtle dividers",
+      "Settings modal uses role='dialog' and aria-modal='true' with proper focus trap",
+      "All form controls (toggles, inputs, selects) have visible labels and consistent sizing",
+      "Settings page reads/writes through existing DataManager methods (getAutoMountConfig, getShortcutSettings, getConfirmationSettings, getLogLevel) with no API changes",
+      "i18n/zh.js contains all new translation keys: ARIA labels, empty state messages, loading text, result count template, settings section headers",
+      "No changes to user-data.json schema or DataManager data contracts"
+    ],
+    "verification": "Open settings page, verify all controls work and save correctly. Check i18n/zh.js has entries for all new t() calls in panel/index.js."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "renderSettingsContent and showSettingsPage methods",
+      "change": "Redesign settings page layout with clear section headers, grouped controls, consistent form element styling, and visual dividers between sections"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "style property (settings page CSS)",
+      "change": "Add/refine CSS for settings sections, form controls, section headers, and dividers"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "settings modal CSS and template",
+      "change": "Improve modal backdrop, focus trapping, and close button styling"
+    },
+    {
+      "path": "i18n/zh.js",
+      "action": "modify",
+      "target": "translation object",
+      "change": "Add all new i18n keys for ARIA labels, empty states, loading indicators, result count templates, and improved settings section headers"
+    }
+  ],
+  "implementation": [
+    "Audit current settings page layout in renderSettingsContent: identify settings groups (auto-mount, shortcuts, confirmations, log level) and their visual presentation",
+    "Design improved settings layout: clear section headers (font-size, font-weight, border-bottom), grouped controls with consistent spacing, subtle dividers between groups",
+    "Update renderSettingsContent to generate improved HTML with section containers, proper form labels, and consistent control sizing",
+    "Add CSS for settings improvements: .settings-section, .settings-group, .settings-label, .settings-control, .settings-divider classes",
+    "Improve settings modal: ensure backdrop covers full panel, add focus trap (trap Tab/Shift+Tab within modal), improve close button with proper aria-label",
+    "Collect all new t() key references from TASK-001, TASK-002, TASK-003 changes and add corresponding entries to i18n/zh.js",
+    "Add i18n keys: ARIA_SEARCH_INPUT, ARIA_SETTINGS_BUTTON, ARIA_FAVORITE_TOGGLE, ARIA_DELETE_BUTTON, ARIA_MOVE_LEFT, ARIA_MOVE_RIGHT, SEARCH_LOADING, SEARCH_EMPTY, SEARCH_RESULT_COUNT, SETTINGS_SECTION_AUTOMOUNT, SETTINGS_SECTION_SHORTCUTS, SETTINGS_SECTION_CONFIRMATIONS, SETTINGS_SECTION_LOGGING",
+    "Verify all settings still save correctly through DataManager (no data contract changes)"
+  ],
+  "reference": {
+    "pattern": "Existing settings page generation in renderSettingsContent and DataManager API",
+    "files": ["panel/index.js", "data-manager.js", "i18n/zh.js"],
+    "examples": "DataManager methods: getAutoMountConfig/updateAutoMountConfig, getShortcutSettings/setFocusSearchInputShortcut, getConfirmationSettings, getLogLevel/setLogLevel"
+  },
+  "rationale": {
+    "chosen_approach": "Improve settings page visual design while maintaining exact same DataManager API calls; batch all i18n additions into one task for consistency",
+    "alternatives_considered": [
+      "Separate i18n task (too small on its own, couples tightly with UI changes)",
+      "Restructure settings into tabbed interface (over-engineering for current settings count)"
+    ],
+    "decision_factors": ["Backward compatibility with DataManager API", "i18n consistency", "Settings groups are logical visual units"],
+    "tradeoffs": "This task depends on knowing all new i18n keys from other tasks, so should be executed after or in parallel with awareness of other task changes"
+  },
+  "test": {
+    "manual_checks": [
+      "Settings page opens with clear visual hierarchy and grouped sections",
+      "All settings toggle/change and persist after panel close/reopen",
+      "Settings modal traps focus and closes with Escape key",
+      "Chinese text displays correctly for all new i18n keys",
+      "user-data.json format unchanged after settings modification"
+    ],
+    "success_metrics": [
+      "All new t() calls in panel/index.js have corresponding keys in i18n/zh.js",
+      "Settings save/load round-trip preserves all values",
+      "Zero DataManager API changes"
+    ],
+    "unit": [],
+    "integration": []
+  },
+  "cli_execution": {
+    "id": "ui-ux-pro-max-ui-renovation-2026-02-28-TASK-004",
+    "strategy": "new"
+  }
+}

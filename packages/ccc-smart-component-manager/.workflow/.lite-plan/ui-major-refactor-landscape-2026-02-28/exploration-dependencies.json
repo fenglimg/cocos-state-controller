@@ -1,0 +1,89 @@
+{
+  "project_structure": "Cocos Creator editor extension (ccc-smart-component-manager v1.2.1) with flat module layout: panel/index.js contains all UI (CSS+HTML+JS in Editor.Panel.extend), i18n/zh.js for Chinese translations, i18n-helper.js for locale management, data-manager.js for state, search-engine.js for component search. The panel runs inside Cocos Creator's Electron-based editor shell, rendering as a dockable panel via Shadow DOM (:host selector).",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Contains ALL CSS styles (lines 60-1300), HTML template (lines 1302-1344), and web component usage (<ui-button> in 20+ locations). This is the sole file defining layout, styling, and UI component dependencies. Every CSS feature in use is defined here.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "style", "template", "svgIcon", "ICON_PATHS"]
+    },
+    {
+      "path": "i18n/zh.js",
+      "relevance": 0.95,
+      "rationale": "Contains all 90+ i18n keys organized in sections: MAIN_MENU, PANEL, ADVANCED_PANEL, SEARCH, SETTINGS, ARIA, COMMON. New landscape layout will need new keys for compact mode labels, layout toggle, and any new UI sections.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["PANEL", "ADVANCED_PANEL", "SEARCH", "SETTINGS_*", "ARIA_*", "COMMON"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.7,
+      "rationale": "Manages i18n translation loading and the t() function with {{param}} template interpolation. Supports zh/en with zh fallback. Understanding this is needed to know how to add new i18n keys correctly.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["I18nHelper", "t", "replaceParams", "detectSystemLanguage"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.8,
+      "rationale": "Defines panel dimensions (width:450, height:120, min-height:60) and panel type 'dockable'. These constraints directly affect landscape layout feasibility and minimum size requirements.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel.width", "panel.height", "panel.min-height", "panel.type"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.5,
+      "rationale": "Auto-docks the panel next to the Inspector using Cocos Creator internal APIs (dockUtil.dropTab). Confirms the panel runs inside ui-dock-panel which constrains available viewport dimensions.",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr", "ui-dock-panel"]
+    }
+  ],
+  "patterns": "CSS Architecture: Uses CSS custom properties extensively (30+ variables in :host). Layout uses flexbox (display:flex) as primary layout mechanism with CSS Grid (display:grid, grid-template-columns: repeat(auto-fit, minmax())) for the search results list. All spacing uses var(--spacing-*) tokens. Responsive design uses @media queries for height breakpoints (600px, 800px) and width (600px). Animation uses @keyframes with cubic-bezier easing. The :host selector confirms Shadow DOM encapsulation. Heavy use of !important on ui-button styles suggests fighting Shadow DOM style encapsulation of Cocos Creator web components.",
+  "dependencies": "CSS Feature Compatibility for Electron 2-4 (Chromium 58-69):\n\nSAFE (fully supported):\n- CSS Custom Properties (var(--*)) - Chromium 49+\n- Flexbox (display:flex, flex-direction, flex-wrap, justify-content, align-items, flex-grow/shrink/basis) - Chromium 29+\n- CSS Grid (display:grid, grid-template-columns, grid-template-rows, repeat(), minmax()) - Chromium 57+\n- gap (in Grid context) - Chromium 66+ (Electron 3+)\n- calc() - Chromium 26+\n- transform, transition, animation, @keyframes - Chromium 36+\n- box-shadow, border-radius - fully supported\n- linear-gradient() - Chromium 26+\n- ::placeholder pseudo-element - Chromium 57+\n- :focus-visible - NOT supported (Chromium 86+), currently behind @media query so safe\n- overflow: auto/hidden/scroll - fully supported\n- scrollbar-width: thin - NOT supported (Firefox only), harmless fallback\n- scroll-snap-type - Chromium 66+ (Electron 3+)\n- accent-color - NOT supported (Chromium 93+), graceful degradation\n- @media (prefers-color-scheme) - NOT supported (Chromium 76+), harmless\n- @media (prefers-contrast) - NOT supported (Chromium 96+), harmless\n- @media (prefers-reduced-motion) - Chromium 74+ (Electron 4+ only)\n\nRISKY for Electron 2 (Chromium 58):\n- gap in flexbox context - NOT supported until Chromium 84. Currently used in .container, .row, #coms. MUST use margin fallback or only use gap in grid context.\n- scroll-snap-type: x proximity - Chromium 66+ only (Electron 3+)\n\nCRITICAL ISSUE: 'gap' property on flex containers is used throughout (lines 134, 141, 218) but only works in CSS Grid on Chromium 58-83. For Electron 2 compatibility, flex gap MUST be replaced with margin-based spacing.\n\ni18n Dependencies:\n- 90+ translation keys in i18n/zh.js across 7 sections\n- Only zh.js exists; en.js falls back to zh\n- Template interpolation uses {{paramName}} syntax\n- Keys are referenced via t('DOTTED.KEY.PATH') helper\n- New landscape layout will likely need: compact mode labels, layout direction indicators, overflow/truncation text\n\nCocos Creator Web Components:\n- <ui-button>: Used as primary interactive element (20+ instances). Rendered as Shadow DOM custom element. Styling requires !important overrides. Supports standard click events. No built-in icon slot - icons inserted as innerHTML (SVG).\n- Native <input>, <select>, <input type='checkbox'> used for form controls (NOT Cocos ui-input/ui-select)\n- No <ui-input>, <ui-select>, <ui-checkbox> used - all form elements are native HTML\n- ui-dock-panel: Container element provided by Cocos Creator editor shell",
+  "integration_points": "1. Cocos Creator Editor.Panel.extend() API: Panel lifecycle (ready/close), style/template as string properties. All CSS must be inline in the style string.\n2. <ui-button> web component: Shadow DOM boundary means styles need !important to penetrate. Standard DOM events (click, mousedown) work normally. Cannot easily make icon-only compact buttons without overriding internal padding.\n3. Panel dimensions: package.json defines initial width:450, height:120, min-height:60. These affect landscape layout - the panel can be resized by the user but starts narrow and short.\n4. Docking system: Panel docks next to Inspector via template-auto-dock.js. In landscape mode, available width depends on editor layout.\n5. i18n integration: t() function from i18n-helper.js used in template literals during panel construction. Adding new keys requires updating i18n/zh.js only (en falls back to zh).",
+  "constraints": "1. FLEX GAP INCOMPATIBILITY: gap property on flex containers does NOT work in Electron 2 (Chromium 58). Must use margin-based spacing or restrict gap to CSS Grid containers only. This affects .container, .row, #coms, and many other flex layouts.\n2. UI-BUTTON STYLING: <ui-button> has Shadow DOM encapsulation requiring !important overrides. Making compact icon-only buttons requires careful size overrides (min-width, min-height, padding). Internal button structure cannot be modified.\n3. SHADOW DOM SCOPE: All styles are scoped to :host. No global CSS leakage but also no access to parent editor styles.\n4. SINGLE FILE UI: All CSS+HTML+JS in panel/index.js. No CSS preprocessor, no separate stylesheet files. Large style strings must remain manageable.\n5. NO CSS GRID GAP IN ELECTRON 2: While CSS Grid itself works (Chromium 57+), the gap shorthand in grid context works from Chromium 66+ (Electron 3). For Electron 2 strict compat, use grid-gap (old syntax, Chromium 57+).\n6. SCROLLBAR STYLING: scrollbar-width:thin is Firefox-only and has no effect. ::-webkit-scrollbar works in all Electron versions.\n7. MEDIA QUERY LIMITATIONS: prefers-color-scheme, prefers-contrast, prefers-reduced-motion are Electron 4+ features. They gracefully degrade (ignored) in older versions.\n8. I18N CHINESE-ONLY: Only zh.js translation file exists. English falls back to Chinese text. Any new UI text needs zh.js keys at minimum.",
+  "clarification_needs": [
+    {
+      "question": "What is the minimum Electron version that must be supported?",
+      "context": "Flexbox gap (used in 10+ places) only works from Chromium 84 (Electron 10). CSS Grid gap works from Chromium 66 (Electron 3). The old grid-gap syntax works from Chromium 57 (Electron 2). The refactor approach differs significantly: Electron 2 requires margin-based flex spacing everywhere, while Electron 3+ allows grid gap, and Electron 10+ allows flex gap.",
+      "options": [
+        "Electron 2+ (Chromium 58) - maximum compatibility, must replace all flex gap with margins",
+        "Electron 3+ (Chromium 66) - grid gap works, flex gap still needs margins",
+        "Electron 4+ (Chromium 69) - same as 3 but media queries work",
+        "Modern only (Electron 10+/Chromium 84+) - all current CSS features work"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "Should the landscape layout use CSS Grid or Flexbox as primary layout mechanism?",
+      "context": "Current code uses Flexbox for main layout (container, rows) and CSS Grid only for search results list. A landscape two-column layout could use either: Grid for the overall panel layout (cleaner column definitions) or Flexbox (more compatible but requires more wrapper elements). Grid is supported in Electron 2+ but gap behavior differs.",
+      "options": [
+        "CSS Grid for panel layout + Flexbox for inner components (cleanest approach, Electron 2+)",
+        "Flexbox only (maximum compatibility, more wrapper divs needed)",
+        "Keep current approach - Flexbox primary with Grid only for result lists"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Are new English translations needed for the landscape UI, or is Chinese-only acceptable?",
+      "context": "Currently only i18n/zh.js exists. The i18n-helper.js attempts to load en.js but falls back to zh.js. A UI refactor adding new layout features may warrant proper English translations, especially for an open-source Cocos Creator package.",
+      "options": [
+        "Chinese only (zh.js) - match current behavior",
+        "Add en.js with English translations for all new and existing keys"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "Major UI refactor for compact landscape panel. Need to understand: (1) What CSS features work in Electron 2-4 (flexbox, grid, gap, custom properties, etc.), (2) Current i18n key usage and what new keys might be needed, (3) Cocos Creator ui-button/ui-input web component constraints, (4) Any other dependencies that affect UI layout decisions.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "dependencies",
+    "exploration_index": 4,
+    "total_explorations": 4
+  }
+}

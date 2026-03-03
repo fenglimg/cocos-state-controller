@@ -1,0 +1,53 @@
+{
+  "summary": "使用 /ui-ux-pro-max 设计智能工具重构 ccc-smart-component-manager 扩展的完整 UI/UX。从生成设计系统方案开始，然后重组文件结构（提取 inline CSS/HTML），最后分两阶段实施新设计：主面板重设计和设置页面清理重设计。",
+  "approach": "四步渐进式重设计：(1) 先用 /ui-ux-pro-max 分析现有 UI 并生成数据驱动的 design tokens；(2) 并行提取 CSS/HTML 为独立文件以便维护；(3) 基于 design tokens 全面重设计主面板视觉、布局和交互；(4) 清理设置页面死代码并应用新设计系统。所有改动保持 Cocos Creator 2.x Editor.Panel.extend API 兼容性和 IPC 通信契约不变。",
+  "task_ids": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006"],
+  "task_count": 6,
+  "complexity": "Medium",
+  "estimated_time": "3-4 hours",
+  "recommended_execution": "Agent",
+  "design_decisions": [
+    {
+      "decision": "使用 /ui-ux-pro-max 生成设计方案而非手动设计",
+      "rationale": "利用设计智能工具的 67 种风格、96 种色板和 57 种字体配对数据，生成与 Cocos Creator 编辑器协调的专业设计方案",
+      "tradeoff": "依赖工具输出质量，可能需要人工微调",
+      "alternatives": ["手动参考 VS Code/GitHub Dark 设计", "直接优化现有 CSS 变量"]
+    },
+    {
+      "decision": "提取 CSS/HTML 为独立文件 + 构建脚本",
+      "rationale": "3100 行单体文件不可维护，分离后便于独立编辑 CSS 和 HTML，同时通过 build.js 保持 Editor.Panel.extend 兼容",
+      "tradeoff": "增加了构建步骤，但显著提高可维护性",
+      "alternatives": ["保持单文件但加注释分隔", "引入 webpack/esbuild 完整构建"]
+    },
+    {
+      "decision": "用 SVG/Unicode 图标替换 emoji",
+      "rationale": "emoji 在不同平台渲染不一致且显得不专业，SVG/Unicode 可控性更强",
+      "tradeoff": "SVG inline 会增加 HTML 体积",
+      "alternatives": ["使用 icon font", "保留部分 emoji"]
+    },
+    {
+      "decision": "保持页面切换模式用于设置页面",
+      "rationale": "用户确认偏好此模式，且面板尺寸紧凑（450x120），modal overlay 会遮挡过多空间",
+      "tradeoff": "无法同时看到主界面和设置",
+      "alternatives": ["modal overlay", "分标签页"]
+    }
+  ],
+  "shared_context": {
+    "tech_stack": ["Cocos Creator 2.x Editor Extension API", "Vanilla JS (ES6)", "CSS Custom Properties", "Electron APIs", "CommonJS modules"],
+    "conventions": [
+      "Editor.Panel.extend({ style, template, $, ready, messages }) 面板注册模式",
+      "Editor.Scene.callSceneScript IPC 通信",
+      "DataManager 单例管理持久化数据",
+      "i18n-helper.js t() 函数国际化",
+      "Shadow DOM :host 样式封装"
+    ]
+  },
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00+08:00",
+    "source": "direct-planning",
+    "planning_mode": "direct",
+    "plan_type": "feature",
+    "schema_version": "2.0",
+    "exploration_angles": ["patterns", "integration-points", "dependencies"]
+  }
+}

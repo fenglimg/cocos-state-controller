@@ -1,0 +1,81 @@
+{
+  "id": "TASK-001",
+  "title": "Replace emoji icons with CSS/SVG inline icons and refine design tokens",
+  "description": "Replace all emoji characters used as icons throughout panel/index.js with inline SVG or CSS-based icon alternatives. Audit and refine the existing CSS custom properties design token system for spacing, color, and typography consistency following ui-ux-pro-max best practices. This covers the CSS style section (~500 lines) and all emoji references in both HTML template and JS methods.",
+  "type": "enhancement",
+  "priority": "high",
+  "effort": "large",
+  "action": "Update",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js"],
+  "depends_on": [],
+  "parallel_group": 1,
+  "convergence": {
+    "criteria": [
+      "Zero emoji characters remain in panel/index.js icon positions (gear, star, fire, arrow, plus, refresh, etc.)",
+      "All icons replaced with inline SVG elements or CSS-generated icons that render correctly in Electron 2-4",
+      "CSS custom properties audit complete: spacing scale consistent (4/8/12/16/24px), color tokens follow 4.5:1 contrast ratio for text on backgrounds",
+      "Typography tokens refined: body text minimum 13px, line-height 1.5 for body text, monospace font for code elements",
+      "No visual regression in dark theme appearance - indigo accent (#6366f1) and slate palette preserved"
+    ],
+    "verification": "Open panel in Cocos Creator 2.x, visually verify all icons render as SVG/CSS, check design token consistency across all UI states (default, hover, active, focused)"
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "style property (CSS custom properties and icon-related rules)",
+      "change": "Refine CSS design tokens for spacing/color/typography consistency; add SVG icon CSS classes or inline SVG styles; remove emoji-dependent styling"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "template property (HTML) and JS methods generating innerHTML",
+      "change": "Replace all emoji characters (gear, star, fire, arrow, plus, refresh, etc.) with inline SVG elements or CSS-based icon spans"
+    }
+  ],
+  "implementation": [
+    "Catalog all emoji icon usages in panel/index.js: search for emoji characters in style, template, and JS string literals (innerHTML assignments)",
+    "Design inline SVG replacements for each icon: gear (settings), star (favorite), fire (frequent), arrows (navigation), plus (add), refresh (reload), search magnifier, close X, etc. - all must be simple path-based SVGs that work in Electron 2-4",
+    "Create CSS classes for icon sizing and coloring using currentColor for theme compatibility: .icon-sm (16px), .icon-md (20px), .icon-lg (24px)",
+    "Replace each emoji in template HTML string with corresponding <svg> element wrapped in icon class",
+    "Replace each emoji in JS innerHTML generation methods (addCom, refreshCurComs, onInput2 result rendering, settings page) with SVG markup",
+    "Audit CSS custom properties: verify spacing scale (xs:4, sm:8, md:12, lg:16, xl:20, 2xl:24), ensure color contrast meets 4.5:1 ratio, add missing tokens if needed",
+    "Refine typography tokens: ensure readable-font-size (min 13px for editor context), consistent line-height (1.5 body, 1.3 headings), proper font-weight scale",
+    "Test in Cocos Creator 2.x that all SVG icons render correctly at various panel sizes"
+  ],
+  "reference": {
+    "pattern": "CSS custom properties design token system on :host",
+    "files": ["panel/index.js", ".claude/skills/ui-ux-pro-max/SKILL.md"],
+    "examples": "Current design tokens at panel/index.js:14-66. Follow ui-ux-pro-max no-emoji-icons rule (SKILL.md line 79). Use inline SVG with currentColor for theme-aware icons."
+  },
+  "rationale": {
+    "chosen_approach": "Inline SVG icons with CSS classes for sizing, replacing emoji characters one-by-one while refining the design token system in the same pass",
+    "alternatives_considered": [
+      "CSS-only icons using pseudo-elements and borders (limited icon vocabulary)",
+      "Base64-encoded icon font (adds complexity, harder to maintain)",
+      "Unicode symbols instead of emoji (still inconsistent across platforms)"
+    ],
+    "decision_factors": ["No external dependencies allowed", "Must work in Electron 2-4", "Inline-only constraint", "Theme compatibility via currentColor"],
+    "tradeoffs": "Inline SVGs increase the HTML template string size, but ensure consistent rendering and accessibility"
+  },
+  "test": {
+    "manual_checks": [
+      "All icons render correctly in Cocos Creator 2.x panel at default size (450x120)",
+      "Icons scale properly when panel is resized (docked vs floating)",
+      "Dark theme colors and contrast ratios verified visually",
+      "No emoji fallback glyphs visible anywhere in the UI"
+    ],
+    "success_metrics": [
+      "0 emoji characters in icon positions",
+      "All text-on-background combinations meet 4.5:1 contrast ratio",
+      "Spacing scale uses consistent 4px base unit"
+    ],
+    "unit": [],
+    "integration": []
+  },
+  "cli_execution": {
+    "id": "ui-ux-pro-max-ui-renovation-2026-02-28-TASK-001",
+    "strategy": "new"
+  }
+}

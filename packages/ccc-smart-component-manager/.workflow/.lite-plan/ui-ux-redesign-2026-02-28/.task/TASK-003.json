@@ -1,0 +1,34 @@
+{
+  "id": "TASK-003",
+  "title": "实现主面板 UI 重设计：新设计系统 + 布局 + 交互",
+  "description": "基于 TASK-001 生成的 design tokens，重新设计主面板的完整 UI：(1) 将 design tokens 转换为 CSS 自定义属性，替换现有 CSS 变量；(2) 重新设计搜索结果卡片、组件按钮栏、搜索输入框的视觉样式和布局；(3) 用 SVG/Unicode 图标替换所有 emoji；(4) 改进信息层级和交互反馈（hover、focus、active 状态）；(5) 优化响应式布局。所有更改在 panel/styles.css 和 panel/template.html 中进行。",
+  "depends_on": ["TASK-001", "TASK-002"],
+  "convergence": {
+    "criteria": [
+      "所有 CSS 变量替换为 design tokens 定义的新值",
+      "所有 emoji 图标替换为 SVG inline 或 Unicode 符号",
+      "搜索结果卡片视觉重设计完成",
+      "组件按钮栏重设计完成",
+      "hover/focus/active 状态样式与 design tokens 一致",
+      "响应式布局在 450px-1200px 宽度范围内正常工作",
+      "与 Cocos Creator 编辑器暗色主题视觉协调"
+    ]
+  },
+  "files": [
+    { "path": "panel/styles.css", "change": "重写 CSS 变量系统，应用新 design tokens，重设计所有组件样式" },
+    { "path": "panel/template.html", "change": "重构 HTML 结构，替换 emoji 为图标元素，改进信息层级" },
+    { "path": "panel/index.js", "change": "更新 JS 中的动态样式设置和 DOM 操作以适配新结构" },
+    { "path": "panel/design-tokens.json", "change": "读取 TASK-001 的输出作为设计参考" }
+  ],
+  "implementation": [
+    "读取 design-tokens.json，将 tokens 转换为 :host CSS 自定义属性",
+    "重新设计 :host 主题变量系统（colors、typography、spacing、shadows）",
+    "重设计搜索输入框区域：更好的 focus 状态、清除按钮、匹配类型指示器",
+    "重设计搜索结果 Grid 卡片：类型标签、收藏状态、使用频率指示器",
+    "重设计组件按钮栏 (#coms)：改进水平滚动、拖拽重排视觉反馈",
+    "创建统一的图标系统：用 SVG/Unicode 替换齿轮、星、火、图表等 emoji",
+    "改进 transition 和动画：统一使用 design tokens 中定义的缓动曲线",
+    "优化响应式断点：适配面板从紧凑到全宽的不同尺寸"
+  ],
+  "test": "在 Cocos Creator 中打开面板，验证所有页面元素渲染正确，交互状态流畅，无样式错乱"
+}

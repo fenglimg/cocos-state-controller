@@ -1,0 +1,105 @@
+{
+  "summary": "Design-system-driven UI refactor of panel/index.js from mobile-sized elements (44px controls, 16px spacing, indigo accent) to compact IDE/DevTool layout (20-24px controls, 2-4px spacing, green #22C55E accent) following ui-ux-pro-max specifications. The panel currently exceeds its 120px default height with just the fixed UI elements (180px+ minimum). The refactored layout fits within 66px for fixed elements, leaving room for search results.",
+  "approach": "Sequential 4-phase rewrite of a single file (panel/index.js) plus i18n updates: (1) Complete CSS rewrite establishing compact design tokens and all component styles with dark OLED palette, (2) HTML template restructure to merge rows, simplify states, and convert settings modal to full-panel page, (3) JS rendering method updates to produce compact HTML matching the new CSS, plus settings page toggle logic, (4) i18n key updates and full integration verification. Each phase builds on the previous, ensuring CSS is correct before HTML changes, and HTML structure is correct before JS rendering updates.",
+  "task_ids": ["TASK-001", "TASK-002", "TASK-003", "TASK-004"],
+  "task_count": 4,
+  "complexity": "High",
+  "estimated_time": "4-6 hours",
+  "recommended_execution": "Codex",
+  "design_decisions": [
+    {
+      "decision": "Replace indigo #6366f1 accent with green #22C55E across all UI",
+      "rationale": "Green semantically matches primary action (add component = success/go). Design system mandates green for CTA.",
+      "tradeoff": "Less visual distinction between accent and success states",
+      "alternatives": ["Keep indigo for brand consistency", "Use blue #3B82F6 as neutral accent"]
+    },
+    {
+      "decision": "Convert settings modal to full-panel page replacement",
+      "rationale": "Current 520px modal exceeds 300-450px panel width. Full-panel view eliminates overlay complexity and width constraints.",
+      "tradeoff": "User loses context of main view while in settings; back navigation adds a state to manage",
+      "alternatives": ["Constrained overlay at max-width:100%", "Collapsible accordion embedded in main view"]
+    },
+    {
+      "decision": "Use margin-based spacing instead of flexbox gap",
+      "rationale": "Flexbox gap not supported in Electron 2 (Chromium 58). grid-gap is safe but flex gap is not.",
+      "tradeoff": "More verbose CSS with > * + * selectors; slight maintenance overhead",
+      "alternatives": ["Target Electron 3+ only and use grid-gap", "Use padding on children instead of gap"]
+    },
+    {
+      "decision": "Single-column flat list for search results instead of grid",
+      "rationale": "300-450px width cannot meaningfully support multi-column. Flat list maximizes visible items at 22-24px per row.",
+      "tradeoff": "Less visual density at wider panel sizes (400px+)",
+      "alternatives": ["Responsive 1-2 column grid", "Keep grid with reduced minmax(140px, 1fr)"]
+    },
+    {
+      "decision": "Compact 20px component bar chips with horizontal scroll",
+      "rationale": "Horizontal scroll preserves keyboard reorder (A/D keys) which depends on linear order. Wrapping would complicate reorder logic.",
+      "tradeoff": "Only 2-3 chips visible at a time at 300px width",
+      "alternatives": ["Flex-wrap with max-height limit", "Dropdown/select for component list"]
+    }
+  ],
+  "data_flow": {
+    "diagram": "CSS Tokens -> Component Styles -> HTML Template -> JS Rendering -> DOM Output",
+    "stages": [
+      {
+        "stage": "Design Tokens",
+        "input": "ui-ux-pro-max design system spec",
+        "output": "CSS custom properties on :host",
+        "component": "panel/index.js style property",
+        "transformations": ["Color palette mapping", "Spacing scale halving", "Radius reduction", "Font size compaction"]
+      },
+      {
+        "stage": "Component Styles",
+        "input": "CSS custom properties",
+        "output": "Styled rules for all UI elements",
+        "component": "panel/index.js style + template style",
+        "transformations": ["ui-button overrides via !important", "Flexbox layout with margin gaps", "Settings page styles"]
+      },
+      {
+        "stage": "HTML Template",
+        "input": "Component style rules",
+        "output": "Static DOM structure with binding IDs",
+        "component": "panel/index.js template property",
+        "transformations": ["Row merging", "State simplification", "Settings page structure"]
+      },
+      {
+        "stage": "JS Rendering",
+        "input": "IPC data + HTML template DOM",
+        "output": "Dynamic DOM elements (search results, chips)",
+        "component": "panel/index.js message handlers",
+        "transformations": ["Search result -> flat list item", "Component -> compact chip", "Settings -> page content"]
+      }
+    ],
+    "dependencies": ["Cocos Creator ui-button web component", "Editor.Panel.extend() API", "DataManager singleton", "i18n t() function"]
+  },
+  "shared_context": {
+    "tech_stack": ["Cocos Creator 2.x Editor API", "Electron 2-4", "Vanilla JavaScript (no framework)", "CSS Custom Properties", "Shadow DOM"],
+    "conventions": [
+      "All CSS inline in style/template string properties",
+      "All ui-button overrides require !important",
+      "No flexbox gap (Electron 2 compat) - use margin",
+      "$ element bindings auto-generate this.$<key> references",
+      "IPC via Editor.Scene.callSceneScript + Editor.Ipc.sendToPanel"
+    ]
+  },
+  "_metadata": {
+    "timestamp": "2026-02-28T14:00:00Z",
+    "source": "cli-lite-planning-agent",
+    "plan_type": "feature",
+    "schema_version": "2.0",
+    "planning_mode": "agent-based",
+    "exploration_angles": ["ui-layout", "patterns", "integration-points", "dependencies"],
+    "duration_seconds": 120,
+    "quality_check": {
+      "status": "passed",
+      "dimensions": {
+        "completeness": "All design system requirements covered across 4 tasks",
+        "granularity": "4 tasks, each 1-2 hours scope, sequential dependency chain",
+        "dependencies": "Linear chain TASK-001 -> 002 -> 003 -> 004, no circular deps",
+        "convergence_criteria": "All criteria quantified with specific values (px, counts, IDs)",
+        "implementation_steps": "4-6 steps per task with specific actions",
+        "constraint_compliance": "Electron 2 compat, $ bindings, IPC contracts all addressed"
+      }
+    }
+  }
+}

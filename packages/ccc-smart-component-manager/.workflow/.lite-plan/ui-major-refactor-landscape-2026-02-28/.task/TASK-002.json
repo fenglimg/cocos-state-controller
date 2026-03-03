@@ -1,0 +1,131 @@
+{
+  "id": "TASK-002",
+  "title": "Complete HTML template rewrite for compact layout",
+  "description": "Restructure the HTML template (lines 1302-1360 in panel/index.js) to support the compact design system. Key changes: (1) merge results-meta into search toolbar row, (2) replace empty state with single-line text placeholder, (3) reduce skeleton loading to 2 compact items, (4) restructure settings modal shell into settings page container, (5) ensure all 17 $ element binding IDs remain present. The template must produce a layout where search toolbar is one 24px row, results are a flat list, and component bar is a compact horizontal strip.",
+  "type": "refactor",
+  "priority": "critical",
+  "effort": "medium",
+  "action": "Refactor",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js"],
+  "depends_on": ["TASK-001"],
+  "convergence": {
+    "criteria": [
+      "All 17 $ element binding IDs present in template: btn, refresh-btn, com_name, list, list-items, list-loading, list-empty, result-count, main, tip, coms, coms-wrap, settings-btn, settings-modal, settings-content, close-settings-btn, and .settings-dialog CSS selector",
+      "Results-meta (#result-count) moved inline into search toolbar row (same row as input + buttons)",
+      "Empty state (#list-empty) is a single <div> with muted text, no icon, no large block",
+      "Loading state (#list-loading) contains max 2 skeleton items at compact size",
+      "Settings shell (#settings-modal) restructured as full-panel container (not overlay), with #close-settings-btn as back arrow, #settings-content as scrollable body",
+      "Main container (#main) uses flex column layout with no gap property",
+      "Search row contains: input#com_name + #result-count span + #btn + #refresh-btn + #settings-btn",
+      "Template has no elements with hardcoded 44px sizes or large padding inline styles"
+    ],
+    "verification": "Parse the template HTML string and verify all 17 $ binding IDs exist. Open panel in Cocos Creator and verify layout matches design system mockup.",
+    "definition_of_done": "The HTML template produces the correct DOM structure for the compact IDE layout, with all element bindings preserved for JS functionality."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "template property (lines 1302-1360)",
+      "changes": [
+        "Restructure search row: single .toolbar div containing input#com_name, span#result-count (inline), ui-button#btn, ui-button#refresh-btn, ui-button#settings-btn",
+        "Replace large empty state block with compact: <div id='list-empty' class='list-state'>${t('PANEL.SEARCH_PLACEHOLDER')}</div>",
+        "Reduce skeleton loading items from 6 to 2, remove skeleton-grid class",
+        "Convert settings-modal from overlay structure to page structure: remove overlay div, make settings-modal a direct child of container with hidden-by-default display",
+        "Change close-settings-btn from X icon to back arrow icon",
+        "Remove results-meta wrapper div (count is now inline in toolbar)",
+        "Ensure #main wraps the main content view (toolbar + list + component bar) for show/hide toggle with settings page",
+        "Add ARIA attributes: role=toolbar on search row, role=listbox on list-items, role=option on each result"
+      ],
+      "conflict_risk": "high"
+    }
+  ],
+  "implementation": [
+    {
+      "step": "1",
+      "description": "Restructure search toolbar row",
+      "actions": [
+        "Create single .toolbar div wrapping: input#com_name, span#result-count (after input, inline), ui-button#btn (add), ui-button#refresh-btn, ui-button#settings-btn",
+        "Remove separate .results-meta wrapper div",
+        "Add role='toolbar' for accessibility",
+        "Use svgIcon('plus', {size:'sm'}) for add button, svgIcon('refreshCw', {size:'sm'}) for refresh, svgIcon('settings', {size:'sm'}) for settings"
+      ]
+    },
+    {
+      "step": "2",
+      "description": "Simplify empty and loading states",
+      "actions": [
+        "Replace empty state content: single div with muted text t('PANEL.SEARCH_PLACEHOLDER'), remove SVG icon block",
+        "Reduce skeleton items from 6 to 2, use compact skeleton class",
+        "Ensure #list-loading and #list-empty remain as separate togglable containers inside #list"
+      ]
+    },
+    {
+      "step": "3",
+      "description": "Convert settings modal to settings page",
+      "actions": [
+        "Remove .settings-overlay wrapper",
+        "Make #settings-modal a sibling of #main (both direct children of .container)",
+        "Add .settings-header row with back button (#close-settings-btn with svgIcon('arrowLeft')) and title",
+        "#settings-content becomes scrollable body with overflow-y:auto",
+        "Settings page hidden by default (display:none), shown by adding .active class and hiding #main"
+      ]
+    },
+    {
+      "step": "4",
+      "description": "Verify $ element bindings",
+      "actions": [
+        "Cross-check all 17 $ map entries against template IDs",
+        "Verify .settings-dialog CSS class exists on appropriate container (used as $ selector)",
+        "Test that this.$btn, this.$refreshBtn, this.$eb, etc. all resolve correctly"
+      ]
+    }
+  ],
+  "reference": {
+    "pattern": "Cocos Creator Editor.Panel.extend template pattern",
+    "files": ["panel/index.js"],
+    "examples": "The $ map uses {key: '#id'} format. The key becomes this.$key. All IDs must match exactly."
+  },
+  "rationale": {
+    "chosen_approach": "Restructure template to eliminate wasted vertical space by merging rows and simplifying states, while preserving all element binding IDs required by the JS layer.",
+    "alternatives_considered": [
+      "Keep existing template structure and only modify CSS (insufficient - HTML structure creates unnecessary wrapper divs)",
+      "Completely rewrite template from scratch (risky - may miss subtle element bindings)"
+    ],
+    "decision_factors": ["Preserve all 17 $ bindings", "Eliminate wasted vertical rows", "Support settings page pattern"],
+    "tradeoffs": "Template diff is significant; careful verification of all bindings required"
+  },
+  "risks": [
+    {
+      "description": "Missing a $ element binding ID would break JS functionality silently",
+      "probability": "Medium",
+      "impact": "High",
+      "mitigation": "Automated check: grep all $ keys and verify each ID exists in template",
+      "fallback": "Keep a pre-refactor backup of the template string for comparison"
+    }
+  ],
+  "test": {
+    "manual_checks": [
+      "All 17 $ element bindings resolve (no null references in ready())",
+      "Settings page toggles correctly (main hidden, settings shown)",
+      "Empty state shows single-line muted text",
+      "Search toolbar shows input + count + 3 icon buttons in one row"
+    ],
+    "success_metrics": [
+      "17/17 $ element bindings verified present in template",
+      "Search toolbar fits in single 24px row",
+      "Zero instances of skeleton-grid with 6 items"
+    ]
+  },
+  "cli_execution": {
+    "id": "ui-major-refactor-landscape-2026-02-28-TASK-002",
+    "strategy": "resume",
+    "resume_from": "ui-major-refactor-landscape-2026-02-28-TASK-001"
+  },
+  "commit": {
+    "type": "refactor",
+    "scope": "panel-html",
+    "message_template": "refactor(panel-html): restructure template for compact IDE layout"
+  }
+}

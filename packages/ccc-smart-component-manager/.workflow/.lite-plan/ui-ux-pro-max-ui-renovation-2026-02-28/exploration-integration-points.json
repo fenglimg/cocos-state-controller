@@ -1,0 +1,139 @@
+{
+  "project_structure": "Cocos Creator editor plugin (ccc-smart-component-manager) with a 3-layer architecture: (1) Panel layer (panel/index.js) - monolithic ~3135-line file containing all UI: CSS variables, HTML template, DOM bindings, event handlers, settings page, and IPC message handlers; (2) Scene-script layer (scene-accessor.js) - runs inside the Cocos engine scene context, handles component CRUD operations on nodes, search queries via cc.js._registeredClassNames, and auto-property mounting; (3) Shared modules - data-manager.js (singleton, favorites/usage/settings persistence to user-data.json), search-engine.js (scoring/ranking), property-mounter.js (auto-mount logic), i18n-helper.js, logger.js. Communication between Panel and Scene uses Editor.Scene.callSceneScript (panel->scene) and Editor.Ipc.sendToPanel (scene->panel) IPC channels.",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "The entire UI lives in this single file: CSS design tokens (~500 lines), HTML template with all DOM structure (lines 504-1257), element bindings ($ map at line 1260), ready() lifecycle (line 1305), all user interaction handlers (onInput2, addCom, toggleFavorite, deleteComponent, showSettingsPage), and IPC message handlers (lines 2917-3134). This is the primary modify_target for any UI renovation.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "ready", "onInput2", "addCom", "refresh", "refreshCurComs", "toggleFavorite", "deleteComponent", "showSettingsPage", "showMainPage", "confirmDelete", "setupGlobalKeyboardShortcuts", "setupComponentMoveKeyboard", "setupComponentsScrolling", "createHighlightedText", "renderSettingsContent"]
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.9,
+      "rationale": "Scene-script that runs inside the Cocos engine context, providing the backend for all UI operations. Exposes IPC endpoints: 'add-component' (line 52), 'del-component' (line 111), 'del-all-components' (line 140), 'list-current-components' (line 170), 'input-query' (line 216), 'move-component' (line 280), 'execute-auto-mount' (line 481), 'execute-auto-mount-component' (line 524). Any UI changes that alter data flow or add new features must coordinate with these endpoints.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["add-component", "del-component", "del-all-components", "list-current-components", "input-query", "move-component", "execute-auto-mount", "execute-auto-mount-component", "get-component-indices", "get-node-names", "getNodeByUuid", "performAutoMount", "ComponentOption", "InputMatch"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.85,
+      "rationale": "Singleton data manager that bridges UI state with persistent storage (user-data.json). Panel/index.js directly imports and calls dataManager methods for: favorites CRUD (addToFavorites/removeFromFavorites/isFavorite at lines 262-304), usage tracking (recordUsage/getUsageCount), settings access (getAutoMountConfig, getShortcutSettings, getConfirmationSettings), and data change notifications via Editor.Ipc.sendToPanel (notifyDataUpdated at line 412). UI renovation must preserve these data access patterns.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["DataManager", "addToFavorites", "removeFromFavorites", "isFavorite", "getFavorites", "recordUsage", "getUsageCount", "getWeightBonus", "getAutoMountConfig", "getShortcutSettings", "getConfirmationSettings", "notifyDataUpdated", "forceSaveToFile"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.75,
+      "rationale": "Search engine consumed by scene-accessor.js's 'input-query' handler (line 223) to produce ranked component results. Returns objects with {origin, displayName, score, type, matchLength, isFavorite, usageCount} that directly map to UI rendering in the panel's res-input-query message handler (line 2948). UI changes to search result display must match this data shape.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["SearchEngine", "searchComponents", "calculateMatchScore", "simpleFuzzyMatch", "highlightMatch", "getFavoriteComponents"]
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": 0.6,
+      "rationale": "Auto-property mounting module invoked from scene-accessor.js performAutoMount (line 442). Returns mount results array with {property, propertyType, nodeName, success, error} that could be surfaced in UI feedback. Currently mount results are only logged, not displayed in UI - potential integration point for UI enhancement.",
+      "role": "integration_point",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["PropertyMounter", "autoMountProperties", "parseComponentProperties", "matchNodeName", "findBestMatchInSubtree", "formatMountResultLog", "getMountStatistics"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.65,
+      "rationale": "Internationalization module imported by panel/index.js (line 6) providing the t() function for all UI text strings. Any UI renovation adding new text elements must use t('KEY') pattern and add corresponding entries to i18n/zh.js translation file.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["I18nHelper", "t", "setLanguage", "getCurrentLanguage", "loadTranslations"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.7,
+      "rationale": "Cocos Creator plugin manifest defining panel configuration: type 'dockable', dimensions (width:450, height:120, min-height:60), engineSupport:true, scene-script binding, main-menu entries, and i18n path. UI renovation may need to adjust panel dimensions or add new panel types.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "main-menu", "scene-script", "engineSupport"]
+    },
+    {
+      "path": "main.js",
+      "relevance": 0.5,
+      "rationale": "Plugin entry point with load/unload lifecycle hooks and message handlers for 'open'/'close' that call Editor.Panel.open/close('ccc-smart-component-manager'). Integration point for plugin lifecycle - UI renovation must not break panel open/close flow.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["load", "unload", "messages.open", "messages.close"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.45,
+      "rationale": "Auto-dock script that programmatically docks the plugin panel next to the Inspector panel using internal Cocos Creator renderer APIs (dockUtil, panelMgr, dropMgr). Monkey-patches panelMgr.close and dropMgr.items. UI renovation should be aware this script manipulates panel positioning at runtime.",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr", "dropTab"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.4,
+      "rationale": "Logger singleton used throughout the UI layer for debug/info/error output via Editor.log. Panel/index.js calls logger methods extensively for user feedback. UI renovation could replace some logger.success calls with visual toast notifications.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["Logger", "info", "warn", "error", "debug", "success", "ipcError", "setLogLevel"]
+    },
+    {
+      "path": "user-data.json",
+      "relevance": 0.35,
+      "rationale": "Persistent storage file for favorites array, usage counts, and settings (autoPropertyMount, shortcuts, confirmations, logLevel). Data shape defines what settings the UI settings page must expose. Any new UI settings require extending this schema.",
+      "role": "config",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["favorites", "usage", "settings", "autoPropertyMount", "shortcuts", "confirmations"]
+    }
+  ],
+  "patterns": "UI Construction Pattern: The panel uses Cocos Creator's Editor.Panel.extend() API with inline CSS (style property), inline HTML (template property), jQuery-like $ element binding map, ready() lifecycle hook, and messages object for IPC handlers. All UI is constructed as a single monolithic file with no component abstraction.\n\nCSS Design Token Pattern: Uses CSS custom properties (--primary-color, --bg-primary, --text-primary, etc.) defined on :host, following a dark theme Tailwind-inspired color palette (slate/indigo). Spacing uses --spacing-xs through --spacing-2xl. Border radius uses --radius-sm through --radius-xl.\n\nIPC Communication Pattern: Panel-to-Scene uses Editor.Scene.callSceneScript('ccc-smart-component-manager', '<method>', data, callback). Scene-to-Panel uses Editor.Ipc.sendToPanel('ccc-smart-component-manager', 'ccc-smart-component-manager:<event>', data). All IPC methods follow request-response naming: 'input-query' -> 'res-input-query', 'add-component' -> 'res-add-component'.\n\nDOM Manipulation Pattern: Direct DOM manipulation using document.createElement('ui-button'), innerHTML assignment, onclick/oncontextmenu event binding. No virtual DOM or templating engine. Uses Cocos Creator's built-in <ui-button>, <ui-input> web components.\n\nData Flow Pattern: User input -> onInput2() with 200ms debounce -> callSceneScript('input-query') -> searchEngine.searchComponents() -> sendToPanel('res-input-query') -> DOM update in message handler. Unidirectional flow with IPC as the bridge.",
+  "dependencies": "External Dependencies:\n- Cocos Creator Editor APIs: Editor.Panel.extend, Editor.Scene.callSceneScript, Editor.Ipc.sendToPanel/sendToMain, Editor.Selection.curSelection, Editor.log\n- Cocos Engine APIs (scene context only): cc.js._registeredClassNames, cc.js.isChildClassOf, cc.js.getClassName, cc.Component, cc.Node, cc.Class.Attr.getClassAttrs, cc.director.getScene\n- Electron APIs: require('electron').remote for dialog.showMessageBoxSync, Menu.buildFromTemplate\n- Node.js built-ins: fs (data persistence), path (file paths), require.cache (template-auto-dock)\n\nInternal Module Dependencies:\n- panel/index.js imports: data-manager.js, logger.js, i18n-helper.js\n- scene-accessor.js imports: search-engine.js, data-manager.js, logger.js, property-mounter.js\n- search-engine.js imports: data-manager.js, logger.js\n- property-mounter.js imports: logger.js\n- data-manager.js imports: logger.js, fs, path\n- i18n-helper.js imports: path, i18n/zh.js\n\nKey Constraint: panel/index.js runs in Electron renderer process; scene-accessor.js runs in Cocos engine worker. They cannot share objects directly - only serializable data via IPC.",
+  "integration_points": "1. Panel <-> Scene IPC Bridge (panel/index.js:1674 <-> scene-accessor.js:216)\n   The primary integration boundary. Panel calls Editor.Scene.callSceneScript for 8 operations: input-query, add-component, del-component, del-all-components, list-current-components, move-component, execute-auto-mount, execute-auto-mount-component. Scene responds via Editor.Ipc.sendToPanel with 'res-*' messages. Any UI feature adding new operations must define both the scene handler and panel message handler.\n\n2. Editor Selection Events (panel/index.js:2921-2929)\n   Panel listens to 'selection:selected' and 'selection:unselected' IPC messages to trigger refresh() when nodes are selected/deselected in the scene hierarchy. This is the entry point for the entire UI update cycle.\n\n3. Data Manager Notifications (data-manager.js:412 -> panel/index.js:3120)\n   DataManager.notifyDataUpdated() sends 'ccc-smart-component-manager:data-updated' to panel, triggering UI refresh for favorites/usage changes. This cross-module notification pattern must be preserved.\n\n4. Search Results Data Contract (scene-accessor.js:226-244 -> panel/index.js:2948-3013)\n   InputMatch objects flow from scene to panel with fields: {input, origin, displayName, index, score, type, matchLength, isFavorite, isFrequent, usageCount}. The panel's res-input-query handler creates DOM elements based on this exact shape. UI renovation changing result display must maintain this contract.\n\n5. Component List Data Contract (scene-accessor.js:170-214 -> panel/index.js:3015-3090)\n   ComponentOption objects {comName, nodeUuids[]} flow from scene to panel. The panel creates ui-button elements for each, with click handlers for delete and context menu. Changing component display requires matching this shape.\n\n6. DOM Element Binding (panel/index.js:1260-1295)\n   The $ map binds 25+ DOM elements by CSS selector. All UI interactions reference these bindings (this.$eb, this.$list, this.$curComs, this.$main, this.$tip, this.$settingsPage, etc.). UI renovation must update both HTML template and $ bindings in sync.\n\n7. Keyboard Shortcut System (panel/index.js:1378-1468)\n   Global keyboard handler registered on document with configurable shortcuts from dataManager.getShortcutSettings(). Handles CmdOrCtrl+F for search focus and Escape for clear. Component move uses A/D keys when hovering.\n\n8. Settings Page <-> DataManager (panel/index.js:1887-1900 <-> data-manager.js)\n   Settings page reads/writes through dataManager methods: getAutoMountConfig/updateAutoMountConfig, getShortcutSettings/setFocusSearchInputShortcut, getConfirmationSettings/setDeleteComponentConfirm/setFavoriteToggleConfirm, getLogLevel/setLogLevel. UI settings page must mirror DataManager's settings schema.\n\n9. Auto-Dock Integration (template-auto-dock.js -> Cocos Creator internals)\n   Monkey-patches renderer's dockUtil, panelMgr, and dropMgr to auto-dock the panel beside Inspector. Runs on interval timer. UI renovation changing panel identity or type must verify auto-dock still works.\n\n10. Plugin Lifecycle (main.js -> package.json)\n    Editor.Panel.open/close('ccc-smart-component-manager') controlled by main-menu entries in package.json. Panel dimensions (width:450, height:120) defined in package.json panel config.",
+  "constraints": "1. Cocos Creator 2.x Editor Plugin API: Must use Editor.Panel.extend() pattern with style/template/$/ ready/messages structure. Cannot use modern frameworks (React/Vue) without a build step - the panel runs directly in Electron renderer.\n\n2. Single-File UI Limitation: All UI must live in panel/index.js as inline CSS + HTML + JS. No module bundler available. Cannot import external CSS files or use CSS preprocessors at runtime.\n\n3. IPC Serialization Boundary: Data between panel and scene-accessor must be JSON-serializable. Cannot pass DOM elements, functions, or circular references across IPC. Component instances (cc.Component) cannot cross this boundary.\n\n4. Cocos Creator Web Components: Must use built-in <ui-button>, <ui-input>, <ui-select> elements for consistency with editor chrome. Custom elements are possible but must be defined inline.\n\n5. Panel Dimensions: Default 450x120 with min-height 60 (package.json). The panel is dockable and auto-docked to Inspector. UI must be responsive within these constraints and work when resized.\n\n6. Backward Compatibility: All existing IPC message names, data contracts (InputMatch, ComponentOption), and keyboard shortcuts must be preserved. The scene-accessor.js API surface cannot change without updating panel handlers.\n\n7. No Build Pipeline: No webpack/vite/rollup available. All JS must be CommonJS (require/module.exports). No TypeScript compilation at runtime. CSS must be vanilla (no PostCSS/SASS).\n\n8. Electron Remote API Deprecation: Uses require('electron').remote for dialogs and menus. This API is deprecated in newer Electron versions - UI renovation should consider Editor.Dialog alternatives if available.\n\n9. Performance: Search debounce is 200ms. Component list refresh triggers IPC round-trip. UI must not block the renderer process with synchronous operations beyond what already exists (dialog.showMessageBoxSync).",
+  "clarification_needs": [
+    {
+      "question": "What is the scope of the UI renovation - full visual redesign of all UI elements, or targeted improvements to specific areas?",
+      "context": "The current UI has 3 main areas: (1) search input + results list, (2) current components bar with drag-to-reorder, (3) settings page. The panel/index.js is a 3135-line monolithic file. A full redesign vs targeted improvements significantly changes the approach and risk level.",
+      "options": [
+        "Full redesign of all UI areas including layout restructuring and visual overhaul",
+        "Visual refresh only - update colors, spacing, typography while keeping existing layout",
+        "Targeted improvements to specific pain points (specify which areas)",
+        "Progressive renovation - phase by phase starting with most impactful area"
+      ],
+      "recommended": 3
+    },
+    {
+      "question": "Should the UI renovation maintain the current single-file architecture or attempt to introduce component-like modularity within the Cocos Creator plugin constraints?",
+      "context": "The current panel/index.js contains everything in one file (~3135 lines): CSS, HTML template, and all JS logic. While Cocos Creator 2.x requires Editor.Panel.extend(), it is possible to extract helper modules (e.g., separate JS files for UI component factories, settings renderer, search UI) that are required into the panel. This would improve maintainability but adds complexity.",
+      "options": [
+        "Keep single-file architecture - renovate within current structure",
+        "Extract reusable UI helper modules (e.g., component-list-renderer.js, settings-renderer.js) while keeping panel/index.js as orchestrator",
+        "Introduce a lightweight inline component system with render functions for each UI section"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "What design direction should guide the visual renovation?",
+      "context": "The current UI already uses a modern dark theme with CSS custom properties (Tailwind-inspired slate/indigo palette). The existing design token system (--primary-color, --bg-primary, etc.) provides a foundation. The ui-ux-pro-max skill likely has specific design recommendations.",
+      "options": [
+        "Enhance current dark theme - refine existing design tokens, improve spacing/typography consistency",
+        "Complete theme overhaul - new color palette, new design language aligned with ui-ux-pro-max recommendations",
+        "Add theme switching capability - support both dark and light modes with CSS custom property toggling"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00.000Z",
+    "task_description": "Plan for renovating/redesigning the current project's UI using ui-ux-pro-max design intelligence. Need to understand where UI components connect, how they interact with data/logic, and integration boundaries.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "integration-points",
+    "exploration_index": 2,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

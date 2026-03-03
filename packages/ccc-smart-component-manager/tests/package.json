@@ -1,0 +1,22 @@
+{
+  "name": "ccc-smart-component-manager-tests",
+  "version": "1.0.0",
+  "description": "Test environment for ccc-smart-component-manager",
+  "private": true,
+  "scripts": {
+    "test": "jest --config jest.config.plugin.js",
+    "test:verbose": "jest --config jest.config.plugin.js --verbose",
+    "test:coverage": "jest --config jest.config.plugin.js --coverage"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "jest-canvas-mock": "^2.5.2",
+    "jest-environment-jsdom": "^30.2.0"
+  },
+  "keywords": [
+    "test",
+    "jest"
+  ],
+  "author": "",
+  "license": "ISC"
+}

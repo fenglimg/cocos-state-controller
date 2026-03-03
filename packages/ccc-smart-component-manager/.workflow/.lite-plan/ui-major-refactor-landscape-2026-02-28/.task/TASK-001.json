@@ -1,0 +1,182 @@
+{
+  "id": "TASK-001",
+  "title": "Complete CSS rewrite: design tokens + all component styles",
+  "description": "Rewrite the entire CSS section of panel/index.js (lines 59-720 style property + lines 724-1300 template style block) following the ui-ux-pro-max design system. This includes: (1) replacing all design tokens with compact IDE values, (2) rewriting every component style rule for 20-24px controls, (3) replacing indigo accent with green #22C55E, (4) converting flexbox gap to margin-based spacing for Electron 2 compat, (5) settings modal CSS becomes settings page CSS (full-panel replacement). The CSS must produce a dark OLED theme with WCAG AAA contrast ratios.",
+  "type": "refactor",
+  "priority": "critical",
+  "effort": "large",
+  "action": "Refactor",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js"],
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "All design tokens replaced: --spacing-xs=2px, --spacing-sm=4px, --spacing-md=6px, --spacing-lg=8px, --spacing-xl=12px",
+      "Color palette: --bg-primary=#0F172A, --bg-secondary=#1E293B, --bg-hover=#334155, --accent=#22C55E, --text-primary=#F8FAFC, --text-muted=#94A3B8",
+      "All ui-button heights reduced to 24px (toolbar) or 20-22px (list items/chips)",
+      "Search input #com_name height=24px, padding=0 4px, font-size=12px, border-bottom 1px only (no full border)",
+      "Container padding=4-6px, item gaps=2-4px via margin (NO flexbox gap property)",
+      "Search result .search-result height=22-24px, font-size=12px, no cards/shadows, flat list with 1px separator",
+      "Component bar #coms chips 20px height, 4px h-padding, 11px font, horizontal scroll",
+      "Empty state .list-state collapsed to single-line muted text, max 20px height",
+      "Settings CSS rewritten for full-panel view (no modal overlay, no fixed positioning, no 520px width)",
+      "Zero instances of flexbox gap property (replaced with margin-based spacing)",
+      "All border-radius values reduced: sm=2px, md=3px, lg=4px",
+      "Transitions: 150ms duration for all color changes",
+      "Icon sizes: 14px for toolbar, 12px for list items via .icon-sm/.icon-md classes"
+    ],
+    "verification": "Visual inspection in Cocos Creator editor: panel renders correctly at 300px and 450px widths, 120px height. All interactive elements visible without scrolling in default state.",
+    "definition_of_done": "The panel CSS produces a compact, dark IDE-style appearance matching the design system specification with no mobile-sized elements."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "style property (lines 59-720)",
+      "changes": [
+        "Replace all :host CSS custom properties with compact IDE values",
+        "Rewrite .container: padding 4px, no flexbox gap (use child margins)",
+        "Rewrite .row: height 24px, gap replaced with margin-right on children",
+        "Rewrite .row ui-button: 24px height, transparent bg, 14px icon, hover=#334155",
+        "Rewrite #com_name: 24px height, 4px padding, border-bottom 1px only, 12px font",
+        "Rewrite .search-result: 22-24px height, 2px 6px padding, 12px font, no border-radius",
+        "Rewrite #coms: max-height 32px, 2px padding, margin-based 4px gaps",
+        "Rewrite #coms ui-button: 20px height, 2px 4px padding, 11px font",
+        "Rewrite .list-state: remove min-height, single-line muted text",
+        "Rewrite .results-meta: inline styling (will be merged into search row in TASK-002)",
+        "Replace all #6366f1/indigo references with #22C55E/green",
+        "Add .icon-sm (12px) and .icon-md (14px) icon size classes, update .icon sizing"
+      ],
+      "conflict_risk": "high"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "template style block (lines 724-1300)",
+      "changes": [
+        "Rewrite settings modal CSS as settings page CSS (full-panel replacement)",
+        "Remove .settings-overlay, .settings-dialog fixed positioning",
+        "Add .settings-page styles: full-width, scrollable, compact sections",
+        "Settings controls: 20px height inputs/toggles, 11px section headers",
+        "Remove 520px width constraint, use 100% width",
+        "Compact section separators: 1px solid lines"
+      ],
+      "conflict_risk": "high"
+    }
+  ],
+  "implementation": [
+    {
+      "step": "1",
+      "description": "Rewrite :host design tokens block",
+      "actions": [
+        "Replace spacing tokens: xs=2px, sm=4px, md=6px, lg=8px, xl=12px",
+        "Replace color tokens: primary=#0F172A, secondary=#1E293B, accent=#22C55E",
+        "Replace text colors: primary=#F8FAFC, muted=#94A3B8",
+        "Replace radius tokens: sm=2px, md=3px, lg=4px, xl=6px",
+        "Set --font-size-body to 12px, add --font-size-small: 11px",
+        "Set transition duration tokens to 150ms"
+      ]
+    },
+    {
+      "step": "2",
+      "description": "Rewrite main layout styles (.container, .row)",
+      "actions": [
+        "Set .container padding to 4px, remove gap property, add > * + * { margin-top: 2px }",
+        "Set .row height to 24px, align-items: center, remove gap, add > * + * { margin-left: 4px }",
+        "Set .row ui-button to 24px square, transparent bg, border:none, cursor:pointer",
+        "Add .row ui-button:hover { background: #334155 }",
+        "Ensure no flexbox gap property exists anywhere in the style block"
+      ]
+    },
+    {
+      "step": "3",
+      "description": "Rewrite search input and results styles",
+      "actions": [
+        "Set #com_name to height:24px, padding:0 4px, font-size:12px, border:none, border-bottom:1px solid #334155",
+        "Set .list-items to display:flex, flex-direction:column (single column list, no grid)",
+        "Set .search-result to height:22px, padding:0 6px, font-size:12px, display:flex, align-items:center",
+        "Add .search-result:hover { background: #334155 }",
+        "Add subtle 1px separator between results via border-bottom or + selector",
+        "Set .results-meta to font-size:11px, color:#94A3B8, inline display"
+      ]
+    },
+    {
+      "step": "4",
+      "description": "Rewrite component bar styles",
+      "actions": [
+        "Set #coms to display:flex, flex-direction:row, overflow-x:auto, max-height:24px, padding:2px",
+        "Replace gap with margin-right:4px on children",
+        "Set #coms ui-button to height:20px, padding:0 4px, font-size:11px, border-radius:2px",
+        "Set chip background to #1E293B, text #F8FAFC",
+        "Delete X button: 14px, visible only on hover via parent:hover .delete-btn { opacity: 1 }",
+        "Set .coms-wrap min-height to 24px (was 44px)"
+      ]
+    },
+    {
+      "step": "5",
+      "description": "Rewrite empty/loading states and settings page CSS",
+      "actions": [
+        "Collapse .list-state to single-line: remove min-height, set padding:2px 6px, font-size:11px, color:#94A3B8",
+        "Remove skeleton grid styles or reduce to 2 items at 20px height",
+        "Convert settings modal CSS to settings page: remove overlay/fixed/520px, add full-width flow layout",
+        "Settings sections: 1px separator, 11px uppercase muted headers, 20px control height",
+        "Settings back button: 24px height, left-aligned in toolbar area"
+      ]
+    }
+  ],
+  "reference": {
+    "pattern": "IDE/DevTool compact UI (VS Code, Chrome DevTools panel sizing)",
+    "files": ["panel/index.js"],
+    "examples": "VS Code sidebar panels use 22px item height, 4px padding, system fonts. Chrome DevTools uses similar compact sizing with dark backgrounds."
+  },
+  "rationale": {
+    "chosen_approach": "Complete CSS rewrite rather than incremental adjustments because the entire design token system and sizing paradigm is wrong (mobile vs desktop). Changing tokens alone would cascade incorrectly due to interdependent !important overrides.",
+    "alternatives_considered": [
+      "Incremental CSS patches (too fragile, !important cascades make partial changes unpredictable)",
+      "CSS-in-JS approach (not compatible with Cocos Creator Editor.Panel.extend pattern)",
+      "External CSS file (requires fs.readFileSync, adds complexity for no benefit)"
+    ],
+    "decision_factors": ["Complete control over sizing", "Clean break from mobile paradigm", "Maintainability of design token system"],
+    "tradeoffs": "Large diff size for the CSS section; all styles change simultaneously rather than incrementally"
+  },
+  "risks": [
+    {
+      "description": "ui-button Shadow DOM styles may resist compact sizing below certain thresholds",
+      "probability": "Medium",
+      "impact": "Medium",
+      "mitigation": "Test 20px and 24px heights with !important overrides; if 20px fails, use 24px as minimum",
+      "fallback": "Use min-height instead of height for flexibility"
+    },
+    {
+      "description": "Removing flexbox gap may cause margin collapse issues in nested flex containers",
+      "probability": "Low",
+      "impact": "Low",
+      "mitigation": "Use > * + * adjacent sibling selector pattern which is immune to margin collapse in flexbox"
+    }
+  ],
+  "test": {
+    "manual_checks": [
+      "Panel renders at 300px width without horizontal overflow",
+      "Panel renders at 450px width with proper proportions",
+      "Panel at 120px height shows search bar + at least 2 results",
+      "All colors match design system (bg #0F172A, accent #22C55E, text #F8FAFC)",
+      "Hover states show #334155 background on all clickable elements",
+      "No flexbox gap usage found in CSS (search for 'gap:' outside grid context)"
+    ],
+    "success_metrics": [
+      "Total vertical consumption of fixed UI elements (toolbar + component bar) <= 56px",
+      "Search result item height <= 24px",
+      "Zero instances of 44px in any CSS rule",
+      "Zero instances of #6366f1 or indigo in any CSS rule"
+    ]
+  },
+  "cli_execution": {
+    "id": "ui-major-refactor-landscape-2026-02-28-TASK-001",
+    "strategy": "new"
+  },
+  "commit": {
+    "type": "refactor",
+    "scope": "panel-css",
+    "message_template": "refactor(panel-css): complete CSS rewrite with compact IDE design tokens"
+  }
+}

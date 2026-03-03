@@ -1,0 +1,89 @@
+{
+  "project_structure": "Single-file panel architecture (panel/index.js, 3374 lines) using Cocos Creator Editor.Panel.extend() pattern. The panel contains inline CSS (~1300 lines of design tokens + component styles + settings modal styles), an HTML template (~60 lines), element bindings via $ map, lifecycle hooks (ready/close), IPC message handlers, and rendering logic. All UI is in one monolithic file with no component extraction or module separation.",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "The ONLY UI file. Contains all 5 pattern systems: svgIcon() function (lines 39-56), ICON_PATHS constant (lines 13-28), button rendering in template (lines 1304-1343), search result rendering in res-input-query handler (lines 3154-3250), component bar rendering in res-list-current-components handler (lines 3251-3329), and settings modal (lines 2038-2269). All CSS is inline in the style property (lines 60-720) and template style block (lines 724-1300).",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["svgIcon", "ICON_PATHS", "escapeHtml", "onInput2", "refreshCurComs", "createHighlightedText", "createBadges", "openSettingsModal", "closeSettingsModal", "renderSettingsContent", "handleSettingsModalKeydown", "setSearchUiState", "addCom", "showContextMenu", "toggleFavorite", "deleteComponent"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.5,
+      "rationale": "Provides data APIs called by panel rendering: isFavorite(), addToFavorites(), removeFromFavorites(), getDeleteComponentConfirm(), getFavoriteToggleConfirm(). These APIs determine badge rendering and context menu behavior in search results.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["isFavorite", "addToFavorites", "removeFromFavorites", "getDeleteComponentConfirm", "getFavoriteToggleConfirm"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.4,
+      "rationale": "Provides t() internationalization function used extensively in template HTML and renderSettingsContent() for all user-facing strings. UI refactor must preserve all t() call sites.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["t"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.3,
+      "rationale": "Provides logger.info/warn/error/success used throughout panel rendering handlers for status messages. Not directly UI-impacting but referenced in every rendering code path.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["logger"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.5,
+      "rationale": "Defines the match object shape (origin, displayName, index, matchLength, type, isFavorite, isFrequent, score) consumed by createHighlightedText() and createBadges() in the panel. The search result rendering pattern is tightly coupled to this data structure.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["match.origin", "match.displayName", "match.type", "match.isFavorite", "match.isFrequent", "match.score"]
+    }
+  ],
+  "patterns": "## 1. SVG Icon System (ICON_PATHS + svgIcon)\n\n**Location**: panel/index.js lines 13-56\n\n**Pattern**: ICON_PATHS is a flat object mapping icon names to SVG path strings. svgIcon(name, options) generates a full `<svg>` element string with classes `icon icon-{size}`, viewBox 0 0 24 24, stroke-based rendering. Sizes: sm=16px, md=20px (default), lg=24px. Icons are Lucide-style 24x24 stroke icons.\n\n**Output example**: `<svg class=\"icon icon-md\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M12 5v14M5 12h14\"></path></svg>`\n\n**Assessment for compact UI**: Icon system is well-designed and reusable. 16px (sm) icons work well for compact layouts. No changes needed to the icon generation function itself.\n\n---\n\n## 2. Button Rendering Pattern (Toolbar Row)\n\n**Location**: Template lines 1304-1312, CSS lines 422-451\n\n**Pattern**: Top row uses `<ui-button>` (Cocos Creator custom element) with svgIcon() inside. CSS forces `.row ui-button` to 44px height, 44px min-width, `background: var(--primary-color)` (indigo #6366f1), font-size 16px. These are the big purple blocks.\n\n**Why oversized**: Hardcoded `44px !important` min-height/min-width on `.row ui-button` plus large padding. The `!important` overrides prevent any cascade-based adjustment. The search input `#com_name` also has `height: 44px !important`.\n\n**Problem for compact layout**: 44px touch targets are mobile-optimized but waste vertical space in a 300-450px wide editor panel. The row takes 44px + 16px padding = 60px of vertical space just for the search bar. Need to reduce to ~32px for compact editor tools.\n\n---\n\n## 3. Search Result Rendering Pattern (res-input-query)\n\n**Location**: panel/index.js lines 3154-3250\n\n**Pattern**: IPC handler receives `matchs` array from scene script. For each match:\n1. Creates `<ui-button>` element dynamically via `document.createElement('ui-button')`\n2. Sets innerHTML with `.component-name` span + badges HTML from createBadges()\n3. Applies CSS class `search-result {type} [favorite] [frequent] [normal]`\n4. Binds onclick (addCom), oncontextmenu (toggleFavorite), keydown (Enter/Space)\n5. Appends to `$listItems` container\n\n**CSS Grid**: `.list-items` uses `grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))` - items are 220px min with 44px min-height, 14px font, 12px padding.\n\n**Problem for compact layout**: 220px minmax means at 300px panel width, only 1 column shows. Items at 44px height with padding consume too much space. The entry animation (translateY + opacity) is unnecessary overhead. Each result uses `<ui-button>` which has Cocos Creator's built-in styling that requires `!important` overrides everywhere.\n\n---\n\n## 4. Component Bar Rendering Pattern (res-list-current-components)\n\n**Location**: panel/index.js lines 3251-3329\n\n**Pattern**: IPC handler receives `comOptionCol` object. For each component:\n1. Creates `<ui-button>` via `document.createElement('ui-button')`\n2. Sets inline style `background: '#b54344'` (hardcoded red) - overrides CSS!\n3. innerHTML: count badge `<span class=\"ctex\">{count}</span>|{comName}` (if multi-node)\n4. Binds onclick (confirmDelete), oncontextmenu (deleteComponent)\n5. Keyboard reorder support (A/D keys) with hover detection\n\n**Container**: `#coms` is horizontal scroll, max-height 120px, flex row, 8px gap. Wrapped in `.coms-wrap` with scroll indicators (gradient fade overlays).\n\n**Problem for compact layout**: 120px max-height is excessive for a component bar. Buttons have 44px min-height from CSS plus hardcoded background color in JS. The keyboard reorder system with hover tooltips (::after pseudo-element at top: -32px) adds complexity. The scroll indicators pattern is nice but may not be needed if the bar is simplified.\n\n---\n\n## 5. Settings Modal Pattern\n\n**Location**: panel/index.js lines 2038-2269 (logic), template lines 1347-1357 (shell), CSS lines 728-1290 (styles)\n\n**Pattern**: Two-layer structure:\n- Template has the modal shell (overlay + dialog container + header + empty content div)\n- `renderSettingsContent()` generates full HTML string for 6 settings sections and sets it via innerHTML\n- `bindSettingsEvents()` reattaches all event listeners after innerHTML replacement\n- Focus trap via `handleSettingsModalKeydown()` with Tab/Shift+Tab cycling\n- Open: add 'show' class + set aria-hidden + render content + move focus\n- Close: remove 'show' class + restore aria + restore focus to trigger element\n\n**Settings sections**: Favorites management, Stats display, Auto-mount config, Shortcut config, Log level, Confirmation toggles. Dialog is 520px wide fixed.\n\n**Problem for compact layout**: 520px dialog width exceeds the 300-450px panel width entirely. The modal uses `position: fixed` which may work within the panel's shadow DOM but the dialog simply won't fit. Either needs to become a full-panel view (replace main content) or a scrollable sheet. The innerHTML + rebind pattern makes it hard to maintain.\n\n---\n\n## 6. CSS Architecture Pattern\n\n**Overall pattern**: ~1300 lines of CSS split between `style:` property (design tokens + main UI) and `template:` inline `<style>` block (settings modal + responsive). Uses CSS custom properties extensively. All Cocos `ui-button` overrides use `!important` because the custom element has internal styles.\n\n**Design token system**: Well-organized with --primary-*, --bg-*, --text-*, --border-*, --shadow-*, --radius-*, --spacing-* variables. Dark theme only (hardcoded dark palette).\n\n**Responsive breakpoints**: Only in settings modal CSS - `@media (max-height: 600px)`, `(max-width: 600px)`. Main panel has NO responsive breakpoints at all.\n\n**Problem for compact layout**: No width-based responsive design for the main panel. The 44px minimum touch targets and 220px grid minimums are baked in everywhere with !important. A compact layout needs a complete rethink of spacing/sizing tokens, not just CSS tweaks.\n\n---\n\n## 7. Event/IPC Communication Pattern\n\n**Pattern**: Panel uses Cocos Creator Editor IPC:\n- `Editor.Scene.callSceneScript('ccc-smart-component-manager', 'input-query', ...)` to send\n- Message handlers like `\"ccc-smart-component-manager:res-input-query\"(event, data)` to receive\n- Search flow: onInput2() -> debounce 200ms -> callSceneScript -> res-input-query handler -> render\n- Component bar: refreshCurComs() -> callSceneScript -> res-list-current-components -> render\n\n**Assessment**: IPC pattern is correct and doesn't need changes. Only the rendering in the response handlers needs refactoring.",
+  "dependencies": "Internal dependencies from panel/index.js:\n- require('../i18n-helper') -> t() function for all UI strings\n- require('../data-manager') -> isFavorite, favorites management, settings getters\n- require('../logger') -> logging throughout handlers\n- Editor.Panel.extend() -> Cocos Creator 2.x panel framework\n- Editor.Scene.callSceneScript() -> IPC to scene scripts\n- Editor.Selection.curSelection('node') -> node selection queries\n- require('electron').remote -> native dialog.showMessageBoxSync, Menu.buildFromTemplate\n- document.createElement('ui-button') -> Cocos Creator custom element\n\nNo external npm dependencies for the UI layer. All rendering is vanilla DOM manipulation.",
+  "integration_points": "1. **Editor.Panel.extend()** - The entire panel is registered as a Cocos Creator editor panel. The style/template/$/ready/close/messages structure is framework-mandated.\n2. **IPC Message Bus** - 8+ message handlers in the `messages:` section handle scene script responses. These are the integration points between UI rendering and business logic.\n3. **ui-button Custom Element** - Cocos Creator's built-in button component used for ALL interactive elements. Its internal styles require !important overrides. Search results and component bar items are dynamically created ui-buttons.\n4. **ui-input** - The search input `#com_name` is a plain `<input>` (not ui-input), which is unusual - it uses Cocos's input styling from the template style block.\n5. **Shadow DOM** - Editor panels run in shadow DOM context, so CSS is scoped. The settings modal uses `position: fixed` which works within this context.\n6. **dataManager singleton** - Shared state between panel and other extension parts (settings, favorites, usage stats).",
+  "constraints": "1. **Cocos Creator 2.x Editor API** - Must use Editor.Panel.extend() structure with style/template/$/messages pattern. Cannot use modern frameworks (React/Vue).\n2. **ui-button internal styles** - Cocos Creator's ui-button has built-in styles that cannot be changed. All visual overrides require !important declarations.\n3. **Single file architecture** - The Editor.Panel.extend() pattern expects everything in one exported object. Extracting to modules requires careful handling of `this` context.\n4. **Shadow DOM scoping** - CSS is scoped to the panel's shadow root. Global styles don't leak in or out.\n5. **Landscape panel width 300-450px** - The panel sits beside the inspector. Current design assumes unlimited width (520px settings dialog, 220px grid min). Everything must work within this constraint.\n6. **No build system** - Plain JavaScript, no transpilation, no CSS preprocessor. All CSS must be template literals.\n7. **Electron environment** - Running in Cocos Creator's Electron shell. require('electron').remote is available for native dialogs.\n8. **Backward compatibility** - All existing IPC message contracts, dataManager API, and keyboard shortcuts must be preserved.",
+  "clarification_needs": [
+    {
+      "question": "Should the settings modal become a full-panel replacement view (slide in, replace main content) or remain an overlay but sized to fit the panel width?",
+      "context": "The current settings modal is 520px wide with position:fixed overlay. At 300-450px panel width, it physically cannot fit. Two viable approaches exist: (A) replace main content with settings view (simpler, no overlay needed), or (B) make it a bottom sheet/side panel within the constraint.",
+      "options": [
+        "Full-panel replacement: settings slides in and replaces main content entirely, back button to return",
+        "Constrained overlay: modal shrinks to panel width with max-width:100%, scrollable content",
+        "Collapsible sections: embed settings directly below the component bar, expandable accordion style"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Should search results use a simple list (1 column) or attempt a compact 2-column grid at wider panel sizes (400px+)?",
+      "context": "Current grid uses minmax(220px, 1fr) which always results in 1 column at 300-450px. A compact single-column list with smaller items (28-32px height) would maximize visible results. Alternatively, very compact items (name only, no badges) could fit 2 columns at 400px+.",
+      "options": [
+        "Single column list with compact 28-32px items, badges as inline icons",
+        "Responsive: 1 column under 380px, 2 columns above with ultra-compact items",
+        "Keep current grid pattern but reduce minmax to 140px minimum"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Should the component bar (#coms) remain horizontal-scroll or switch to a wrapping flow layout for better visibility?",
+      "context": "At 300-450px width, horizontal scroll means only 1-2 component buttons visible at a time. A wrapping layout would show more but consume more vertical space. The keyboard reorder (A/D keys) feature relies on linear button order.",
+      "options": [
+        "Keep horizontal scroll but reduce button height to 28px and use compact text",
+        "Switch to flex-wrap layout with max-height limit and overflow-y scroll",
+        "Hybrid: single-row if 3 or fewer components, wrap if more"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "Major UI refactor needed. Previous renovation created oversized UI elements. Need to understand current code patterns: SVG icon system (ICON_PATHS/svgIcon), button rendering, search result rendering, component bar, settings modal. The panel is used ONLY in landscape + small screen (docked beside inspector, ~300-450px wide). Need patterns that work for compact editor tools.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "patterns",
+    "exploration_index": 2,
+    "total_explorations": 4
+  }
+}

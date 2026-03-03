@@ -1,0 +1,33 @@
+{
+  "summary": "修改属性自动挂载的两阶段搜索策略，当搜索范围超出当前节点子树（Phase 2 向上搜索祖先）时，不再自动挂载，改为通过 Editor.Dialog 确认对话框让用户决定是否执行跨范围挂载。",
+  "approach": "分两步实施：先修改 PropertyMounter 将 Phase 2 结果分离为 pendingMounts 而非直接挂载，再在 scene-accessor 的 performAutoMount 中集成 Editor.Dialog 对话框处理跨范围确认逻辑。",
+  "task_ids": ["TASK-001", "TASK-002"],
+  "task_count": 2,
+  "complexity": "Low",
+  "estimated_time": "30 minutes",
+  "recommended_execution": "Agent",
+  "design_decisions": [
+    {
+      "decision": "Phase 2 结果收集但不挂载，由调用方决定",
+      "rationale": "保持 PropertyMounter 的职责单一（搜索+匹配），将 UI 交互逻辑放在 scene-accessor 层",
+      "alternatives": ["在 PropertyMounter 内部直接调用 Editor.Dialog（违反关注点分离）"]
+    },
+    {
+      "decision": "Editor.Dialog 不可用时静默跳过跨范围挂载",
+      "rationale": "在非编辑器环境（如测试）中不应因为对话框不可用而报错，但应记录日志便于调试",
+      "alternatives": ["使用 confirm() 降级", "始终自动挂载（回退到原行为）"]
+    },
+    {
+      "decision": "返回值改为 { mountResults, pendingMounts } 结构体",
+      "rationale": "保持向后兼容性，现有代码通过 mountResults 获取已挂载结果不受影响，新增 pendingMounts 为增量变更",
+      "alternatives": ["在 mountResults 中用 status 字段区分（增加复杂度）"]
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T16:00:00+08:00",
+    "source": "direct-planning",
+    "planning_mode": "direct",
+    "plan_type": "feature",
+    "schema_version": "2.0"
+  }
+}

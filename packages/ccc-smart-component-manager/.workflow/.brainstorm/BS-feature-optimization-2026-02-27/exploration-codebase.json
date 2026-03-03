@@ -1,0 +1,50 @@
+{
+  "relevant_files": [
+    {"path": "search-engine.js", "relevance": "high", "rationale": "核心搜索算法，支持精确/前缀/包含/模糊匹配，可优化搜索效率和准确性"},
+    {"path": "data-manager.js", "relevance": "high", "rationale": "数据持久化管理，收藏/使用统计/设置，可扩展更多数据维度"},
+    {"path": "property-mounter.js", "relevance": "high", "rationale": "智能属性挂载核心，两阶段就近搜索，可优化匹配算法和扩展性"},
+    {"path": "panel/index.js", "relevance": "high", "rationale": "UI面板实现，119KB大文件，可拆分优化和增强交互"},
+    {"path": "scene-accessor.js", "relevance": "high", "rationale": "场景操作接口，组件增删查，可扩展批量操作和撤销功能"},
+    {"path": "logger.js", "relevance": "medium", "rationale": "日志管理，可扩展日志导出和调试功能"},
+    {"path": "tests/__tests__/property-mounter.test.js", "relevance": "medium", "rationale": "测试框架Jest，可扩展测试覆盖率"}
+  ],
+  "existing_patterns": [
+    "单例模式 - dataManager, searchEngine",
+    "观察者模式 - IPC通信 (Editor.Ipc)",
+    "策略模式 - 多种匹配算法 (exact/prefix/contains/fuzzy)",
+    "两阶段搜索 - 就近优先属性挂载",
+    "模块化架构 - 职责分离清晰"
+  ],
+  "architecture_constraints": [
+    "Cocos Creator 2.4.x API限制",
+    "无法监听场景组件增删事件",
+    "搜索结果最多20个",
+    "自动挂载仅在当前场景根节点下搜索",
+    "Editor.Panel.extend 面板扩展模式"
+  ],
+  "integration_points": [
+    "Editor.Selection - 节点选择",
+    "Editor.Ipc - 进程间通信",
+    "cc.js._registeredClassNames - 组件注册表",
+    "cc.Class.Attr - 组件属性系统",
+    "场景树遍历 - cc.director.getScene()"
+  ],
+  "optimization_opportunities": [
+    "搜索算法优化 - 引入拼音搜索、智能推荐",
+    "组件模板系统 - 预设配置快速应用",
+    "批量操作增强 - 批量添加、批量配置",
+    "历史记录与撤销 - 操作历史管理",
+    "组件依赖分析 - 可视化依赖关系",
+    "跨场景复用 - 组件配置导出/导入",
+    "性能优化 - 大场景搜索性能",
+    "UI重构 - panel/index.js 文件过大需拆分",
+    "快捷键系统 - 自定义快捷键",
+    "工作流集成 - 与预制体系统联动"
+  ],
+  "_metadata": {
+    "exploration_type": "brainstorm-codebase",
+    "timestamp": "2026-02-27T22:45:00+08:00",
+    "project": "ccc-smart-component-manager",
+    "version": "1.2.1"
+  }
+}

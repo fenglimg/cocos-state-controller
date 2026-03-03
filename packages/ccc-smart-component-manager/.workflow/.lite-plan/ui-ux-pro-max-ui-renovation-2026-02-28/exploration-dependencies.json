@@ -1,0 +1,146 @@
+{
+  "project_structure": "Cocos Creator 2.x editor extension plugin with flat module architecture. The project is a dockable panel plugin ('ccc-smart-component-manager') that provides smart component search/management for the Cocos Creator editor. Core modules at root level: main.js (entry point), panel/index.js (UI panel with inline CSS/HTML/JS), search-engine.js, data-manager.js, property-mounter.js, logger.js, i18n-helper.js, scene-accessor.js (scene-script). No build system, no bundler, no npm dependencies for production - runs directly in Cocos Creator's Electron-based editor environment using CommonJS require().",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "The single monolithic UI file containing ALL panel CSS styles (inline ~600 lines of CSS variables and rules), HTML template (inline string), and JS panel logic (~3000 lines). This is the primary modify_target for any UI renovation - all visual styling, layout, and interaction code lives here.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "style", "template", "$input", "addSearchResult", "refreshSearchResult", "showSettingsDialog", "showStatsDialog"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.9,
+      "rationale": "Defines plugin metadata, panel configuration (type: dockable, width: 450, height: 120, min-height: 60), main entry point, scene-script binding, and menu registration. Panel dimensions and type constrain UI layout possibilities.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "main-menu", "scene-script", "engineSupport"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.8,
+      "rationale": "Provides DataManager singleton used by panel/index.js for favorites, usage stats, settings (autoPropertyMount, shortcuts, confirmations, logLevel). UI renovation must maintain compatibility with DataManager's getters/setters API for settings dialogs and favorite toggles.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["DataManager", "getAutoMountSettings", "getFavorites", "getConfirmationSettings", "getShortcutSettings", "forceSaveToFile"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.7,
+      "rationale": "SearchEngine singleton consumed by scene-accessor.js and indirectly drives panel search results display. Returns match objects with score/type/isFavorite fields that the panel UI renders with highlighting via highlightMatch().",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["SearchEngine", "searchComponents", "highlightMatch", "getFavoriteComponents", "calculateMatchScore"]
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.7,
+      "rationale": "Scene-script running in Cocos Creator's scene context, handles IPC messages from panel (add-component, del-component, input-query, move-component, execute-auto-mount). UI renovation must preserve all IPC message names and payload formats to maintain scene-panel communication.",
+      "role": "integration_point",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["add-component", "del-component", "input-query", "list-current-components", "move-component", "execute-auto-mount-component"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.6,
+      "rationale": "Provides t() translation function used in panel/index.js for UI text labels. UI renovation should use t() for any new text strings to maintain i18n support.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["t", "I18nHelper", "setLanguage", "getCurrentLanguage"]
+    },
+    {
+      "path": "i18n/zh.js",
+      "relevance": 0.5,
+      "rationale": "Chinese translation strings for all UI labels including PANEL, ADVANCED_PANEL, SEARCH, and COMMON sections. New UI elements will need corresponding translation keys added here.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["PANEL", "ADVANCED_PANEL", "SEARCH", "COMMON"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.4,
+      "rationale": "Logger singleton with two levels (ALL/ERROR_ONLY) used across all modules. Uses Editor.log() for output. UI renovation may need to update log references if panel structure changes.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["Logger", "info", "error", "debug", "setLogLevel"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.5,
+      "rationale": "Auto-docking script that programmatically docks the plugin panel next to the Inspector panel using internal Cocos Creator renderer APIs (dockUtil, panelMgr, dropMgr). Hardcoded package name 'add_component' suggests legacy origin. UI renovation must not break docking behavior.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr", "dropTab"]
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": 0.5,
+      "rationale": "PropertyMounter class for auto-mounting component properties. Lazy-loaded by scene-accessor.js. UI has 'execute auto mount' button that triggers this module. UI renovation needs to preserve the auto-mount trigger UI elements.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["PropertyMounter", "autoMountProperties", "parseComponentProperties", "matchNodeName"]
+    },
+    {
+      "path": "typings/editor.d.ts",
+      "relevance": 0.4,
+      "rationale": "TypeScript type definitions for Cocos Creator Editor API (Editor.Panel, Editor.Ipc, Editor.Selection, Editor.Scene, Editor.UI). Documents the available API surface for panel development and UI constraints.",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel", "Editor.Ipc", "Editor.Selection", "Editor.Scene", "Editor.UI"]
+    },
+    {
+      "path": "user-data.json",
+      "relevance": 0.3,
+      "rationale": "Runtime user data file storing favorites, usage counts, and settings (logLevel, autoPropertyMount, shortcuts, confirmations). UI settings dialogs read/write this via DataManager. Schema defines what settings UI must expose.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["favorites", "usage", "settings"]
+    }
+  ],
+  "patterns": "1. **Monolithic panel pattern**: All UI (CSS+HTML+JS) lives in a single panel/index.js file using Editor.Panel.extend() with inline style/template strings - no external CSS files, no component framework, no templating engine. 2. **CSS Variables design system**: Panel uses CSS custom properties (--primary-color, --bg-primary, --text-primary, etc.) with a dark theme (slate/indigo palette). Tailwind-inspired naming convention. 3. **IPC communication pattern**: Panel communicates with scene-script via Editor.Scene.callSceneScript() for scene operations and Editor.Ipc.sendToPanel() for responses. Message names follow 'ccc-smart-component-manager:action' convention. 4. **Singleton module pattern**: All core modules (DataManager, SearchEngine, Logger) export singleton instances via module.exports = new Class(). 5. **Electron require pattern**: Panel uses require('electron').remote for native dialogs and clipboard. 6. **Context menu pattern**: Right-click menus built with electron.remote.Menu.buildFromTemplate(). 7. **No framework**: Pure vanilla JS DOM manipulation - createElement, querySelector, addEventListener, innerHTML assignments.",
+  "dependencies": "**Runtime Dependencies (zero npm packages)**: The plugin has NO external npm dependencies for production. It relies entirely on: (1) **Cocos Creator Editor API** - Editor.Panel, Editor.Ipc, Editor.Scene, Editor.Selection, Editor.UI (provided by host environment); (2) **Cocos Creator Engine API** - cc.js, cc.Component, cc.Node, cc.Class, cc.director (provided by engine in scene context); (3) **Electron API** - require('electron').remote for native dialogs (Menu, dialog, clipboard); (4) **Node.js built-ins** - fs (file I/O for user-data.json), path (path resolution). **Internal module dependency graph**: panel/index.js -> {i18n-helper, data-manager, logger}; scene-accessor.js -> {search-engine, data-manager, logger, property-mounter}; search-engine.js -> {data-manager, logger}; data-manager.js -> {logger, fs, path}; i18n-helper.js -> {path}; property-mounter.js -> {logger}; logger.js -> (none). **Dev Dependencies**: tests/ directory has its own node_modules with Jest for testing. **UI Framework**: None - pure vanilla JavaScript with inline CSS/HTML strings.",
+  "integration_points": "1. **Editor.Panel.extend()** (panel/index.js:12) - Core panel registration API, defines style/template/messages/listeners lifecycle. 2. **Editor.Scene.callSceneScript()** (panel/index.js:1674,1719,1821,1851,2474,2484,2581,2803,2905) - All scene operations go through this IPC bridge with callback pattern. 3. **Editor.Selection.curSelection('node')** (panel/index.js:1703,1803,1831,2181,2456,2468,2534,2648,2770,2888,3026) - Node selection state query used extensively for context-aware UI. 4. **Editor.Ipc.sendToPanel()** (scene-accessor.js:109,138,168,177,271,340,350) - Scene-to-panel result callbacks. 5. **require('electron').remote** (panel/index.js:1705,1729,1766,1802,2466) - Native menus and dialogs. 6. **Editor.Panel.open/close()** (main.js:14,17) - Panel lifecycle management. 7. **template-auto-dock.js dockUtil.dropTab()** (template-auto-dock.js:60) - Internal Cocos Creator docking API for auto-positioning next to Inspector panel.",
+  "constraints": "1. **Cocos Creator 2.x Editor Extension API**: Must use Editor.Panel.extend() pattern with inline style/template strings - cannot use modern web frameworks (React/Vue/Svelte) as the panel runs in Cocos Creator's custom Electron renderer with specific panel lifecycle. 2. **No build pipeline**: No webpack/vite/rollup configured - all JS must be directly executable CommonJS modules. Adding a build step would be a significant architectural change. 3. **Electron version locked to Cocos Creator**: The Electron version is whatever Cocos Creator 2.x ships (likely Electron 2-4), limiting available Web APIs and CSS features (no CSS nesting, limited grid support, check flexbox compatibility). 4. **Panel size constraints**: package.json defines width:450, height:120, min-height:60 - the panel is designed to be compact and dockable. 5. **No external CSS/font loading**: All styles must be inline in the style string property - no external stylesheet imports, no CDN fonts. 6. **Shadow DOM isolation**: :host selector in use suggests the panel runs in Shadow DOM, isolating styles but preventing global CSS access. 7. **IPC message contract**: All message names (ccc-smart-component-manager:*) and payload formats are shared between panel and scene-script - changing them requires coordinated updates. 8. **Single-file UI architecture**: The ~3000-line panel/index.js is the only UI file - no component decomposition possible without build tooling.",
+  "clarification_needs": [
+    {
+      "question": "What is the target Cocos Creator version for this UI renovation?",
+      "context": "The plugin uses Cocos Creator 2.x Editor Extension API (Editor.Panel.extend pattern). Cocos Creator 3.x has a completely different extension system. The available CSS features, Electron version, and Editor APIs differ significantly between 2.x versions.",
+      "options": [
+        "Cocos Creator 2.4.x (most common 2.x version, Electron ~4)",
+        "Cocos Creator 2.x compatible (support all 2.x versions)",
+        "Plan migration to Cocos Creator 3.x extension system"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "Should the UI renovation stay within the current single-file architecture or introduce a build pipeline?",
+      "context": "Currently all UI code (CSS+HTML+JS ~3000 lines) is in one panel/index.js file with inline strings. A build pipeline (webpack/rollup) would enable CSS modules, component splitting, and modern tooling but adds complexity and changes the development workflow significantly.",
+      "options": [
+        "Stay single-file: improve inline CSS/HTML/JS within current architecture",
+        "Add minimal build pipeline: enable CSS extraction and JS bundling",
+        "Major restructure: introduce web component pattern with build tooling"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "What is the scope of 'UI renovation' - visual refresh only or functional UI redesign?",
+      "context": "The current panel has extensive functionality: search with fuzzy matching, favorites, component list management, drag-to-reorder, context menus, settings dialogs, stats display, and auto-mount triggers. A visual-only refresh can reuse existing DOM structure; a functional redesign may require rethinking interaction patterns.",
+      "options": [
+        "Visual refresh only: update colors, typography, spacing, animations within existing layout",
+        "Visual + interaction improvements: better search UX, improved list rendering, accessibility",
+        "Full UI redesign: rethink layout, navigation, and interaction patterns from scratch"
+      ],
+      "recommended": 1
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T00:00:00.000Z",
+    "task_description": "Plan for renovating/redesigning the current project's UI using ui-ux-pro-max design intelligence. Need to understand the dependency graph, external libraries, and technology constraints for UI renovation.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "dependencies",
+    "exploration_index": 3,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

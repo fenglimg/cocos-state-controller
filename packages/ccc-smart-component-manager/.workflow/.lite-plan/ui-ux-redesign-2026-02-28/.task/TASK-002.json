@@ -1,0 +1,30 @@
+{
+  "id": "TASK-002",
+  "title": "重组文件结构：提取 CSS/HTML 并创建构建脚本",
+  "description": "将 panel/index.js 中的 inline CSS (~500行) 和 HTML template (~750行) 提取为独立文件 panel/styles.css 和 panel/template.html。创建 panel/build.js 构建脚本，将分离的文件重新组合为 Editor.Panel.extend 所需的 style/template 字符串格式，输出到 panel/index.js。保留原有 JS 逻辑代码不变。",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "panel/styles.css 包含所有从 index.js style 属性提取的 CSS 代码",
+      "panel/template.html 包含所有从 index.js template 属性提取的 HTML 代码",
+      "panel/build.js 能将 CSS + HTML + JS 组合为可用的 panel/index.js",
+      "构建后的 panel/index.js 功能与原始文件完全一致",
+      "dead modal code 在提取 HTML 时被识别并标记"
+    ]
+  },
+  "files": [
+    { "path": "panel/index.js", "change": "提取 style (lines 14-501) 和 template (lines 503-1257) 为独立文件" },
+    { "path": "panel/styles.css", "change": "新建：从 index.js 提取的 CSS 样式" },
+    { "path": "panel/template.html", "change": "新建：从 index.js 提取的 HTML 模板" },
+    { "path": "panel/build.js", "change": "新建：构建脚本，将 CSS + HTML + JS 合并为 index.js" }
+  ],
+  "implementation": [
+    "从 panel/index.js 的 style 属性（template literal）中提取 CSS 到 panel/styles.css",
+    "从 panel/index.js 的 template 属性（template literal）中提取 HTML 到 panel/template.html",
+    "创建 panel/build.js：读取 styles.css 和 template.html，嵌入到 JS 模板中生成 index.js",
+    "确保构建脚本处理 CSS 中的反引号转义",
+    "保留 panel/index.js 的 JS 逻辑部分（ready、methods、messages 等）",
+    "在 template.html 中标注死代码区域（settings-modal 等未使用 HTML）"
+  ],
+  "test": "运行 build.js 后对比输出与原 index.js 的功能等价性，在 Cocos Creator 中打开面板验证正常工作"
+}

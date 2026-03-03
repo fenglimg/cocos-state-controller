@@ -1,0 +1,32 @@
+{
+  "id": "TASK-002",
+  "title": "在 scene-accessor 中集成 Editor.Dialog 确认对话框处理跨范围挂载",
+  "description": "修改 scene-accessor.js 的 performAutoMount 方法，处理 PropertyMounter 返回的 pendingMounts。当有跨节点范围的挂载候选时，使用 Editor.Dialog.messageBox 弹出确认对话框，用户确认后才执行挂载。同时处理 Editor.Dialog 不可用的降级场景。",
+  "depends_on": ["TASK-001"],
+  "convergence": {
+    "criteria": [
+      "有 pendingMounts 时弹出 Editor.Dialog.messageBox 确认对话框",
+      "对话框显示哪些属性将从当前节点范围外挂载，列出属性名和目标节点名",
+      "用户点击确认后调用 applyPendingMounts 执行挂载",
+      "用户点击取消则跳过这些属性的挂载",
+      "Editor.Dialog 不可用时降级处理（静默跳过或日志提示）",
+      "现有的自动挂载流程（Phase 1 部分）不受影响"
+    ]
+  },
+  "files": [
+    {
+      "path": "scene-accessor.js",
+      "change": "修改 performAutoMount 方法：解构 { mountResults, pendingMounts } 返回值，当 pendingMounts 非空时调用 Editor.Dialog.messageBox 确认。新增 showOutOfScopeDialog 辅助方法。"
+    }
+  ],
+  "implementation": [
+    "1. 修改 performAutoMount 中 propertyMounter.autoMountProperties 的返回值处理",
+    "2. 解构为 { mountResults, pendingMounts }",
+    "3. 新增 showOutOfScopeDialog(pendingMounts, component, node, comName, totalMountResults) 方法",
+    "4. 在 showOutOfScopeDialog 中使用 Editor.Dialog.messageBox 展示确认对话框",
+    "5. 对话框 message 列出每个 pending 属性的名称和目标节点",
+    "6. 确认回调中调用 propertyMounter.applyPendingMounts 执行挂载，并将结果加入 totalMountResults",
+    "7. 处理 Editor.Dialog 不可用的降级：日志提示跳过跨范围挂载"
+  ],
+  "test": "验证有跨范围挂载时弹出对话框；确认后正确挂载；取消后不挂载；Editor.Dialog 不可用时不报错"
+}

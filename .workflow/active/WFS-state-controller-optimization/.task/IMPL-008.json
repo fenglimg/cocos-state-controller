@@ -1,0 +1,61 @@
+{
+  "id": "IMPL-008",
+  "title": "安装器核心模块",
+  "priority": "P1",
+  "effort": "2-3天",
+  "risk": "低",
+  "status": "pending",
+  "phase": 3,
+  "milestone": "M3: 编辑器集成",
+  "goal": "实现源码安装的核心功能",
+  "subtasks": [
+    {
+      "id": "IMPL-008.1",
+      "title": "创建安装器目录结构",
+      "description": "创建 packages/ccc-state-controller/src/installer/ 目录",
+      "file": "packages/ccc-state-controller/src/installer/",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-008.2",
+      "title": "实现版本管理模块",
+      "description": "实现 version-manager.js 版本比对与管理",
+      "file": "packages/ccc-state-controller/src/installer/version-manager.js",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-008.3",
+      "title": "实现文件复制模块",
+      "description": "实现 file-copier.js 文件复制与覆盖",
+      "file": "packages/ccc-state-controller/src/installer/file-copier.js",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-008.4",
+      "title": "实现安装验证模块",
+      "description": "实现 validator.js 安装后验证",
+      "file": "packages/ccc-state-controller/src/installer/validator.js",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-008.5",
+      "title": "实现安装器主入口",
+      "description": "实现 index.js 安装器入口，协调各模块",
+      "file": "packages/ccc-state-controller/src/installer/index.js",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-008.6",
+      "title": "创建版本文件模板",
+      "description": "创建 .ccc-state-controller-version 版本文件模板",
+      "file": "packages/ccc-state-controller/config/",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "版本比对正确识别新/旧/相同版本",
+    "文件复制支持覆盖和备份",
+    "安装验证检测所有必需文件"
+  ],
+  "dependencies": ["IMPL-007"]
+}

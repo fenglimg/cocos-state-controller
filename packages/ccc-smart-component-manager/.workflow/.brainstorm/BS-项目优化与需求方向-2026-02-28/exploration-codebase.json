@@ -1,0 +1,493 @@
+{
+  "relevant_files": [
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/scene-accessor.js",
+      "relevance": "high",
+      "rationale": "Core scene-side logic (696 lines): handles add/delete/move components, auto-mount orchestration, cross-scope mount dialog, node UUID lookup. Contains getNodeByUuid with O(n) recursive traversal on every call - major performance bottleneck. Also has performAutoMount which creates new PropertyMounter instance each invocation.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/logic.js",
+      "relevance": "high",
+      "rationale": "Panel UI logic (1972 lines): handles search input, component list rendering, settings page, drag-to-reorder, keyboard navigation, theme switching, context menus. Monolithic file mixing UI rendering, event handling, state management, and IPC communication. Primary candidate for modularization.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/data-manager.js",
+      "relevance": "high",
+      "rationale": "Data persistence layer (621 lines): manages favorites, usage stats, settings (auto-mount, shortcuts, themes, confirmations). Uses synchronous fs.writeFileSync on every single operation (forceSaveToFile called after each change). validateDataConsistency reads file back immediately after writing - redundant I/O. saveData has logical bug with || vs ?? for boolean defaults.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/property-mounter.js",
+      "relevance": "high",
+      "rationale": "Auto property mounting engine (700 lines): two-phase nearest-first search algorithm, node tree traversal, name matching with flexible letter matching. Well-structured but debugComponentStructure has hardcoded test property names ('labelOutdsa', 'dsdsadsa'). Instance-level mountResults state creates potential cross-call contamination.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/search-engine.js",
+      "relevance": "high",
+      "rationale": "Component search with scoring (234 lines): exact/prefix/contains/fuzzy matching with favorite weight bonus. Clean module but escapeRegExp is called but regex is never actually used (input is compared with string methods). Search result limit hardcoded to 20.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/styles.css",
+      "relevance": "medium",
+      "rationale": "Panel styling (1433 lines): extensive CSS with 6 theme variants (vibrant-dark, warm-dark, cyberpunk, forest, sunset, ocean). CSS variables via data-theme attributes. Large file size suggests potential for CSS-in-JS or preprocessor optimization.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/build.js",
+      "relevance": "medium",
+      "rationale": "Build script (234 lines): assembles styles.css + template.html + logic.js into panel/index.js. Simple concatenation build system - works but no watch mode, no minification, no source maps. Manual rebuild required after every change.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/template.html",
+      "relevance": "medium",
+      "rationale": "Panel HTML template (37 lines): minimal structure with main page and settings page. Settings content generated dynamically in logic.js renderSettingsContent(). SVG icons inlined directly.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/index.js",
+      "relevance": "medium",
+      "rationale": "Generated output file (3445 lines): assembled by build.js from styles.css + template.html + logic.js. Should never be edited directly. Registered as panel entry in package.json.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/logger.js",
+      "relevance": "medium",
+      "rationale": "Logging module (108 lines): two-level logging (ALL/ERROR_ONLY). Uses Editor.log for all output levels including errors - should use Editor.warn/Editor.error for proper severity routing. Silent catch in _safeLog calls Editor.error which could itself throw.",
+      "role": "modify_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/i18n-helper.js",
+      "relevance": "medium",
+      "rationale": "Internationalization helper (167 lines): supports zh/en with template parameter replacement. Only zh translation file exists - en falls back to zh. detectSystemLanguage checks Editor.lang and environment variables.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/main.js",
+      "relevance": "low",
+      "rationale": "Plugin entry point (21 lines): minimal load/unload hooks and open/close messages. No initialization logic - all work delegated to panel and scene-accessor.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/template-auto-dock.js",
+      "relevance": "low",
+      "rationale": "Auto-dock script (73 lines): hacks into Cocos Creator internal renderer to dock plugin panel next to Inspector. Uses setInterval polling and monkey-patches panelMgr.close and dropMgr.items. Fragile and version-dependent.",
+      "role": "context_only",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/tests/__tests__/property-mounter.test.js",
+      "relevance": "high",
+      "rationale": "Only test file (459 lines): covers PropertyMounter matchNodeName, traverseNodeTree, findBestMatchInSubtree, autoMountProperties. Uses custom Cocos Creator engine mock environment. No tests for search-engine, data-manager, scene-accessor, or panel logic.",
+      "role": "test_target",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/panel/design-tokens.json",
+      "relevance": "low",
+      "rationale": "Design token definitions for the 6 theme variants. Contains color palettes, spacing, typography values used by styles.css.",
+      "role": "config",
+      "discovery_source": "manual"
+    },
+    {
+      "path": "/Users/wepie/Desktop/projects/ccc-packages/ccc-smart-component-manager/user-data.json",
+      "relevance": "low",
+      "rationale": "Runtime user data file: stores favorites, usage counts, and settings. Written synchronously by data-manager.js. Committed to git which means user-specific data pollutes the repository.",
+      "role": "config",
+      "discovery_source": "manual"
+    }
+  ],
+  "existing_patterns": [
+    {
+      "name": "Singleton Module Pattern",
+      "description": "Core modules (data-manager, search-engine, logger) export singleton instances via `module.exports = new ClassName()`. Ensures single shared state across the plugin.",
+      "files": ["data-manager.js", "search-engine.js", "logger.js"],
+      "strength": "Consistent pattern across all service modules",
+      "weakness": "Makes unit testing difficult - no way to create fresh instances or inject mocks"
+    },
+    {
+      "name": "Scene Script IPC Bridge",
+      "description": "scene-accessor.js runs in Cocos Creator's scene process. Panel communicates via Editor.Ipc.sendToScene/sendToPanel message passing. Functions are keyed by string names like 'add-component', 'input-query'.",
+      "files": ["scene-accessor.js", "panel/logic.js"],
+      "strength": "Standard Cocos Creator 2.4.x plugin architecture",
+      "weakness": "No type safety on IPC messages, string-based routing is fragile, no request/response correlation"
+    },
+    {
+      "name": "Build-Time Panel Assembly",
+      "description": "Panel source split into styles.css, template.html, logic.js. build.js concatenates them into index.js using Editor.Panel.extend() format required by Cocos Creator.",
+      "files": ["panel/build.js", "panel/logic.js", "panel/styles.css", "panel/template.html"],
+      "strength": "Separation of concerns for development, single file for runtime",
+      "weakness": "Manual build step, no watch mode, no hot reload"
+    },
+    {
+      "name": "Two-Phase Nearest-First Search",
+      "description": "Property auto-mount uses Phase 1 (search current node subtree) then Phase 2 (climb ancestor subtrees) with shared visited set. Phase 2 results require user confirmation via dialog.",
+      "files": ["property-mounter.js", "scene-accessor.js"],
+      "strength": "Intelligent proximity-based matching, prevents accidental cross-scope mounts",
+      "weakness": "Dialog is synchronous and blocking, no batch confirmation UI"
+    },
+    {
+      "name": "Synchronous File Persistence",
+      "description": "DataManager uses fs.writeFileSync for every data change (favorites, usage, settings). validateDataConsistency re-reads file immediately after write.",
+      "files": ["data-manager.js"],
+      "strength": "Data integrity - no lost writes on crash",
+      "weakness": "Blocks the process on every change, redundant I/O from validate-after-save pattern"
+    },
+    {
+      "name": "Theme System via CSS Data Attributes",
+      "description": "6 theme variants defined via [data-theme='xxx'] CSS selectors with CSS custom properties. Theme applied by setting data-theme attribute on container element.",
+      "files": ["panel/styles.css", "panel/logic.js", "panel/design-tokens.json"],
+      "strength": "Clean theme switching without JS manipulation of individual styles",
+      "weakness": "1433 lines of CSS with lots of duplication across themes"
+    }
+  ],
+  "architecture_constraints": [
+    {
+      "constraint": "Cocos Creator 2.4.x Plugin API",
+      "impact": "Must use Editor.Panel.extend(), Editor.Ipc for communication, scene-script for scene access. No modern module bundlers - plain CommonJS require(). No ES modules, no async/await in scene scripts.",
+      "severity": "hard"
+    },
+    {
+      "constraint": "Scene Process Isolation",
+      "impact": "scene-accessor.js runs in a separate V8 context with access to cc.* runtime. Panel runs in Electron renderer. All communication must go through IPC. Cannot share object references.",
+      "severity": "hard"
+    },
+    {
+      "constraint": "No Build Toolchain",
+      "impact": "No webpack/rollup/vite. Panel assembly done by simple build.js concatenation. Cannot use TypeScript, JSX, CSS preprocessors, or modern JS features that require transpilation.",
+      "severity": "medium"
+    },
+    {
+      "constraint": "Synchronous Dialog API",
+      "impact": "Editor.Dialog.messageBox is synchronous, blocks the scene process. Cross-scope mount confirmation freezes the editor until user responds.",
+      "severity": "medium"
+    },
+    {
+      "constraint": "Single Panel Instance",
+      "impact": "Only one panel instance allowed. All state (curMatchs, hoveredComponentButton, etc.) lives on the panel object. No state management pattern.",
+      "severity": "low"
+    }
+  ],
+  "integration_points": [
+    {
+      "point": "cc.js._registeredClassNames",
+      "description": "Global registry of all component classes in the current Cocos Creator project. Used by search-engine.searchComponents() as the component database. Read-only access.",
+      "type": "data_source"
+    },
+    {
+      "point": "Editor.Selection.curSelection('node')",
+      "description": "Returns array of currently selected node UUIDs in the scene hierarchy. Used to determine which nodes receive added components. Called frequently in scene-accessor.",
+      "type": "data_source"
+    },
+    {
+      "point": "Editor.Ipc.sendToScene / sendToPanel",
+      "description": "Primary communication channel between panel (renderer) and scene-accessor (scene process). All component operations go through this bridge.",
+      "type": "communication"
+    },
+    {
+      "point": "cc.Class.Attr.getClassAttrs()",
+      "description": "Cocos Creator internal API to read component property definitions including type constructors. Used by PropertyMounter.parseComponentProperties() to discover mountable properties.",
+      "type": "data_source"
+    },
+    {
+      "point": "Editor.Dialog.messageBox()",
+      "description": "Synchronous modal dialog for cross-scope mount confirmation. Blocking call in scene process.",
+      "type": "ui"
+    },
+    {
+      "point": "node.addComponent() / component.destroy()",
+      "description": "Core Cocos Creator APIs for adding and removing components. Used in scene-accessor add-component and del-component handlers.",
+      "type": "mutation"
+    },
+    {
+      "point": "Editor.Ipc.sendToMain('scene:set-dirty')",
+      "description": "Marks the current scene as modified so Cocos Creator shows the unsaved indicator. Called after successful component add/delete/move/mount operations.",
+      "type": "side_effect"
+    }
+  ],
+  "tech_debt": [
+    {
+      "id": "TD-001",
+      "title": "getNodeByUuid O(n) recursive traversal",
+      "description": "scene-accessor.js getNodeByUuid() performs full DFS from scene root on every call. Called multiple times per operation (add-component iterates selected nodes, each calling getNodeByUuid). No caching. For scenes with thousands of nodes, this creates significant latency.",
+      "severity": "high",
+      "location": "scene-accessor.js:423-438",
+      "effort": "small"
+    },
+    {
+      "id": "TD-002",
+      "title": "Synchronous file I/O on every data change",
+      "description": "DataManager.forceSaveToFile() uses fs.writeFileSync and is called after every single operation (add favorite, record usage, change setting). validateDataConsistency() reads the file back right after writing. This blocks the Node.js event loop unnecessarily.",
+      "severity": "high",
+      "location": "data-manager.js:113-131, 136-170",
+      "effort": "medium"
+    },
+    {
+      "id": "TD-003",
+      "title": "saveData boolean defaults use || instead of ??",
+      "description": "In data-manager.js saveData(), boolean settings like `enabled: data?.settings?.autoPropertyMount?.enabled || true` will always be true because `false || true === true`. Should use nullish coalescing (??) for boolean fields.",
+      "severity": "high",
+      "location": "data-manager.js:85-108",
+      "effort": "small"
+    },
+    {
+      "id": "TD-004",
+      "title": "Monolithic panel/logic.js (1972 lines)",
+      "description": "Single file contains all panel logic: search input handling, component list rendering, drag-and-drop, keyboard navigation, settings page, theme switching, context menus, IPC communication. Extremely difficult to maintain, test, or extend.",
+      "severity": "high",
+      "location": "panel/logic.js",
+      "effort": "large"
+    },
+    {
+      "id": "TD-005",
+      "title": "Hardcoded debug property names in PropertyMounter",
+      "description": "debugComponentStructure() has hardcoded test property names ['label', 'labelOutdsa', 'dsdsadsa'] that appear to be development leftovers.",
+      "severity": "low",
+      "location": "property-mounter.js:76",
+      "effort": "trivial"
+    },
+    {
+      "id": "TD-006",
+      "title": "user-data.json committed to git",
+      "description": "User-specific data file (favorites, usage stats, custom settings) is tracked in git. Should be in .gitignore to prevent user data from polluting the repository.",
+      "severity": "medium",
+      "location": "user-data.json",
+      "effort": "trivial"
+    },
+    {
+      "id": "TD-007",
+      "title": "No test coverage for search-engine, data-manager, scene-accessor, panel",
+      "description": "Only property-mounter.js has tests. SearchEngine scoring logic, DataManager persistence, and scene-accessor component operations have zero test coverage.",
+      "severity": "high",
+      "location": "tests/__tests__/",
+      "effort": "large"
+    },
+    {
+      "id": "TD-008",
+      "title": "PropertyMounter instance-level mountResults state",
+      "description": "PropertyMounter stores mountResults as instance state (this.mountResults). If an instance is reused across calls without reset, results accumulate incorrectly. scene-accessor creates new instance each call (mitigating), but the design is fragile.",
+      "severity": "medium",
+      "location": "property-mounter.js:11, 457",
+      "effort": "small"
+    },
+    {
+      "id": "TD-009",
+      "title": "escapeRegExp called but regex never used",
+      "description": "SearchEngine.searchComponents() calls escapeRegExp on input but then uses string comparison methods (indexOf, startsWith) not regex. The escaping is unnecessary overhead.",
+      "severity": "low",
+      "location": "search-engine.js:128-136",
+      "effort": "trivial"
+    },
+    {
+      "id": "TD-010",
+      "title": "Logger uses Editor.log for all severity levels",
+      "description": "Logger._safeLog() routes all messages through Editor.log regardless of level. Should use Editor.warn for warnings and Editor.error for errors to enable proper filtering in Cocos Creator console.",
+      "severity": "medium",
+      "location": "logger.js:25-37",
+      "effort": "small"
+    },
+    {
+      "id": "TD-011",
+      "title": "Duplicate getStats method in DataManager",
+      "description": "DataManager has two getStats() methods (lines 224-238 and 436-442). The second one silently overrides the first. They return slightly different structures.",
+      "severity": "medium",
+      "location": "data-manager.js:224-238, 436-442",
+      "effort": "trivial"
+    },
+    {
+      "id": "TD-012",
+      "title": "template-auto-dock.js monkey-patches internal APIs",
+      "description": "Auto-dock script patches panelMgr.close and dropMgr.items by wrapping original functions. Relies on internal file paths (dock-utils.js, drag-drop.js, renderer/panel.js) that may change across Cocos Creator versions.",
+      "severity": "medium",
+      "location": "template-auto-dock.js",
+      "effort": "medium"
+    }
+  ],
+  "optimization_opportunities": [
+    {
+      "id": "OPT-001",
+      "title": "Cache node UUID lookups",
+      "description": "Add a WeakMap-based UUID-to-node cache in scene-accessor that invalidates on scene change. Eliminates repeated O(n) tree traversals. Could reduce latency by 10-100x for multi-node operations.",
+      "category": "performance",
+      "impact": "high",
+      "effort": "small"
+    },
+    {
+      "id": "OPT-002",
+      "title": "Debounce/batch data persistence",
+      "description": "Replace synchronous write-on-every-change with debounced async writes. Accumulate changes in memory and flush to disk after a configurable delay (e.g., 500ms). Remove redundant validateDataConsistency after save.",
+      "category": "performance",
+      "impact": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "OPT-003",
+      "title": "Add search-engine tests",
+      "description": "SearchEngine scoring logic (exact/prefix/contains/fuzzy matching, favorite weight bonus, sort stability) is complex but has zero tests. Add comprehensive tests covering edge cases in scoring and ranking.",
+      "category": "quality",
+      "impact": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "OPT-004",
+      "title": "Modularize panel/logic.js",
+      "description": "Split 1972-line monolith into focused modules: search-controller.js, component-list-renderer.js, settings-controller.js, keyboard-navigation.js, drag-handler.js. Build.js would need to handle multiple source files.",
+      "category": "maintainability",
+      "impact": "high",
+      "effort": "large"
+    },
+    {
+      "id": "OPT-005",
+      "title": "Component grouping/categorization in search results",
+      "description": "Currently all components are shown in a flat list. Adding categories (Built-in, Custom, Third-party) or tags would help users find components faster in large projects.",
+      "category": "ux",
+      "impact": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "OPT-006",
+      "title": "Batch auto-mount with visual preview",
+      "description": "Instead of mounting one component at a time with synchronous dialogs, provide a batch preview UI showing all proposed mounts (Phase 1 + Phase 2) with checkboxes. User confirms once for all.",
+      "category": "ux",
+      "impact": "high",
+      "effort": "large"
+    },
+    {
+      "id": "OPT-007",
+      "title": "Add pinyin search support for Chinese component names",
+      "description": "Chinese developers may name components in Chinese. Adding pinyin matching to search-engine would enable typing 'anniu' to find components named with Chinese characters for button.",
+      "category": "ux",
+      "impact": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "OPT-008",
+      "title": "Component usage analytics dashboard",
+      "description": "Usage data is collected but only shown as simple counts. A mini dashboard showing most-used components, usage trends, and suggestions based on project patterns would add value.",
+      "category": "feature",
+      "impact": "low",
+      "effort": "medium"
+    },
+    {
+      "id": "OPT-009",
+      "title": "Undo/redo support for component operations",
+      "description": "Currently no undo support for add/delete/move component operations. Integrating with Cocos Creator's undo system or implementing a simple command pattern would prevent accidental data loss.",
+      "category": "ux",
+      "impact": "high",
+      "effort": "large"
+    },
+    {
+      "id": "OPT-010",
+      "title": "Component templates / presets",
+      "description": "Allow users to save frequently-used component combinations as templates (e.g., 'Button = cc.Sprite + cc.Button + cc.Widget'). One-click application of component sets to selected nodes.",
+      "category": "feature",
+      "impact": "high",
+      "effort": "large"
+    },
+    {
+      "id": "OPT-011",
+      "title": "Fix boolean default bug in saveData",
+      "description": "Replace `||` with `??` for boolean settings in DataManager.saveData() to allow users to actually disable features (currently false values are overridden to true).",
+      "category": "bugfix",
+      "impact": "high",
+      "effort": "trivial"
+    },
+    {
+      "id": "OPT-012",
+      "title": "Watch mode for build.js",
+      "description": "Add file watcher to build.js that auto-rebuilds panel/index.js when styles.css, template.html, or logic.js change. Would significantly improve development experience.",
+      "category": "dx",
+      "impact": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "OPT-013",
+      "title": "Component dependency visualization",
+      "description": "Show which components depend on other components (e.g., cc.Button requires cc.Sprite). Warn when deleting a component that others depend on. Could leverage property-mounter's property analysis.",
+      "category": "feature",
+      "impact": "medium",
+      "effort": "large"
+    },
+    {
+      "id": "OPT-014",
+      "title": "Smart property mount preview in panel",
+      "description": "Before executing auto-mount, show a preview in the panel UI listing which properties would be mounted to which nodes, with match scores and types. Users can review and toggle individual mounts.",
+      "category": "ux",
+      "impact": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "OPT-015",
+      "title": "Proper logger severity routing",
+      "description": "Route logger.warn to Editor.warn, logger.error to Editor.error instead of all going through Editor.log. Enables proper filtering in Cocos Creator console and avoids the recursive error in _safeLog catch block.",
+      "category": "quality",
+      "impact": "low",
+      "effort": "trivial"
+    }
+  ],
+  "inspiration_sources": [
+    {
+      "source": "Unity Quick Search (com.unity.quicksearch)",
+      "relevance": "Unity's fuzzy search panel supports type-ahead, result categorization (assets, components, menu items), and search providers. The provider pattern could inspire a pluggable search architecture for this tool.",
+      "applicable_to": ["search-engine.js", "panel/logic.js"]
+    },
+    {
+      "source": "VS Code Command Palette",
+      "relevance": "The command palette's MRU (most recently used) sorting and inline keyboard navigation patterns could improve the component search UX. The ':' prefix for filtering categories is also relevant.",
+      "applicable_to": ["search-engine.js", "panel/logic.js"]
+    },
+    {
+      "source": "JetBrains Live Templates / Code Snippets",
+      "relevance": "The concept of component presets/templates is similar to IDE snippet systems. Users define named templates with variable placeholders, expanding them with a shortcut.",
+      "applicable_to": ["data-manager.js", "scene-accessor.js"]
+    },
+    {
+      "source": "Cocos Creator 3.x Inspector Custom Decorator",
+      "relevance": "CC 3.x uses TypeScript decorators (@property) for component property definitions. Understanding the migration path could help plan forward-compatible features, especially for auto-mount.",
+      "applicable_to": ["property-mounter.js"]
+    },
+    {
+      "source": "Alfred / Raycast (macOS launchers)",
+      "relevance": "Their action-based search model (type to search, then apply actions like add/favorite/inspect) maps well to the component search workflow. The visual feedback patterns for actions are also applicable.",
+      "applicable_to": ["panel/logic.js", "search-engine.js"]
+    }
+  ],
+  "_metadata": {
+    "exploration_type": "brainstorm-codebase",
+    "timestamp": "2026-02-28T16:00:00+08:00",
+    "total_source_lines": {
+      "scene-accessor.js": 696,
+      "panel/logic.js": 1972,
+      "panel/styles.css": 1433,
+      "panel/index.js": 3445,
+      "data-manager.js": 621,
+      "property-mounter.js": 700,
+      "search-engine.js": 234,
+      "logger.js": 108,
+      "i18n-helper.js": 167,
+      "template-auto-dock.js": 73,
+      "main.js": 21,
+      "panel/build.js": 234,
+      "panel/template.html": 37,
+      "tests/__tests__/property-mounter.test.js": 459
+    },
+    "test_coverage_summary": "Only property-mounter.js has tests (459 lines covering matchNodeName, traverseNodeTree, findBestMatchInSubtree, autoMountProperties). Zero coverage for search-engine, data-manager, scene-accessor, panel logic.",
+    "architecture_summary": "Cocos Creator 2.4.x plugin with scene-script (scene-accessor.js) + panel (logic.js) IPC architecture. Plain CommonJS, no build toolchain beyond simple concatenation. 6 theme variants, i18n support (zh/en)."
+  }
+}

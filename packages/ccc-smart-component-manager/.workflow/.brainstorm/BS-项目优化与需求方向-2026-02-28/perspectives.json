@@ -1,0 +1,217 @@
+{
+  "session_id": "BS-项目优化与需求方向-2026-02-28",
+  "perspectives": {
+    "system_architect": {
+      "role": "system-architect",
+      "tool": "gemini",
+      "ideas": [
+        {
+          "id": "SA-1",
+          "title": "UUID 缓存 + 性能架构升级",
+          "description": "getNodeByUuid 每次调用 O(n) DFS 遍历全场景,多节点操作时性能瓶颈明显。引入 WeakMap 缓存层,场景变化时自动失效。同时将 DataManager 的同步文件 I/O 改为防抖异步写入。",
+          "impact": "high",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "small",
+          "category": "performance"
+        },
+        {
+          "id": "SA-2",
+          "title": "Panel 模块化拆分",
+          "description": "panel/logic.js 1972行巨石文件拆分为: search-controller, component-renderer, settings-controller, keyboard-handler, drag-handler, ipc-bridge 6个模块。build.js 升级支持多文件合并。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "low",
+          "effort": "large",
+          "category": "maintainability"
+        },
+        {
+          "id": "SA-3",
+          "title": "IPC 类型安全层",
+          "description": "当前 IPC 消息基于字符串路由,无类型检查。设计 IPC Protocol 层,定义消息类型、参数和返回值规范。虽然 CC 2.4.x 不支持 TS,但可通过 JSDoc + 运行时校验实现。",
+          "impact": "medium",
+          "feasibility": "medium",
+          "novelty": "medium",
+          "effort": "medium",
+          "category": "architecture"
+        },
+        {
+          "id": "SA-4",
+          "title": "可插拔搜索 Provider 架构",
+          "description": "参考 Unity Quick Search 的 Provider 模式,将搜索引擎改造为可扩展架构。内置 Provider: 引擎组件、自定义脚本、收藏夹、历史记录。支持第三方注册自定义 Provider。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "high",
+          "effort": "large",
+          "category": "architecture"
+        },
+        {
+          "id": "SA-5",
+          "title": "Build 工具链升级 + Watch 模式",
+          "description": "为 build.js 添加 watch 模式(fs.watch),支持文件变更自动重建 panel/index.js。考虑引入简单的 minification 减少文件体积。",
+          "impact": "medium",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "small",
+          "category": "dx"
+        },
+        {
+          "id": "SA-6",
+          "title": "Cocos Creator 3.x 兼容层设计",
+          "description": "设计 Editor API 抽象层,隔离 2.4.x 和 3.x 的 API 差异。核心逻辑(搜索、挂载)通过适配器模式同时支持两个版本。为将来迁移做架构准备。",
+          "impact": "high",
+          "feasibility": "low",
+          "novelty": "medium",
+          "effort": "large",
+          "category": "architecture"
+        }
+      ]
+    },
+    "product_manager": {
+      "role": "product-manager",
+      "tool": "codex",
+      "ideas": [
+        {
+          "id": "PM-1",
+          "title": "组件快捷键系统 (P0)",
+          "description": "用户痛点: 每次都要鼠标点击面板再输入搜索。方案: 全局快捷键唤起搜索(类似 Spotlight),支持自定义快捷键绑定常用组件。预期价值: 开发效率提升 30%+。",
+          "impact": "high",
+          "feasibility": "high",
+          "novelty": "medium",
+          "effort": "medium",
+          "category": "ux"
+        },
+        {
+          "id": "PM-2",
+          "title": "自动挂载预览确认面板 (P0)",
+          "description": "用户痛点: 自动挂载结果不可预知,跨范围挂载弹出阻塞对话框。方案: 添加组件前显示预览面板,列出所有待挂载属性-节点映射,支持逐项勾选。预期价值: 降低误挂载风险,提升信任度。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "high",
+          "effort": "medium",
+          "category": "ux"
+        },
+        {
+          "id": "PM-3",
+          "title": "组件模板/预设系统 (P1)",
+          "description": "用户痛点: 创建 UI 元素时需要重复添加相同的组件组合(如 Button = Sprite + Button + Widget)。方案: 支持保存、命名、一键应用组件模板。预期价值: 消除重复操作,标准化团队组件使用。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "high",
+          "effort": "large",
+          "category": "feature"
+        },
+        {
+          "id": "PM-4",
+          "title": "组件分类与标签过滤 (P1)",
+          "description": "用户痛点: 大型项目自定义组件多,搜索结果混杂引擎组件和自定义组件。方案: 自动分类(内置/自定义/第三方)+ 用户自定义标签 + 分类过滤器。预期价值: 搜索效率倍增。",
+          "impact": "medium",
+          "feasibility": "high",
+          "novelty": "medium",
+          "effort": "medium",
+          "category": "ux"
+        },
+        {
+          "id": "PM-5",
+          "title": "组件节点跳转 (P1)",
+          "description": "用户痛点: 看到已挂载组件但无法快速定位到场景中对应节点。方案: 点击已有组件列表中的组件时跳转选中该节点(仅单一组件时)。预期价值: 场景导航效率显著提升。",
+          "impact": "medium",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "small",
+          "category": "ux"
+        },
+        {
+          "id": "PM-6",
+          "title": "saveData Boolean Bug 紧急修复 (P0)",
+          "description": "用户痛点: 用户无法关闭自动挂载等功能(|| 运算符导致 false 被覆盖为 true)。方案: || 改为 ?? 。预期价值: 修复核心设置功能,恢复用户控制权。",
+          "impact": "high",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "trivial",
+          "category": "bugfix"
+        }
+      ]
+    },
+    "product_owner": {
+      "role": "product-owner",
+      "tool": "claude",
+      "ideas": [
+        {
+          "id": "PO-1",
+          "title": "短期: 关键 Bug 修复 + 小幅体验优化 (1-2周)",
+          "description": "优先修复 saveData boolean bug(TD-003)、添加 UUID 缓存(TD-001)、修复 logger 分级(TD-010)、user-data.json 加入 .gitignore(TD-006)。这些都是高影响低成本的改进。",
+          "impact": "high",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "small",
+          "category": "maintenance"
+        },
+        {
+          "id": "PO-2",
+          "title": "中期: 核心功能完善 (1-2月)",
+          "description": "实现快捷键系统、组件节点跳转、滚轮滑动、自动挂载预览面板。同时补充 search-engine 和 data-manager 测试覆盖。这些直接提升日常使用体验。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "medium",
+          "effort": "medium",
+          "category": "feature"
+        },
+        {
+          "id": "PO-3",
+          "title": "长期: 差异化功能 (3-6月)",
+          "description": "组件模板系统、可插拔搜索架构、组件分类标签、拼音搜索、Panel 模块化。这些是竞争壁垒和长期价值所在。",
+          "impact": "high",
+          "feasibility": "medium",
+          "novelty": "high",
+          "effort": "large",
+          "category": "strategy"
+        },
+        {
+          "id": "PO-4",
+          "title": "ICE 评分最高: 快捷焦点 + 组件跳转",
+          "description": "Impact 8/10, Confidence 9/10, Ease 9/10 = ICE 648。这两个功能需求明确、实现简单、用户感知强。应该排在新功能开发的第一优先级。",
+          "impact": "high",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "small",
+          "category": "priority"
+        },
+        {
+          "id": "PO-5",
+          "title": "技术债清理: 与功能开发交替进行",
+          "description": "建议每个功能版本附带一项技术债清理。如: v1.4.0(快捷键) + 修复 DataManager 异步化; v1.5.0(组件模板) + Panel 模块化第一步。避免技术债积累到不可控。",
+          "impact": "medium",
+          "feasibility": "high",
+          "novelty": "low",
+          "effort": "medium",
+          "category": "process"
+        }
+      ]
+    }
+  },
+  "synthesis": {
+    "convergent_themes": [
+      "性能优化(UUID缓存+异步I/O)是所有视角的共识,高影响低成本",
+      "saveData boolean bug 是 P0 紧急修复项",
+      "自动挂载预览是用户信任度的关键改进",
+      "快捷键/快捷焦点是使用效率的最大瓶颈",
+      "测试覆盖率低是质量隐患"
+    ],
+    "conflicting_views": [
+      "Panel 模块化: 架构师认为是高优先级,产品经理认为应该放在功能开发之后",
+      "CC 3.x 兼容: 架构师建议提前准备,产品负责人认为当前用户群在 2.4.x 无需投入",
+      "可插拔搜索架构 vs 组件分类标签: 长远架构 vs 短期实用的取舍"
+    ],
+    "unique_contributions": {
+      "system_architect": "IPC 类型安全层、可插拔 Provider 架构、CC 3.x 兼容层",
+      "product_manager": "组件模板系统、分类标签过滤、挂载预览确认",
+      "product_owner": "ICE 评分排序、技术债与功能交替策略、分期路线图"
+    }
+  },
+  "_metadata": {
+    "timestamp": "2026-02-28T17:00:00+08:00",
+    "total_ideas": 17,
+    "perspectives_count": 3
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "project_structure": "Cocos Creator editor extension with a monolithic single-file UI architecture. The entire UI (CSS, HTML template, JS logic) lives in panel/index.js using Editor.Panel.extend(). The extension uses Cocos Creator's built-in ui-button web components, inline CSS-in-JS style strings, inline HTML template strings, and imperative DOM manipulation. Supporting modules (data-manager.js, search-engine.js, i18n-helper.js, logger.js) handle data persistence, search logic, i18n, and logging. scene-accessor.js runs in the scene context for component manipulation via IPC.",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Contains ALL UI code: ~500 lines of CSS variables/design tokens (lines 14-501), ~750 lines of inline HTML template with settings modal/page (lines 503-1257), and ~1800 lines of JS methods for DOM manipulation, event binding, and state management. This is the single file that defines every visual element, style, and interaction pattern.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "style", "template", "$", "ready", "onInput2", "showSettingsPage", "renderSettingsContent", "createHighlightedText", "confirmDelete", "showContextMenu"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.7,
+      "rationale": "Manages all user preferences that drive UI state: favorites list, usage statistics, auto-mount settings, shortcut settings, confirmation dialog toggles, and log level. The DataManager singleton's API shape directly constrains what settings the UI can expose and how data flows to/from the settings panel.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["DataManager", "getFavorites", "getAutoMountSettings", "getShortcutSettings", "getConfirmationSettings", "getStats", "notifyDataUpdated"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.65,
+      "rationale": "Provides search results that the UI renders in the #list grid container. The SearchEngine.searchComponents() return shape (origin, displayName, score, type, isFavorite, matchLength) directly determines what data the UI can display per result item and how highlighting works via highlightMatch().",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["SearchEngine", "searchComponents", "calculateMatchScore", "highlightMatch", "getFavoriteComponents"]
+    },
+    {
+      "path": "i18n/zh.js",
+      "relevance": 0.55,
+      "rationale": "Defines all UI text labels used in the panel: PANEL.placeholder, PANEL.no_selection, ADVANCED_PANEL section titles, SEARCH.match_types, and COMMON button labels. Any UI redesign must update or restructure these translation keys if views are reorganized.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["PANEL", "ADVANCED_PANEL", "SEARCH", "COMMON"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.4,
+      "rationale": "Provides the t() translation function used throughout panel/index.js for internationalized text. The I18nHelper class supports zh/en with nested key lookup and parameter substitution via {{param}} templates.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["I18nHelper", "t", "setLanguage", "getCurrentLanguage"]
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.5,
+      "rationale": "Defines the scene-side IPC handlers (add-component, del-component, list-current-components, input-query, move-component) that the panel UI calls via Editor.Scene.callSceneScript(). The IPC response data shapes dictate what the UI receives and renders.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["add-component", "del-component", "list-current-components", "input-query", "move-component", "ComponentOption", "InputMatch"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.45,
+      "rationale": "Defines panel registration (type: dockable, width: 450, height: 120, min-height: 60), main-menu entries, and scene-script binding. Panel dimensions and docking behavior are configured here.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "main-menu", "scene-script"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.35,
+      "rationale": "Auto-docks the panel next to the Inspector tab on load using internal Cocos Creator renderer APIs (dockUtil, dropMgr, panelMgr). This affects the panel's initial layout position and visual integration with the editor.",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.3,
+      "rationale": "Provides the Logger singleton used for user-facing status messages via Editor.log(). Log output is part of the UX feedback loop when users add/delete/move components or change settings.",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Logger", "info", "error", "success", "setLogLevel"]
+    }
+  ],
+  "patterns": "CURRENT UI PATTERNS IDENTIFIED:\n\n1. **Monolithic Single-File Panel Architecture** (panel/index.js)\n   - All CSS, HTML, and JS in one file (~3100 lines) via Editor.Panel.extend({ style, template, $, ready, messages })\n   - CSS defined as a template literal string in the `style` property (lines 14-501)\n   - HTML defined as a template literal string in the `template` property (lines 503-1257)\n   - No external stylesheets, no component framework, no build tooling\n\n2. **CSS Design Token System** (lines 14-66)\n   - CSS custom properties on :host for theming: --primary-color (#6366f1 indigo), --bg-primary (#1e293b slate), --text-primary (#f8fafc), etc.\n   - Tailwind-inspired naming: --spacing-xs/sm/md/lg/xl/2xl, --radius-sm/md/lg/xl, --shadow-sm/md/lg/xl\n   - Dark-first design with @media (prefers-color-scheme: dark) override (lines 1087-1095)\n   - High contrast and reduced motion media queries (lines 1097-1122)\n   - Font stacks: system fonts for UI, monospace for component names\n\n3. **Layout Patterns**\n   - Main container: flexbox column with gap spacing (.container)\n   - Search results: CSS Grid with auto-fit minmax(220px, 1fr) (#list, line 328)\n   - Component buttons: horizontal flex with overflow-x scroll (#coms, lines 87-100)\n   - Settings stats: CSS Grid with auto-fit minmax(200px, 1fr) (.stats-list, line 779)\n   - Responsive breakpoints: max-height 600px, 600-800px, 800px+; max-width 600px\n\n4. **Component Styling Patterns**\n   - Heavy use of !important overrides on ui-button (Cocos Creator's Shadow DOM web component)\n   - Consistent transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1) for interactions\n   - Hover effects: translateY(-1px/-2px) + box-shadow elevation\n   - Active effects: translateY(0) + reduced shadow\n   - Color-coded component types: favorite (amber #f59e0b gradient), frequent (green #10b981 gradient), normal (slate bg)\n   - Emoji icons in section titles and buttons (gear, star, fire, pin, chart, link, keyboard, speech)\n\n5. **DOM Manipulation Pattern** (imperative)\n   - document.createElement('ui-button') for dynamic list items\n   - innerHTML for template rendering (renderSettingsContent generates full HTML string)\n   - Direct .style.display toggling for page switching (main vs settings page)\n   - jQuery-like $ binding: this.$eb, this.$list, this.$curComs for cached element refs\n   - MutationObserver for reactive scroll state updates\n\n6. **Interaction Patterns**\n   - Search: debounced input (200ms) -> IPC to scene -> render results\n   - Context menus: electron.remote.Menu.buildFromTemplate() for right-click actions\n   - Keyboard shortcuts: configurable via dataManager, global keydown listener\n   - Component reorder: hover + A/D keys with animation classes (moving-left/moving-right)\n   - Smooth scrolling: custom wheel handler with easing animation (easeOutCubic)\n\n7. **Settings UI Pattern**\n   - Two implementations: inline settings page (page swap) AND modal dialog (unused/dead code)\n   - Settings content dynamically generated via renderSettingsContent() with innerHTML\n   - Form pattern: checkbox + label with order:1/order:2 for right-aligned checkboxes\n   - Section pattern: .settings-section with icon title, content, and button-group\n\n8. **State Management Pattern**\n   - No framework state management; direct DOM reads (checkbox.checked) and writes (el.textContent)\n   - DataManager singleton as persistent state store (JSON file)\n   - IPC message-based communication between panel and scene context\n   - Selection-driven UI updates via 'selection:selected/unselected' messages\n\n9. **Visual Design Issues**\n   - Hardcoded inline style on component buttons: handle.style.background = '#b54344' (line 3047)\n   - Mixed styling approaches: CSS variables + inline styles + !important overrides\n   - Duplicate settings content (modal HTML in template + dynamic renderSettingsContent)\n   - Emoji-heavy UI labels (unprofessional appearance)\n   - No consistent icon system (emojis mixed with text)",
+  "dependencies": "INTERNAL: panel/index.js depends on data-manager.js (singleton, favorites/settings CRUD), search-engine.js (singleton, component search/sort), i18n-helper.js (t() function for translations), logger.js (singleton, log output). scene-accessor.js depends on search-engine.js, data-manager.js, logger.js, and property-mounter.js (lazy-loaded). EXTERNAL: Cocos Creator Editor API (Editor.Panel.extend, Editor.Scene.callSceneScript, Editor.Selection, Editor.Ipc), Electron (remote.Menu, remote.dialog for context menus and confirm dialogs), Cocos Creator web components (ui-button, ui-dock-panel). No npm dependencies for the extension itself (tests/ has Jest). No CSS preprocessor, no bundler, no framework.",
+  "integration_points": "1. **Editor.Panel.extend()** (panel/index.js:12) - Cocos Creator panel registration API; style/template/$/ready/messages are the required interface contract.\n2. **Editor.Scene.callSceneScript()** (panel/index.js:1674,1719,1821,1851,2803) - IPC bridge between panel UI and scene context; all component operations go through this.\n3. **Editor.Selection.curSelection('node')** (panel/index.js:1703,1831,2456,2648,2770,2888) - Drives UI visibility and component list refresh.\n4. **Editor.Ipc.sendToPanel()** (scene-accessor.js:109,138,168,177,209,271,340) - Scene-to-panel response messages that trigger UI updates.\n5. **electron.remote.Menu** (panel/index.js:1755,2528) - Native context menu for component actions.\n6. **electron.remote.dialog** (panel/index.js:1706,1771,1807) - Native confirm dialogs for destructive operations.\n7. **Cocos Creator ui-button** (throughout template) - Shadow DOM web component requiring !important CSS overrides.\n8. **dataManager.notifyDataUpdated()** (data-manager.js:413) - Cross-panel data sync via Editor.Ipc.",
+  "constraints": "1. **Cocos Creator 2.x Editor Extension API**: Must use Editor.Panel.extend() with style/template/$/ready/messages structure. No ES modules, no import/export - CommonJS require() only.\n2. **Shadow DOM ui-button**: Cocos Creator's built-in web components use Shadow DOM, requiring !important CSS overrides for custom styling. Cannot use standard CSS selectors without !important.\n3. **No Build Tooling**: No webpack/vite/rollup configured. CSS and HTML must be inline template literals. No SCSS/Less preprocessing available.\n4. **No Frontend Framework**: No React/Vue/Svelte. All UI is imperative DOM manipulation. Any redesign must work within this constraint or introduce a build step.\n5. **Electron Context**: Runs in Electron renderer process with access to Node.js require() and electron.remote. Dialog/Menu APIs are Electron-native.\n6. **IPC Communication**: Panel-to-scene communication is asynchronous via callSceneScript with callback pattern. UI must handle async responses gracefully.\n7. **Panel Dimensions**: Configured as dockable panel (width: 450, height: 120, min-height: 60) - very compact default size means UI must be space-efficient.\n8. **Single Panel Instance**: Only one instance of the panel can be open. Settings page and main view share the same panel via page toggling.\n9. **Backward Compatibility**: The extension is published to Cocos Store (_storeId in package.json); any changes must not break existing user workflows or data (user-data.json format).",
+  "clarification_needs": [
+    {
+      "question": "Should the UI redesign stay within the current no-framework, inline template approach, or should we introduce a lightweight build step (e.g., a simple bundler) to enable external CSS files, component-based templates, or a micro-framework?",
+      "context": "Currently all CSS (~500 lines), HTML (~750 lines), and JS (~1800 lines) live in a single panel/index.js file as template literals. This makes the file extremely large and hard to maintain. However, introducing a build step would change the development workflow significantly for a Cocos Creator extension.",
+      "options": [
+        "Keep inline approach but reorganize into logical sections with clear separation comments",
+        "Introduce a simple build script that concatenates separate CSS/HTML/JS files into the final panel/index.js",
+        "Use a lightweight bundler (esbuild/rollup) to enable proper file separation and CSS preprocessing",
+        "Introduce a micro-framework (lit-element/preact) with a build step for component-based UI"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "What visual design direction should the redesign take? The current design uses a dark-first Tailwind-inspired token system with indigo primary color and emoji icons.",
+      "context": "The current design has CSS custom properties for theming but uses emoji characters for icons (gear, star, fire, pin, chart) which look unprofessional. The color palette is dark-mode-first with slate backgrounds and indigo accents. The settings panel has a complex multi-section layout that may be overwhelming.",
+      "options": [
+        "Modernize current design: replace emojis with SVG/Unicode icons, refine spacing and typography, keep dark-first palette",
+        "Complete visual overhaul: new color system, proper icon set, redesigned layout with card-based UI",
+        "Match Cocos Creator editor theme: use the editor's native color palette and design language for seamless integration"
+      ],
+      "recommended": 2
+    },
+    {
+      "question": "How should the settings UI be restructured? Currently there are two implementations: an inline settings page (used) and a modal dialog (dead code in template).",
+      "context": "The settings page currently replaces the main view with a full settings page via page toggling. The modal dialog HTML is present in the template but appears unused (the settings-modal is shown with display:none and the JS uses page switching instead). Settings sections include: favorites management, statistics, auto-mount config, shortcut config, log level, and confirmation toggles.",
+      "options": [
+        "Keep page-switching approach but clean up the dead modal code and improve the settings page layout",
+        "Switch to a modal/overlay approach for quick settings access without losing main view context",
+        "Split into categories with a tabbed settings panel (favorites, behavior, appearance)"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "UI/UX redesign exploration: understand all current UI patterns, components, HTML/CSS templates, panel definitions, and visual styling used in this Cocos Creator extension.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "patterns",
+    "exploration_index": 1,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

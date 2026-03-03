@@ -1,0 +1,38 @@
+{
+  "summary": "Optimize the auto-mount property search order from global scene-wide DFS to a nearest-first two-phase strategy. Phase 1 searches downward from the current node's subtree. Phase 2 walks upward through ancestors, searching each ancestor's full subtree (excluding already-visited branches), stopping at the first ancestor level that yields a match.",
+  "approach": "Minimal-change approach: (1) Modify scene-accessor.js to pass the current node (already available) instead of scene root to autoMountProperties. (2) Modify property-mounter.js autoMountProperties to implement two-phase search per property using the existing traverseNodeTree with a shared visited Set. (3) Remove visited cleanup in traverseNodeTree so the Set persists across multiple calls within the same property search. No new configuration options needed - direct replacement of search strategy.",
+  "task_ids": ["TASK-001"],
+  "task_count": 1,
+  "complexity": "Medium",
+  "estimated_time": "45 minutes",
+  "recommended_execution": "Codex",
+  "design_decisions": [
+    {
+      "decision": "Reuse existing traverseNodeTree with shared visited Set for two-phase search",
+      "rationale": "Minimizes code changes and leverages existing cycle detection and depth guards",
+      "tradeoff": "Requires removing visited.delete() which changes traverseNodeTree cleanup behavior, but no other callers are affected",
+      "alternatives": ["Create new bidirectional traversal method", "Add proximity bonus to scoring system"]
+    },
+    {
+      "decision": "Direct replacement of search strategy with no configuration option",
+      "rationale": "User explicitly chose simplest approach; nearest-first is universally better UX for auto-mount",
+      "tradeoff": "Users who relied on global DFS order for distant node matching will get different results",
+      "alternatives": ["Add searchScope config in data-manager.js", "Keep global as default, nearest-first as opt-in"]
+    },
+    {
+      "decision": "Stop search at first ancestor level that finds any match",
+      "rationale": "Simple, predictable behavior - user explicitly chose this over proximity scoring or threshold-based approaches",
+      "tradeoff": "May miss a higher-scoring match at a more distant ancestor level",
+      "alternatives": ["Add proximity bonus to scores globally", "Stop only if match score >= threshold"]
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-27T19:45:00+08:00",
+    "source": "cli-lite-planning-agent",
+    "plan_type": "feature",
+    "schema_version": "2.0",
+    "planning_mode": "agent-based",
+    "exploration_angles": ["patterns", "integration-points", "dependencies"],
+    "duration_seconds": 60
+  }
+}

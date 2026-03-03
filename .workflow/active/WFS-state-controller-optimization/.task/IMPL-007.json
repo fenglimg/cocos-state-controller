@@ -1,0 +1,47 @@
+{
+  "id": "IMPL-007",
+  "title": "核心源码包结构",
+  "priority": "P1",
+  "effort": "1天",
+  "risk": "低",
+  "status": "pending",
+  "phase": 3,
+  "milestone": "M3: 编辑器集成",
+  "goal": "创建 ccc-state-controller-core 源码包结构",
+  "subtasks": [
+    {
+      "id": "IMPL-007.1",
+      "title": "创建核心包目录",
+      "description": "创建 packages/ccc-state-controller-core/ 目录结构",
+      "file": "packages/ccc-state-controller-core/",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-007.2",
+      "title": "创建package.json",
+      "description": "创建包含版本信息的 package.json",
+      "file": "packages/ccc-state-controller-core/package.json",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-007.3",
+      "title": "复制源码文件",
+      "description": "复制源码到 src/ 目录并保持结构",
+      "file": "packages/ccc-state-controller-core/src/",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-007.4",
+      "title": "创建测试目录",
+      "description": "创建源码单元测试目录",
+      "file": "packages/ccc-state-controller-core/tests/",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "目录结构符合设计",
+    "package.json 版本信息正确",
+    "源码文件完整复制"
+  ],
+  "dependencies": []
+}

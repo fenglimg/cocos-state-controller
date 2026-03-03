@@ -1,0 +1,120 @@
+{
+  "id": "TASK-001",
+  "title": "Implement nearest-first two-phase search in property-mounter.js",
+  "description": "Replace the single-pass global DFS search in autoMountProperties() with a two-phase nearest-first strategy: Phase 1 searches the current node's subtree downward, Phase 2 walks upward through ancestors searching each ancestor's full subtree (excluding already-visited branches), stopping at the first ancestor level that yields a match. Also update scene-accessor.js to pass the current node instead of scene root.",
+  "type": "enhancement",
+  "priority": "high",
+  "effort": "medium",
+  "action": "Update",
+  "scope": ["property-mounter.js", "scene-accessor.js"],
+  "focus_paths": ["property-mounter.js", "scene-accessor.js"],
+  "depends_on": [],
+  "parallel_group": 1,
+  "convergence": {
+    "criteria": [
+      "autoMountProperties() accepts currentNode parameter and searches downward from it first",
+      "When no match found in current subtree, search walks upward through parent chain, searching each ancestor's full subtree excluding already-visited branches",
+      "Search stops at the first ancestor level that finds any match (does not continue to root if match found)",
+      "All 3 call sites in scene-accessor.js (lines ~450, ~510, ~563) pass the current node instead of cc.director.getScene()",
+      "Existing traverseNodeTree() reused for subtree searches with shared visited Set to avoid redundant visits",
+      "Safety limits preserved: maxDepth=50, maxNodes=5000 across both phases",
+      "Plugin loads without errors in Cocos Creator 2.x editor"
+    ],
+    "verification": "Load the plugin in Cocos Creator 2.x, add a component to a node with matching child/sibling/ancestor nodes, verify that the nearest matching node is auto-mounted first",
+    "definition_of_done": "Auto-mount properties bind to the nearest matching node (searching outward from current node) instead of the first match found in global DFS order"
+  },
+  "files": [
+    {
+      "path": "property-mounter.js",
+      "action": "modify",
+      "target": "autoMountProperties",
+      "changes": [
+        "Rename rootNode parameter to currentNode in autoMountProperties() signature",
+        "Replace single traverseNodeTree(rootNode, callback) call with two-phase search logic per property",
+        "Phase 1: Call traverseNodeTree(currentNode, callback, visited) to search current node's subtree downward",
+        "Phase 2: If no bestMatch found, iterate upward via node.parent from currentNode; at each ancestor, call traverseNodeTree(ancestor, callback, visited) which skips already-visited nodes; if bestMatch found at this level, break",
+        "Share the visited Set across both phases so ancestor subtree searches skip the already-searched current branch"
+      ],
+      "change": "Transform autoMountProperties from global single-pass DFS to two-phase nearest-first search (down from current node, then up through ancestors with full subtree search at each level)",
+      "conflict_risk": "low"
+    },
+    {
+      "path": "property-mounter.js",
+      "action": "modify",
+      "target": "traverseNodeTree",
+      "changes": [
+        "Remove the visited.delete(nodeId) at line 55 so that visited Set persists across multiple traverseNodeTree calls within the same property search (needed for Phase 2 to skip already-visited subtrees)"
+      ],
+      "change": "Make visited Set persistent (remove cleanup of visited entries) so it can be shared across multiple traverseNodeTree calls for the same property",
+      "conflict_risk": "medium"
+    },
+    {
+      "path": "scene-accessor.js",
+      "action": "modify",
+      "target": "performAutoMount",
+      "changes": [
+        "Line 450: Remove `const sceneRoot = cc.director.getScene()`",
+        "Line 451: Change `propertyMounter.autoMountProperties(component, sceneRoot, ...)` to `propertyMounter.autoMountProperties(component, node, ...)`",
+        "Update the comment at line 449 from '搜索范围为当前场景' to reflect new nearest-first search strategy"
+      ],
+      "change": "Pass the current node (already available as `node` parameter) instead of scene root to autoMountProperties at all call sites"
+    }
+  ],
+  "implementation": [
+    "1. In scene-accessor.js performAutoMount(), replace `const sceneRoot = cc.director.getScene()` with using the existing `node` parameter directly, passing it to autoMountProperties as the starting search node",
+    "2. In property-mounter.js, modify traverseNodeTree() to NOT delete visited entries (remove line 55 `visited.delete(nodeId)`) so visited Set persists across calls",
+    "3. In property-mounter.js autoMountProperties(), rename rootNode parameter to currentNode",
+    "4. Replace the single traverseNodeTree call per property with two-phase logic: Phase 1 - create fresh visited Set, call traverseNodeTree(currentNode, matchCallback, visited) for downward search",
+    "5. Phase 2 - if no bestMatch found, walk upward: let searchNode = currentNode.parent; while (searchNode) { call traverseNodeTree(searchNode, matchCallback, visited); if (bestMatch found) break; searchNode = searchNode.parent; }",
+    "6. Verify all 3 call sites in scene-accessor.js pass the correct node parameter",
+    "7. Test in Cocos Creator 2.x editor: add component to a node, verify nearest matching nodes are bound first"
+  ],
+  "reference": {
+    "pattern": "Existing traverseNodeTree DFS pattern with visited Set and depth guards",
+    "files": ["property-mounter.js", "scene-accessor.js"],
+    "examples": "The existing traverseNodeTree(rootNode, callback, visited, depth, maxDepth, maxNodes) can be called multiple times with the same visited Set to progressively expand search scope while skipping already-visited nodes"
+  },
+  "rationale": {
+    "chosen_approach": "Two-phase search reusing existing traverseNodeTree with shared visited Set - minimal code change, leverages existing infrastructure",
+    "alternatives_considered": [
+      "Add proximity bonus to match scores (rejected: requires global search, slower, more complex scoring logic)",
+      "Create entirely new bidirectional traversal method (rejected: unnecessary complexity when existing traverseNodeTree can be composed)",
+      "Search current subtree then fall back to full scene search (rejected: user wants ancestor-by-ancestor expansion, not direct fallback to global)"
+    ],
+    "decision_factors": ["Minimal code changes", "Reuse existing traverseNodeTree", "Predictable nearest-first behavior", "No configuration complexity"],
+    "tradeoffs": "Removing visited.delete() changes traverseNodeTree behavior for any other callers, but currently only autoMountProperties uses it"
+  },
+  "test": {
+    "manual_checks": [
+      "Add component to leaf node - verify child nodes are matched before sibling/ancestor nodes",
+      "Add component to root node - verify behavior unchanged (only downward search possible)",
+      "Add component where no match exists in subtree - verify upward search finds ancestor-level matches",
+      "Add component where match exists at multiple ancestor levels - verify nearest ancestor level's match is chosen",
+      "Add component to multiple selected nodes simultaneously - verify each searches from its own position"
+    ],
+    "success_metrics": [
+      "Nearest matching node is auto-mounted (not global DFS-order first match)",
+      "Search stops at first ancestor level with match (does not search further ancestors)",
+      "No errors or warnings in editor console during auto-mount",
+      "Performance comparable or better than global search for typical scenes"
+    ],
+    "unit": [],
+    "integration": []
+  },
+  "regression": [
+    "Verify auto-mount still works when component is added via panel UI (add-component handler)",
+    "Verify manual execute-auto-mount trigger works correctly",
+    "Verify execute-auto-mount-component trigger works correctly",
+    "Verify mount config options (ignoreCase, flexibleMatching) still apply correctly",
+    "Verify showMountLog setting still shows correct log output"
+  ],
+  "commit": {
+    "type": "feat",
+    "scope": "auto-mount",
+    "message_template": "feat(auto-mount): optimize search order to nearest-first strategy"
+  },
+  "cli_execution": {
+    "id": "optimize-component-mount-search-order-2026-02-27-TASK-001",
+    "strategy": "new"
+  }
+}

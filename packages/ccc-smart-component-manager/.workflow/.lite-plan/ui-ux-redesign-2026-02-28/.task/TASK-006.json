@@ -1,0 +1,34 @@
+{
+  "id": "TASK-006",
+  "title": "实现主题切换机制：DataManager 存储 + 设置页 UI + JS 切换逻辑",
+  "description": "在 DataManager 中新增 theme 设置字段，在设置页面添加主题选择 section（带预览色块），在 panel logic 中实现主题切换逻辑（修改 :host data-theme 属性）。面板打开时自动恢复用户上次选择的主题。",
+  "depends_on": ["TASK-005"],
+  "convergence": {
+    "criteria": [
+      "DataManager 支持 getTheme/setTheme API",
+      "设置页面有主题选择 section，每个主题显示名称和预览色块",
+      "点击主题选项立即切换（实时预览）",
+      "主题选择持久化到 user-data.json",
+      "面板打开时自动恢复上次选择的主题",
+      "i18n 支持所有主题名称",
+      "构建成功，语法验证通过"
+    ]
+  },
+  "files": [
+    { "path": "data-manager.js", "change": "新增 theme 字段到 settings，添加 getTheme/setTheme 方法" },
+    { "path": "panel/logic.js", "change": "ready() 中恢复主题，renderSettingsContent() 添加主题选择 section，实现 applyTheme 方法" },
+    { "path": "panel/styles.css", "change": "添加主题选择 UI 的样式（色块网格、选中态）" },
+    { "path": "i18n/zh.js", "change": "添加主题名称和描述的 i18n 键" }
+  ],
+  "implementation": [
+    "DataManager: saveData 中增加 settings.theme 默认值 'vibrant-dark'，添加 getTheme()/setTheme(theme) 方法",
+    "logic.js ready(): 调用 applyTheme(dataManager.getTheme()) 恢复主题",
+    "logic.js applyTheme(themeName): this.shadowRoot.host.setAttribute('data-theme', themeName) 或移除属性（默认主题）",
+    "logic.js renderSettingsContent(): 添加主题选择 section，使用 grid 布局展示主题色块卡片",
+    "logic.js bindSettingsEvents(): 绑定主题卡片点击事件，调用 applyTheme + dataManager.setTheme",
+    "styles.css: 添加 .theme-grid、.theme-card、.theme-card.active、.theme-preview 样式",
+    "i18n/zh.js: 添加 SETTINGS.theme_settings 和各主题名称/描述",
+    "运行 node panel/build.js 重建"
+  ],
+  "test": "验证主题切换即时生效，重开面板后主题恢复，所有 6 个主题卡片正确显示"
+}

@@ -1,0 +1,69 @@
+{
+  "id": "IMPL-005",
+  "title": "数据结构优化",
+  "priority": "P2",
+  "effort": "3-5天",
+  "risk": "中",
+  "status": "pending",
+  "phase": 2,
+  "milestone": "M2: 功能增强",
+  "goal": "简化三层嵌套的_ctrlData结构，提升访问效率",
+  "subtasks": [
+    {
+      "id": "IMPL-005.1",
+      "title": "设计扁平化数据结构",
+      "description": "设计 FlatStateData 接口和组合键规则",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.2",
+      "title": "添加Map属性",
+      "description": "添加 _flatData Map 属性存储扁平化数据",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.3",
+      "title": "实现组合键生成",
+      "description": "实现 makeKey() 组合键生成方法",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.4",
+      "title": "实现快速获取方法",
+      "description": "实现 getPropValueFast() 快速获取属性值",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.5",
+      "title": "实现快速设置方法",
+      "description": "实现 setPropValueFast() 快速设置属性值",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.6",
+      "title": "实现数据迁移",
+      "description": "实现 migrateFromLegacyData() 从旧结构迁移数据",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-005.7",
+      "title": "修改getPropData兼容",
+      "description": "修改 getPropData() 兼容新结构并保持API兼容",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "旧场景数据自动迁移到新结构",
+    "getPropData() 保持向后兼容",
+    "属性访问性能提升",
+    "迁移日志正确输出"
+  ],
+  "dependencies": ["IMPL-001"]
+}

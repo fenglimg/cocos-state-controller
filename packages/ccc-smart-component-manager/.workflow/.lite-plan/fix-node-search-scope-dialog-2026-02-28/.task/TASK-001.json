@@ -1,0 +1,30 @@
+{
+  "id": "TASK-001",
+  "title": "修改 PropertyMounter 分离 Phase 2 结果，不自动挂载跨节点范围的匹配",
+  "description": "修改 property-mounter.js 的 autoMountProperties 方法，将 Phase 2（向上搜索祖先节点子树）的匹配结果标记为 pending 而非自动挂载。Phase 1（当前节点子树）继续自动挂载。返回结构中增加 pendingMounts 数组，包含跨范围的匹配信息。",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "Phase 1 匹配继续自动挂载（行为不变）",
+      "Phase 2 匹配不再自动挂载，改为收集到 pendingMounts 数组返回",
+      "pendingMounts 每项包含 property, node, component, matchResult, searchPhase 信息",
+      "返回值从纯 mountResults 改为 { mountResults, pendingMounts } 结构",
+      "保持向后兼容：现有调用方通过 mountResults 获取已挂载结果不受影响"
+    ]
+  },
+  "files": [
+    {
+      "path": "property-mounter.js",
+      "change": "修改 autoMountProperties 方法：Phase 2 匹配结果不执行 component[prop.name] = bestMatch.component，改为收集到 pendingMounts 数组。新增 applyPendingMounts 方法用于确认后执行挂载。调整返回值结构。"
+    }
+  ],
+  "implementation": [
+    "1. 在 autoMountProperties 方法中新增 pendingMounts 数组",
+    "2. Phase 1 搜索结果继续自动挂载（现有逻辑不变）",
+    "3. Phase 2 搜索到匹配时，不执行 component[prop.name] = bestMatch.component，而是将信息 push 到 pendingMounts",
+    "4. 新增 applyPendingMounts(component, pendingMounts) 方法，执行实际挂载操作",
+    "5. 返回值改为 { mountResults, pendingMounts }",
+    "6. formatMountResultLog 方法增加对 pendingMounts 的展示"
+  ],
+  "test": "验证 Phase 1 自动挂载不受影响；Phase 2 结果在 pendingMounts 中返回而非自动挂载；applyPendingMounts 能正确执行挂载"
+}

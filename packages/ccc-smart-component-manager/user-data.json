@@ -1,0 +1,38 @@
+{
+  "favorites": [],
+  "usage": {
+    "dsdsadsa": 9,
+    "cc.ViewGroup": 1,
+    "cxczxc": 2,
+    "cc.RichText": 1,
+    "cc.RigidBody": 1,
+    "cc.Slider": 1,
+    "cc.DistanceJoint": 3,
+    "cc.Widget": 13,
+    "StateController": 4,
+    "cc.Sprite": 9,
+    "StateSelect": 10,
+    "BroadcastExtraSingleItem": 1,
+    "cc.Button": 2,
+    "cc.Layout": 9,
+    "FixedContentBox": 3,
+    "BroadcastEnterRoom": 1
+  },
+  "settings": {
+    "logLevel": "ERROR_ONLY",
+    "autoPropertyMount": {
+      "enabled": true,
+      "ignoreCase": true,
+      "flexibleMatching": true,
+      "showMountLog": true
+    },
+    "shortcuts": {
+      "focusSearchInput": "CmdOrCtrl+E"
+    },
+    "confirmations": {
+      "deleteComponentConfirm": false,
+      "favoriteToggleConfirm": false
+    },
+    "theme": "ocean"
+  }
+}

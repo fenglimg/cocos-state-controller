@@ -1,0 +1,64 @@
+{
+  "summary": "Renovate the ccc-smart-component-manager panel UI by applying ui-ux-pro-max design best practices: replace emoji icons with inline SVG/CSS alternatives, add comprehensive ARIA accessibility attributes, improve search UX with loading states and result counts, and polish visual consistency (shadows, transitions, typography). All changes stay within the single-file Editor.Panel.extend() architecture while preserving all IPC contracts and backward compatibility with Cocos Creator 2.x.",
+  "approach": "Four parallel tasks targeting distinct UI aspects of panel/index.js: (1) icon system replacement and design token refinement, (2) accessibility attributes and keyboard improvements, (3) search UX and interaction polish, (4) settings page redesign and i18n completion. All tasks modify the same file but target different code sections (CSS, HTML template, specific JS methods), allowing parallel execution with a final merge. No structural changes to the Editor.Panel.extend() pattern or IPC contracts.",
+  "task_ids": ["TASK-001", "TASK-002", "TASK-003", "TASK-004"],
+  "task_count": 4,
+  "complexity": "Medium",
+  "estimated_time": "3-4 hours",
+  "recommended_execution": "Codex",
+  "design_decisions": [
+    {
+      "decision": "Use inline SVG icons instead of emoji characters",
+      "rationale": "ui-ux-pro-max no-emoji-icons rule; SVGs render consistently across Electron versions and support currentColor for theme-aware coloring",
+      "tradeoff": "Increases template string size but ensures cross-platform icon consistency",
+      "alternatives": ["CSS-only pseudo-element icons", "Base64 icon font", "Unicode symbols"]
+    },
+    {
+      "decision": "Keep single-file architecture with internal reorganization only",
+      "rationale": "Cocos Creator 2.x panel system requires single panel/index.js; user confirmed this approach. Internal code sections delineated with comment blocks for clarity.",
+      "tradeoff": "File remains large (~3000+ lines) but maintains full compatibility with editor plugin system"
+    },
+    {
+      "decision": "All four tasks in parallel group with no dependencies",
+      "rationale": "Each task targets distinct code sections (CSS tokens, ARIA attributes, search methods, settings page). Single-file merge is manageable since modifications are localized to different areas.",
+      "tradeoff": "Merge conflicts possible but mitigated by targeting distinct code regions"
+    },
+    {
+      "decision": "Preserve existing dark theme with indigo accent, apply best practices only",
+      "rationale": "User chose to keep current aesthetic; focus improvements on accessibility, consistency, and UX rather than visual redesign",
+      "tradeoff": "Less dramatic visual change, but lower risk and full backward compatibility"
+    }
+  ],
+  "shared_context": {
+    "tech_stack": ["Cocos Creator 2.x Editor Extension API", "Vanilla JavaScript (CommonJS)", "Electron 2-4", "Inline CSS/HTML", "No build pipeline"],
+    "conventions": [
+      "Editor.Panel.extend() with style/template/$/ready/messages properties",
+      "CSS custom properties on :host for design tokens",
+      "i18n via I18nHelper.t() with keys in i18n/zh.js",
+      "IPC via Editor.Scene.callSceneScript and Editor.Ipc.sendToPanel",
+      "DataManager singleton for all settings persistence"
+    ]
+  },
+  "_metadata": {
+    "timestamp": "2026-02-28T20:30:00+08:00",
+    "source": "cli-lite-planning-agent",
+    "plan_type": "feature",
+    "schema_version": "2.0",
+    "planning_mode": "agent-based",
+    "exploration_angles": ["patterns", "integration-points", "dependencies"],
+    "duration_seconds": 120,
+    "quality_check": {
+      "executed": true,
+      "recommendation": "PASS",
+      "dimensions": {
+        "completeness": "All user requirements covered: emoji replacement, accessibility, search UX, visual polish, settings redesign, i18n",
+        "granularity": "4 tasks, each 45-60 minutes scope, grouped by feature area",
+        "dependencies": "No circular deps; all tasks parallel (same file but distinct sections)",
+        "convergence_criteria": "All criteria are quantified and testable (zero emojis, 4.5:1 contrast, 44x44px targets, 150-300ms durations)",
+        "implementation_steps": "Each task has 6-10 detailed implementation steps",
+        "constraint_compliance": "Preserves Editor.Panel.extend(), inline CSS/HTML, IPC contracts, Cocos Creator 2.x compatibility, no external deps"
+      },
+      "issues": []
+    }
+  }
+}

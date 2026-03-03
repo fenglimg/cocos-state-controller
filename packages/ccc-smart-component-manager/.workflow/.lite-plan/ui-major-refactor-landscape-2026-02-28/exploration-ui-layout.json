@@ -1,0 +1,305 @@
+{
+  "project_structure": "Single-panel Cocos Creator editor extension. All UI code lives in panel/index.js as an Editor.Panel.extend() call containing inline CSS (style property, lines 59-720) and HTML template (template property, lines 723-1360). The panel is declared as type 'dockable' in package.json with width:450, height:120, min-height:60. No external CSS files or component framework - everything is a single monolithic file.",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Contains ALL layout CSS and HTML template inline. Lines 59-720 define the style property with every CSS rule causing oversized layout. Lines 723-1360 define the HTML template structure. This is the sole file that needs modification for the UI layout refactor.",
+      "role": "modify_target",
+      "discovery_source": "manual",
+      "key_symbols": [
+        ".container",
+        ".row",
+        ".row ui-button",
+        "#com_name",
+        "#list",
+        ".list-state",
+        ".list-items",
+        ".search-result",
+        "#coms",
+        "#coms ui-button",
+        ".results-meta",
+        ".coms-row",
+        ".coms-wrap",
+        "svgIcon",
+        "ICON_PATHS"
+      ]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.9,
+      "rationale": "Declares panel dimensions: width:450, height:120, min-height:60, type:'dockable'. These are the Cocos Creator panel constraints that define the target viewport the CSS must work within. The width:450 and min-height:60 confirm the narrow landscape form factor.",
+      "role": "config",
+      "discovery_source": "manual",
+      "key_symbols": [
+        "panel.width",
+        "panel.height",
+        "panel.min-height",
+        "panel.type"
+      ]
+    }
+  ],
+  "patterns": "The CSS uses a design-token approach with CSS custom properties (--spacing-*, --radius-*, --bg-*, etc.) defined on :host. All sizing uses these tokens. The UI uses Cocos Creator's built-in <ui-button> web component. Styles are applied with heavy !important usage to override the editor's default ui-button styling. The layout uses flexbox for the main container (column direction) and rows, and CSS grid for search results. There are no responsive breakpoints for width < 600px in the main panel CSS (only in the settings modal). The 44px touch-target minimum is applied universally - appropriate for mobile but oversized for a desktop editor panel.",
+  "dependencies": "Cocos Creator Editor framework providing Editor.Panel.extend() API and <ui-button> web component. The i18n-helper module for translations. The data-manager and logger modules for state. SVG icons are defined inline as path data in ICON_PATHS object (lines 12-27) and rendered via svgIcon() helper function (lines 38-55).",
+  "integration_points": "The panel integrates with Cocos Creator's dockable panel system. The <ui-button> elements trigger Editor.Ipc.sendToMain() calls. The #coms container is dynamically populated with ui-button elements representing current node components. The #list-items container is dynamically populated with search results. Settings modal is toggled via JS. All event binding happens in the ready() lifecycle method.",
+  "constraints": "1) Panel viewport is ~300-450px wide, min-height 60px (package.json declares 120px default height). 2) Must use Cocos Creator's <ui-button> web component - cannot replace with standard HTML buttons. 3) All CSS must be inline in the style property string. 4) The editor's Shadow DOM encapsulation means :host styles are the root. 5) Must maintain all existing functionality (search, add, refresh, settings, component list). 6) Cannot add external CSS files or frameworks.",
+  "clarification_needs": [
+    {
+      "question": "Should the action buttons (add, refresh, settings) become icon-only square buttons, or retain any text/label?",
+      "context": "Currently the buttons contain only SVG icons but are styled as 44x44px purple blocks with full background fill. They could be reduced to ~24x24px icon-only buttons with transparent/subtle background, or kept as small filled buttons around 28x28px.",
+      "options": [
+        "Icon-only with transparent background, ~24px (like VS Code toolbar buttons)",
+        "Small filled icon buttons, ~28px with subtle background",
+        "Keep current icon-in-button style but reduce to 32px"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Should the empty state / loading state areas be collapsed to minimal height or removed entirely when not showing results?",
+      "context": "The .list-state class sets min-height:140px and padding:24px for empty/loading states. In a panel that may be only 120px tall total, this alone exceeds the available space. Options range from keeping a small indicator to hiding it entirely.",
+      "options": [
+        "Collapse to single-line text indicator (~24px height)",
+        "Show only a small icon + text in a compact row (~32px)",
+        "Remove empty state entirely, just show empty list area"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "The previous UI renovation produced oversized buttons, wasted space, and poor layout for a narrow landscape editor panel. Need to identify ALL layout-related CSS/HTML issues and propose a compact, editor-tool-appropriate layout.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "ui-layout",
+    "exploration_index": 1,
+    "total_explorations": 4,
+    "duration_seconds": 45
+  },
+  "_analysis": {
+    "oversized_buttons": {
+      "summary": "Action buttons (add, refresh, settings) render as 44x44px purple (#6366f1) filled blocks instead of compact icon buttons",
+      "css_rules": [
+        {
+          "selector": ".row ui-button",
+          "line": 422,
+          "properties": {
+            "height": "44px !important",
+            "min-width": "44px !important",
+            "padding": "0 var(--spacing-md) [=12px] !important",
+            "background": "var(--primary-color) [=#6366f1] !important",
+            "border": "1px solid var(--primary-color) !important",
+            "border-radius": "var(--radius-lg) [=8px] !important",
+            "color": "white !important",
+            "font-size": "16px !important"
+          },
+          "problem": "44px height + 44px min-width + purple fill + 8px radius creates large prominent blocks. In a 120px-tall panel, a single row of 44px buttons + 44px input + padding already consumes ~76px (63% of panel height).",
+          "fix": "Reduce to 24-28px height, remove background fill, use transparent/hover-only background, reduce border-radius to 4px"
+        }
+      ]
+    },
+    "excessive_spacing": {
+      "summary": "Container padding and gaps consume ~40px of vertical space before any content",
+      "css_rules": [
+        {
+          "selector": ".container",
+          "line": 127,
+          "properties": {
+            "padding": "var(--spacing-lg) [=16px]",
+            "gap": "var(--spacing-md) [=12px]"
+          },
+          "problem": "16px padding top+bottom = 32px. 12px gap between 4 rows = 36px. Total spacing overhead: ~68px in a 120px panel.",
+          "fix": "Reduce padding to 4-6px, reduce gap to 4px"
+        },
+        {
+          "selector": ".row",
+          "line": 136,
+          "properties": {
+            "gap": "var(--spacing-sm) [=8px]"
+          },
+          "problem": "8px gap between buttons in a row is reasonable but could be tighter",
+          "fix": "Reduce to 4px"
+        }
+      ]
+    },
+    "wasted_empty_state": {
+      "summary": "Empty/loading states have min-height:140px + 24px padding, exceeding the entire panel height",
+      "css_rules": [
+        {
+          "selector": ".list-state",
+          "line": 493,
+          "properties": {
+            "min-height": "140px",
+            "padding": "var(--spacing-xl) [=24px]"
+          },
+          "problem": "140px min-height alone exceeds the 120px default panel height. With 24px padding on each side, the empty state demands ~188px minimum.",
+          "fix": "Remove min-height entirely or set to 24px. Reduce padding to 4px. Use single-line compact text."
+        }
+      ]
+    },
+    "oversized_search_input": {
+      "summary": "Search input is 44px tall - mobile touch-target size, not desktop editor size",
+      "css_rules": [
+        {
+          "selector": "#com_name",
+          "line": 397,
+          "properties": {
+            "height": "44px !important",
+            "padding": "0 var(--spacing-md) [=12px] !important",
+            "font-size": "14px !important",
+            "border-radius": "var(--radius-lg) [=8px] !important"
+          },
+          "problem": "44px height is mobile-optimized. Desktop editor inputs are typically 22-26px.",
+          "fix": "Reduce to 24px height, reduce padding to 0 6px, reduce font-size to 12px, reduce border-radius to 3px"
+        }
+      ]
+    },
+    "oversized_component_buttons": {
+      "summary": "Component buttons in #coms area use 44px min-height with generous padding",
+      "css_rules": [
+        {
+          "selector": "#coms ui-button",
+          "line": 253,
+          "properties": {
+            "min-height": "44px !important",
+            "padding": "var(--spacing-sm) var(--spacing-md) [=8px 12px] !important",
+            "font-size": "13px !important"
+          },
+          "problem": "44px component buttons in a scrollable strip consume too much vertical space.",
+          "fix": "Reduce min-height to 22-24px, reduce padding to 2px 6px, reduce font-size to 11px"
+        },
+        {
+          "selector": "#coms",
+          "line": 213,
+          "properties": {
+            "max-height": "120px",
+            "padding": "var(--spacing-sm) [=8px]",
+            "gap": "var(--spacing-sm) [=8px]",
+            "border-radius": "var(--radius-lg) [=8px]"
+          },
+          "problem": "120px max-height equals the entire panel default height. 8px padding and 8px gap are excessive.",
+          "fix": "Reduce max-height to 32-40px, reduce padding to 2px, reduce gap to 4px, reduce border-radius to 3px"
+        },
+        {
+          "selector": ".coms-wrap",
+          "line": 177,
+          "properties": {
+            "min-height": "44px"
+          },
+          "problem": "Forces 44px minimum even when empty.",
+          "fix": "Reduce to 24px or remove min-height"
+        }
+      ]
+    },
+    "search_results_oversized": {
+      "summary": "Search result items use 44px min-height and grid min-width 220px preventing compact layout",
+      "css_rules": [
+        {
+          "selector": ".search-result",
+          "line": 580,
+          "properties": {
+            "padding": "var(--spacing-md) [=12px]",
+            "min-height": "44px",
+            "font-size": "14px",
+            "border-radius": "var(--radius-lg) [=8px]"
+          },
+          "problem": "Each result takes 44px+ height. Only 1-2 results visible in 120px panel.",
+          "fix": "Reduce min-height to 24px, padding to 2px 6px, font-size to 12px, border-radius to 3px"
+        },
+        {
+          "selector": ".list-items",
+          "line": 486,
+          "properties": {
+            "grid-template-columns": "repeat(auto-fit, minmax(220px, 1fr))",
+            "gap": "var(--spacing-sm) [=8px]"
+          },
+          "problem": "220px min-width means at 300px panel width, only 1 column is possible. At 450px, still only 1-2 columns.",
+          "fix": "Reduce minmax to 140px or switch to flex-wrap layout for compact items"
+        }
+      ]
+    },
+    "results_meta_unnecessary_space": {
+      "summary": "The results-meta row adds unnecessary vertical space between search input and results",
+      "css_rules": [
+        {
+          "selector": ".results-meta",
+          "line": 467,
+          "properties": {
+            "min-height": "24px",
+            "padding": "0 var(--spacing-xs) [=4px]"
+          },
+          "problem": "Separate row for result count adds 24px+ vertical space.",
+          "fix": "Integrate result count into the search input row or make it an overlay/inline element"
+        }
+      ]
+    },
+    "design_token_values_too_generous": {
+      "summary": "The base CSS custom properties define spacing values suited for a standalone app, not a compact editor panel",
+      "css_rules": [
+        {
+          "selector": ":host",
+          "line": 61,
+          "properties": {
+            "--spacing-xs": "4px",
+            "--spacing-sm": "8px",
+            "--spacing-md": "12px",
+            "--spacing-lg": "16px",
+            "--spacing-xl": "24px",
+            "--spacing-2xl": "24px",
+            "--radius-sm": "4px",
+            "--radius-md": "6px",
+            "--radius-lg": "8px",
+            "--radius-xl": "12px",
+            "--font-size-body": "13px"
+          },
+          "problem": "These spacing tokens are designed for a web app, not a compact editor tool. Even the 'xs' value of 4px is generous for a tight panel.",
+          "fix": "Halve all spacing tokens: xs=2px, sm=4px, md=6px, lg=8px, xl=12px. Reduce radii: sm=2px, md=3px, lg=4px, xl=6px. Reduce font-size-body to 11-12px."
+        }
+      ]
+    },
+    "html_template_issues": {
+      "summary": "HTML structure has unnecessary wrapper nesting and separate rows that waste space",
+      "elements": [
+        {
+          "element": "div.results-meta (line 1313-1315)",
+          "problem": "Standalone row between search and list just for result count",
+          "fix": "Move result count into search row or as absolute-positioned overlay"
+        },
+        {
+          "element": "div.list-state.list-empty (line 1328-1331)",
+          "problem": "Contains large icon + text block for empty state",
+          "fix": "Replace with minimal single-line text, remove the large search icon"
+        },
+        {
+          "element": "div.skeleton-grid (line 1318-1325)",
+          "problem": "6 skeleton cards for loading state - way too many for compact panel",
+          "fix": "Reduce to 2-3 skeleton cards with smaller height"
+        },
+        {
+          "element": "Main layout has 4 vertical sections (line 1303-1343)",
+          "problem": "search-row + results-meta + list + coms-row = 4 flex children with gaps between each",
+          "fix": "Merge results-meta into search-row. Consider making coms-row conditional/collapsible."
+        }
+      ]
+    },
+    "vertical_space_budget": {
+      "panel_height": "120px (default), 60px (min-height from package.json)",
+      "current_consumption": {
+        "container_padding_top_bottom": "32px (16px * 2)",
+        "container_gaps_3x": "36px (12px * 3 gaps between 4 rows)",
+        "search_row_height": "44px",
+        "results_meta_height": "24px",
+        "coms_row_height": "44px+",
+        "total_minimum": "180px+ (exceeds 120px default by 50%)",
+        "available_for_list": "NEGATIVE - no space left for search results"
+      },
+      "proposed_consumption": {
+        "container_padding_top_bottom": "8px (4px * 2)",
+        "container_gaps_3x": "8px (2-3px * 3 gaps)",
+        "search_row_height": "24px",
+        "results_meta_height": "0px (merged into search row)",
+        "coms_row_height": "26px",
+        "total_minimum": "66px",
+        "available_for_list": "54px at 120px panel height - fits 2 compact results"
+      }
+    }
+  }
+}

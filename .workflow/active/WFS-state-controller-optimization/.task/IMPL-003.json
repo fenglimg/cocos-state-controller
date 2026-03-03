@@ -1,0 +1,61 @@
+{
+  "id": "IMPL-003",
+  "title": "智能属性推断",
+  "priority": "P1",
+  "effort": "2-3天",
+  "risk": "低",
+  "status": "pending",
+  "phase": 1,
+  "milestone": "M1: 性能优化",
+  "goal": "根据节点现有组件自动推荐可控制的属性",
+  "subtasks": [
+    {
+      "id": "IMPL-003.1",
+      "title": "实现属性扫描方法",
+      "description": "实现 scanAvailableProperties() 方法，根据组件类型返回可用属性列表",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-003.2",
+      "title": "实现属性可用性检查",
+      "description": "实现 isPropertyAvailable() 方法检查属性是否可用",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-003.3",
+      "title": "实现一键配置方法",
+      "description": "实现 autoConfigureAllProperties() 方法自动配置所有可用属性",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-003.4",
+      "title": "实现属性控制状态检查",
+      "description": "实现 isPropertyControlled() 方法检查属性是否已被控制",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-003.5",
+      "title": "实现属性控制切换",
+      "description": "实现 togglePropertyControl() 方法切换属性控制状态",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-003.6",
+      "title": "添加自动配置按钮",
+      "description": "在 StateToolsProps 中添加自动配置按钮",
+      "file": "assets/script/Controller/Props/StateToolsProps.ts",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "正确扫描Label/Sprite/Button等组件可用属性",
+    "自动配置按钮可一键启用所有可用属性",
+    "属性控制状态正确显示"
+  ],
+  "dependencies": []
+}

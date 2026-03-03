@@ -1,0 +1,75 @@
+{
+  "id": "IMPL-006",
+  "title": "单元测试",
+  "priority": "P2",
+  "effort": "3-5天",
+  "risk": "低",
+  "status": "pending",
+  "phase": 2,
+  "milestone": "M2: 功能增强",
+  "goal": "补充核心功能的单元测试，确保重构安全性",
+  "subtasks": [
+    {
+      "id": "IMPL-006.1",
+      "title": "创建测试目录结构",
+      "description": "创建 __tests__ 目录和测试配置",
+      "file": "assets/script/Controller/__tests__/",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.2",
+      "title": "StateController状态管理测试",
+      "description": "测试状态初始化、切换、越界处理",
+      "file": "assets/script/Controller/__tests__/StateController.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.3",
+      "title": "StateController缓存机制测试",
+      "description": "测试缓存构建、跳过子控制器、缓存失效",
+      "file": "assets/script/Controller/__tests__/StateController.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.4",
+      "title": "StateController状态操作测试",
+      "description": "测试状态复制、删除、排序",
+      "file": "assets/script/Controller/__tests__/StateController.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.5",
+      "title": "StateSelect智能推断测试",
+      "description": "测试属性扫描、可用性检查、自动配置",
+      "file": "assets/script/Controller/__tests__/StateSelect.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.6",
+      "title": "StateSelect属性监听测试",
+      "description": "测试变化检测、深度比较、同步逻辑",
+      "file": "assets/script/Controller/__tests__/StateSelect.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.7",
+      "title": "StateSelect数据结构测试",
+      "description": "测试数据迁移、扁平化访问",
+      "file": "assets/script/Controller/__tests__/StateSelect.test.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-006.8",
+      "title": "StatePropHandler测试",
+      "description": "测试处理器注册、获取、调用",
+      "file": "assets/script/Controller/__tests__/StatePropHandler.test.ts",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "测试覆盖率 > 80%",
+    "所有测试用例通过",
+    "核心路径全覆盖"
+  ],
+  "dependencies": ["IMPL-001", "IMPL-002", "IMPL-003", "IMPL-004", "IMPL-005"]
+}

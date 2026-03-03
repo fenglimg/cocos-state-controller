@@ -1,7 +1,7 @@
 {
   "engine": "cocos2d-html5",
   "packages": "packages",
-  "version": "2.4.5",
+  "version": "2.4.13",
   "name": "cocos-state-controller",
   "id": "54fd4bc0-8b13-442b-a691-fa3f36a29275",
   "isNew": false

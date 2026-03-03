@@ -1,0 +1,31 @@
+{
+  "id": "TASK-004",
+  "title": "设置页面清理与重设计",
+  "description": "清理设置页面中的死代码（未使用的 modal 弹窗 HTML 和相关 JS），然后使用新设计系统重设计设置页面布局：改进 section 分组、表单控件样式、统计数据展示、以及页面切换动画。保持现有设置项和数据绑定不变。",
+  "depends_on": ["TASK-003"],
+  "convergence": {
+    "criteria": [
+      "settings-modal 相关 HTML 死代码已删除",
+      "settings-modal 相关 JS 死代码已删除",
+      "设置页面使用新 design tokens 重新样式化",
+      "设置 section 分组清晰：收藏夹管理、行为设置、快捷键设置、统计信息",
+      "页面切换（主界面↔设置）有平滑过渡动画",
+      "所有设置项功能正常（checkbox、按钮、重置操作）"
+    ]
+  },
+  "files": [
+    { "path": "panel/template.html", "change": "删除 settings-modal 死代码，重构设置页面 HTML 结构" },
+    { "path": "panel/styles.css", "change": "删除 settings-modal 样式，添加设置页面新样式" },
+    { "path": "panel/index.js", "change": "删除 modal 相关 JS 方法，改进页面切换动画逻辑" }
+  ],
+  "implementation": [
+    "识别并删除 template.html 中 settings-modal 相关 HTML（约 100-200 行死代码）",
+    "识别并删除 styles.css 中 .settings-modal 相关样式",
+    "识别并删除 index.js 中 modal 显示/隐藏相关方法",
+    "重设计设置页面布局：使用 card-based section 分组",
+    "改进统计数据展示：使用 grid 布局和数据可视化元素",
+    "添加主界面↔设置页面切换的 CSS transition 动画",
+    "确保所有 DataManager API 调用和事件绑定仍然正确"
+  ],
+  "test": "验证设置页面所有功能：切换开关、重置统计、清除收藏夹、快捷键修改、日志级别调整"
+}

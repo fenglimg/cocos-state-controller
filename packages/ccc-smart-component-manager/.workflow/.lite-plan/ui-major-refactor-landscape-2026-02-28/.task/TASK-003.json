@@ -1,0 +1,228 @@
+{
+  "id": "TASK-003",
+  "title": "Update JS rendering methods + convert settings to full-panel page",
+  "description": "Update all JavaScript rendering methods in panel/index.js that generate dynamic HTML to match the new compact design system. Key changes: (1) update search result rendering in res-input-query handler to produce flat list items instead of grid cards, (2) update component bar rendering in res-list-current-components handler for compact chips, (3) convert openSettingsModal/closeSettingsModal to page toggle pattern (show/hide #main vs #settings-modal), (4) update renderSettingsContent() for compact page layout, (5) update setSearchUiState() for compact states. All IPC message contracts and DataManager API calls must remain unchanged.",
+  "type": "refactor",
+  "priority": "critical",
+  "effort": "large",
+  "action": "Refactor",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js"],
+  "depends_on": ["TASK-002"],
+  "convergence": {
+    "criteria": [
+      "Search result items rendered as flat list rows (not grid cards): single div with component-name span + type badge, 22-24px height",
+      "Component bar chips rendered at 20px height with 11px font, delete X appears on hover only",
+      "openSettingsModal() toggles: this.$main.style.display='none', this.$settingsModal.style.display='flex'",
+      "closeSettingsModal() toggles: this.$main.style.display='flex', this.$settingsModal.style.display='none'",
+      "renderSettingsContent() produces compact layout: 20px controls, 1px separators, 11px section headers",
+      "setSearchUiState() handles empty/loading/results states with compact styling",
+      "svgIcon() calls updated: toolbar buttons use size 'sm' (14px), list items use size 'xs' (12px, new size to add)",
+      "All 13 IPC message handlers still function correctly",
+      "All 22 DataManager API calls unchanged",
+      "All 7 keyboard shortcuts still work",
+      "No hardcoded 44px, #6366f1, or oversized padding values in JS-generated HTML"
+    ],
+    "verification": "Test complete user flow: search for component, view results, add component, delete component, open/close settings, toggle all settings, use keyboard shortcuts.",
+    "definition_of_done": "All dynamic HTML generation matches the compact design system. Settings page works as full-panel replacement. All existing functionality preserved."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "res-input-query message handler (lines 3154-3250)",
+      "changes": [
+        "Change search result innerHTML to flat list item: compact component-name + inline type badge",
+        "Remove entry animation (translateY + opacity) for instant rendering",
+        "Add CSS class 'search-result' with type modifier for styling",
+        "Result click: add accent color flash (#22C55E) instead of previous indigo",
+        "Update createHighlightedText() output to use 12px font styling",
+        "Update createBadges() to produce compact inline badges (10px, muted color)"
+      ],
+      "conflict_risk": "medium"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "res-list-current-components message handler (lines 3251-3329)",
+      "changes": [
+        "Update ui-button creation: remove hardcoded background '#b54344', use CSS class instead",
+        "Set compact chip styling: 20px height, 4px padding, 11px font",
+        "Delete X: use svgIcon with xs size (12px), hidden by default, shown on parent hover",
+        "Remove inline style overrides (let CSS handle all styling)"
+      ],
+      "conflict_risk": "medium"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "openSettingsModal/closeSettingsModal methods",
+      "changes": [
+        "Convert from modal pattern (add/remove 'show' class on overlay) to page pattern (toggle display of #main and #settings-modal)",
+        "openSettingsModal: hide #main, show #settings-modal, render content, focus first control",
+        "closeSettingsModal: hide #settings-modal, show #main, restore focus to settings button",
+        "Update ARIA: #settings-modal gets role='region' aria-label='settings', not dialog/modal roles",
+        "Remove focus trap (handleSettingsModalKeydown Tab cycling) since it is a page view, not modal",
+        "Keep Escape key handler to close settings page"
+      ],
+      "conflict_risk": "medium"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "renderSettingsContent() method",
+      "changes": [
+        "Rewrite generated HTML for compact page layout",
+        "Section headers: 11px uppercase muted text with 1px bottom border",
+        "Input controls: 20px height, compact padding",
+        "Toggle/checkbox controls: 20px height, aligned right",
+        "Remove card-style sections, use flat compact layout",
+        "Preserve all dataManager getter/setter calls unchanged"
+      ],
+      "conflict_risk": "medium"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "svgIcon() function and ICON_PATHS",
+      "changes": [
+        "Add 'xs' size option: 12px for list item icons",
+        "Keep existing sizes: sm=14px (was 16px, update), md=18px (was 20px), lg=24px",
+        "Add 'arrowLeft' icon path to ICON_PATHS for settings back button"
+      ],
+      "conflict_risk": "low"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "setSearchUiState() method",
+      "changes": [
+        "Update state transitions for compact layout",
+        "Empty state: show single-line muted text (no icon)",
+        "Loading state: show 2 compact skeleton items",
+        "Results state: show flat list container"
+      ],
+      "conflict_risk": "low"
+    }
+  ],
+  "implementation": [
+    {
+      "step": "1",
+      "description": "Update svgIcon system for compact sizes",
+      "actions": [
+        "Add 'xs' size: 12px to svgIcon() size map",
+        "Update 'sm' to 14px (from 16px), 'md' to 18px (from 20px)",
+        "Add ICON_PATHS.arrowLeft SVG path for settings back button",
+        "Verify all existing icon references still work"
+      ]
+    },
+    {
+      "step": "2",
+      "description": "Rewrite search result rendering",
+      "actions": [
+        "In res-input-query handler, update ui-button innerHTML generation",
+        "Use flat layout: <span class='component-name'>{highlighted}</span><span class='type-badge'>{type}</span>",
+        "Remove translateY/opacity animation styles",
+        "Update createBadges() for compact inline badges",
+        "Ensure onclick (addCom), oncontextmenu (toggleFavorite), keydown (Enter/Space) preserved"
+      ]
+    },
+    {
+      "step": "3",
+      "description": "Rewrite component bar chip rendering",
+      "actions": [
+        "In res-list-current-components handler, remove inline style='background:#b54344'",
+        "Add CSS class for component chip styling (let TASK-001 CSS handle colors)",
+        "Compact innerHTML: count badge + name, 11px font",
+        "Keep keyboard reorder (A/D keys) and hover detection unchanged"
+      ]
+    },
+    {
+      "step": "4",
+      "description": "Convert settings modal to page pattern",
+      "actions": [
+        "Rewrite openSettingsModal(): this.$main.style.display='none'; this.$settingsModal.style.display='flex'",
+        "Rewrite closeSettingsModal(): this.$settingsModal.style.display='none'; this.$main.style.display='flex'",
+        "Remove focus trap logic (handleSettingsModalKeydown Tab cycling)",
+        "Keep Escape handler for closing settings",
+        "Update ARIA attributes for page (not dialog) semantics"
+      ]
+    },
+    {
+      "step": "5",
+      "description": "Rewrite renderSettingsContent() for compact layout",
+      "actions": [
+        "Generate compact HTML: flat sections with 1px separators",
+        "20px controls, 11px headers, minimal padding",
+        "Preserve all dataManager API calls and event binding in bindSettingsEvents()",
+        "Preserve all t() i18n calls for labels"
+      ]
+    },
+    {
+      "step": "6",
+      "description": "Update setSearchUiState() for compact states",
+      "actions": [
+        "Empty: show #list-empty with single-line text",
+        "Loading: show #list-loading with 2 skeleton items",
+        "Results: show #list-items with flat list",
+        "Update result count display in inline #result-count span"
+      ]
+    }
+  ],
+  "reference": {
+    "pattern": "Existing IPC message handler pattern in panel/index.js messages section",
+    "files": ["panel/index.js", "scene-accessor.js", "data-manager.js"],
+    "examples": "Keep same pattern: receive IPC data, process, update DOM. Only change the HTML output structure and styling."
+  },
+  "rationale": {
+    "chosen_approach": "Update rendering output within existing handler structure. Keep all IPC contracts, DataManager calls, and event binding patterns. Only change the HTML strings and CSS classes generated by rendering methods.",
+    "alternatives_considered": [
+      "Extract rendering to separate module (too risky for single-file pattern, breaks this context)",
+      "Use template literals instead of innerHTML (would be cleaner but massive change to rendering pattern)"
+    ],
+    "decision_factors": ["Preserve all integration contracts", "Minimize structural JS changes", "Focus on output HTML changes"],
+    "tradeoffs": "Settings page conversion is the most complex change; need careful handling of show/hide state management"
+  },
+  "risks": [
+    {
+      "description": "Settings page show/hide may conflict with existing modal state management",
+      "probability": "Medium",
+      "impact": "Medium",
+      "mitigation": "Remove all modal-specific code (overlay, focus trap, aria-modal) and replace with simple display toggle",
+      "fallback": "Keep modal pattern but constrain to max-width:100%"
+    },
+    {
+      "description": "Removing entry animation may cause visual jarring when results appear",
+      "probability": "Low",
+      "impact": "Low",
+      "mitigation": "Use subtle opacity:0->1 transition at 150ms instead of translateY"
+    }
+  ],
+  "test": {
+    "manual_checks": [
+      "Search for 'cc.Sprite', verify results appear as flat compact list",
+      "Click add button, verify component added successfully",
+      "Right-click result, verify context menu works",
+      "Open settings page, verify all 6 sections render correctly",
+      "Close settings page, verify main view restored",
+      "Test all 7 keyboard shortcuts",
+      "Verify component bar chips render compactly with hover delete"
+    ],
+    "success_metrics": [
+      "All 13 IPC message handlers functional",
+      "Settings page toggle completes in <100ms",
+      "Zero hardcoded 44px values in JS-generated HTML",
+      "Zero hardcoded #6366f1 values in JS-generated HTML"
+    ]
+  },
+  "cli_execution": {
+    "id": "ui-major-refactor-landscape-2026-02-28-TASK-003",
+    "strategy": "resume",
+    "resume_from": "ui-major-refactor-landscape-2026-02-28-TASK-002"
+  },
+  "commit": {
+    "type": "refactor",
+    "scope": "panel-js",
+    "message_template": "refactor(panel-js): update rendering methods and convert settings to page pattern"
+  }
+}

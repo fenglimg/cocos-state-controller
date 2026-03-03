@@ -1,0 +1,26 @@
+{
+  "id": "TASK-005",
+  "title": "设计 6 套主题配色方案并实现 CSS 多主题系统",
+  "description": "基于 /ui-ux-pro-max 设计智能参考，为面板设计 6 套主题配色方案。重新设计默认主题为活力深色风格（更鲜明对比、彩色标签、渐变高亮），并新增 5 套个性化主题。通过 CSS 属性选择器 :host[data-theme] 实现主题变量切换，所有主题共享相同的组件结构，只覆盖颜色变量。",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "默认主题 (vibrant-dark) 配色比当前更有活力，不再死气沉沉",
+      "共 6 套主题配色定义在 styles.css 中",
+      "每套主题覆盖所有颜色相关 CSS 变量（bg、text、border、accent、component colors）",
+      "主题通过 :host[data-theme='xxx'] CSS 选择器切换",
+      "design-tokens.json 更新为包含所有主题的配色数据"
+    ]
+  },
+  "files": [
+    { "path": "panel/styles.css", "change": "重写默认主题变量 + 新增 5 套 :host[data-theme] 主题覆盖" },
+    { "path": "panel/design-tokens.json", "change": "更新为多主题结构，包含 6 套主题配色数据" }
+  ],
+  "implementation": [
+    "设计 6 套主题配色：(1) vibrant-dark 活力深色（默认）：深蓝灰底+亮蓝主色+高饱和标签色 (2) warm-dark 温暖深色：棕褐底+琥珀主色+暖色调 (3) cyberpunk 赛博朋克：纯黑底+霓虹紫粉+高对比 (4) forest 森林绿：深绿底+翠绿主色+自然色调 (5) sunset 日落橙：深灰底+橙色主色+渐变暖色 (6) ocean 海洋蓝：深海蓝底+青色主色+清爽色调",
+    "重写 :host 默认变量为 vibrant-dark 风格",
+    "为每套主题添加 :host[data-theme='xxx'] 覆盖块",
+    "更新 design-tokens.json 为多主题结构"
+  ],
+  "test": "验证每个主题的 CSS 变量完整性，确保无遗漏的颜色变量"
+}

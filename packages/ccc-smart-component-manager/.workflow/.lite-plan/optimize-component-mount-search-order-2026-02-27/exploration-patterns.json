@@ -1,0 +1,72 @@
+{
+  "project_structure": "Cocos Creator 2.x editor plugin (ccc-smart-component-manager) with flat module structure: main.js (entry), scene-accessor.js (scene IPC handlers including add-component and auto-mount orchestration), property-mounter.js (PropertyMounter class handling node tree traversal and property matching/mounting), search-engine.js (component search UI), data-manager.js (settings/favorites persistence), logger.js (logging). The auto-mount flow is: scene-accessor.performAutoMount() -> PropertyMounter.autoMountProperties() -> traverseNodeTree() with name matching.",
+  "relevant_files": [
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.95,
+      "rationale": "Contains performAutoMount() at line 442 which is the orchestration entry point for auto-mounting. Line 450 sets sceneRoot = cc.director.getScene() as the search root - this is the exact location where the search scope is determined and must be changed to start from the current node instead of scene root.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["performAutoMount", "getNodeByUuid", "add-component", "execute-auto-mount", "execute-auto-mount-component"]
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": 0.95,
+      "rationale": "Contains PropertyMounter class with traverseNodeTree() at line 23 (top-down recursive DFS traversal) and autoMountProperties() at line 415 which accepts rootNode parameter and traverses the entire subtree. The traversal algorithm must be restructured to support a two-phase search: first downward from current node, then upward toward scene root.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["PropertyMounter", "traverseNodeTree", "autoMountProperties", "matchNodeName", "findComponentOnNode", "flexibleLetterMatch"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.5,
+      "rationale": "Contains getAutoMountConfig() at line 469 which provides mount configuration (ignoreCase, flexibleMatching). A new config option for search strategy (e.g., searchScope: 'nearest' vs 'global') could be added here to allow users to toggle between the old and new search behavior.",
+      "role": "integration_point",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["getAutoMountConfig", "getAutoMountEnabled", "updateAutoMountConfig", "autoPropertyMount"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.3,
+      "rationale": "Logging utility used throughout traversal for debug/info/warn messages during mount operations. No changes needed but relevant for understanding debug output patterns during search traversal.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["info", "debug", "warn", "error"]
+    }
+  ],
+  "patterns": "1. **Current Search Pattern (Global DFS)**: scene-accessor.js:450 obtains `cc.director.getScene()` as root, passes it to `propertyMounter.autoMountProperties(component, sceneRoot, options)`. PropertyMounter.traverseNodeTree() at line 23 performs a depth-first traversal from root through all children recursively, visiting every node in the scene. For each node, matchNodeName() compares property names against node names using exact match (score 100) or flexible letter match (score 85-95). The best-scoring match across the ENTIRE tree wins.\n\n2. **Traversal Pattern**: traverseNodeTree() uses visited Set for cycle detection, depth/maxDepth/maxNodes guards, and calls callback(node) for each node. It only goes downward through children - there is no upward traversal capability.\n\n3. **Match Selection Pattern**: autoMountProperties() at line 452-479 keeps a bestMatch/bestScore pair, updating when a higher-scoring match is found during traversal. This greedy-best approach means the first high-score match encountered in DFS order wins if scores tie.\n\n4. **Two Entry Points for Auto-Mount**: (a) Automatic: add-component handler at line 52 calls performAutoMount after addComponent. (b) Manual: execute-auto-mount at line 482 and execute-auto-mount-component at line 525. Both use the same performAutoMount() which always searches from scene root.\n\n5. **Node Access Pattern**: Nodes are accessed via cc.Node tree structure with `node.children` array and `node.parent` property (standard Cocos Creator API). The parent property is available but never used in current traversal code.\n\n6. **Configuration Pattern**: Mount options flow from data-manager.getAutoMountConfig() -> performAutoMount() -> autoMountProperties(). Options object currently has ignoreCase and flexibleMatching. New search strategy options should follow this same pattern.",
+  "dependencies": "Internal: property-mounter.js depends on logger.js; scene-accessor.js depends on search-engine.js, data-manager.js, logger.js, and lazily requires property-mounter.js. External: Cocos Creator 2.x engine APIs (cc.Node, cc.Component, cc.js, cc.director, cc.Class.Attr), Editor API (Editor.Selection, Editor.Ipc). The cc.Node API provides `node.children` (Array) for downward traversal and `node.parent` (cc.Node|null) for upward traversal - both are needed for the new search strategy.",
+  "integration_points": "1. **scene-accessor.js:449-454 (performAutoMount)**: Primary integration point where search root is determined. Currently `const sceneRoot = cc.director.getScene()` at line 450, then `propertyMounter.autoMountProperties(component, sceneRoot, options)` at line 451. Must change to pass current node instead of scene root, or modify autoMountProperties signature to accept both current node and scene root.\n\n2. **property-mounter.js:415 (autoMountProperties signature)**: `autoMountProperties(component, rootNode, options)` - the rootNode parameter must be reinterpreted or a new parameter added for the current node context. The method at line 456 calls traverseNodeTree(rootNode, callback) which needs to become a two-phase search.\n\n3. **property-mounter.js:23 (traverseNodeTree)**: Currently only traverses downward. A new traverseUpward() method or modification to support bidirectional traversal is needed.\n\n4. **scene-accessor.js:510 (execute-auto-mount manual trigger)**: Also calls performAutoMount - must receive same search strategy changes.\n\n5. **scene-accessor.js:563 (execute-auto-mount-component)**: Same pattern, also calls performAutoMount for specific component type.",
+  "constraints": "1. **Backward Compatibility**: Existing auto-mount behavior (global search from scene root) must remain available, potentially as a fallback or config option. Users who rely on mounting properties from distant nodes in the scene tree must not be broken.\n\n2. **Cocos Creator 2.x API**: Must use `node.parent` for upward traversal (standard CC2.x API). Root scene node has `node.parent === null`. Must handle prefab roots where parent chain may differ from scene hierarchy.\n\n3. **Performance**: Current traversal has maxDepth=50 and maxNodes=5000 guards. The new two-phase approach (down then up) could potentially visit more nodes total if the current node is deep. The upward traversal should skip already-visited subtrees (the current node's subtree) to avoid redundant searches.\n\n4. **Match Priority**: When the same property name matches nodes both below and above the current node, the closer node (in tree distance) should win. The scoring system (exact=100, flexible=85-95) should be augmented with proximity bonus or the search should stop on first match found in the nearest scope.\n\n5. **Multiple Mount Entry Points**: Three callers of performAutoMount must all receive the updated search behavior consistently: add-component (line 67), execute-auto-mount (line 510), execute-auto-mount-component (line 563).",
+  "clarification_needs": [
+    {
+      "question": "When searching upward from the current node, should the search include sibling subtrees at each parent level, or only direct ancestors?",
+      "context": "The current node's parent has other children (siblings). When searching upward, we could either: (A) only check direct ancestor nodes for matching components/names, or (B) at each parent level, also search the parent's full subtree (excluding the already-searched child subtree). Option B finds more matches but is closer to the current global search behavior. Option A is faster but may miss nodes that are siblings of the current node.",
+      "options": [
+        "Search only direct ancestor nodes (fastest, most restrictive)",
+        "At each parent level, search the parent's full subtree excluding already-visited branches (balanced approach)",
+        "At each parent level, search only the parent node and its direct children excluding current branch (moderate scope)"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "Should the new search order be the default behavior or a configurable option alongside the existing global search?",
+      "context": "The current implementation always searches from the scene root. Some users may have node naming conventions that rely on global search finding distant nodes. Adding a configuration option in autoPropertyMount settings would allow backward compatibility but adds complexity.",
+      "options": [
+        "Replace the current global search entirely with the new nearest-first strategy",
+        "Make it configurable with the new nearest-first strategy as default, and global search as fallback option",
+        "Make it configurable with global search still as default, and nearest-first as opt-in"
+      ],
+      "recommended": 1
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-27T19:42:00+08:00",
+    "task_description": "当前项目中具体 组件添加时的自动挂载的查找顺序需要优化，当前默认是从整体节点树下进行查找，预期可以从当前节点开始往下查找，没有找到再从当前节点往上查找直到根节点",
+    "source": "cli-explore-agent",
+    "exploration_angle": "patterns",
+    "exploration_index": 1,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "session_id": "ANL-ccc-state-controller-integration-2026-03-02",
+  "completed": "2026-03-02",
+  "topic": "实现 ccc-state-controller 安装功能",
+  "started": "2026-03-02",
+  "source_repo": "https://github.com/fenglimg/ccc-state-controller-core",
+  "decisions": {
+    "source_location": "独立 GitHub 仓库",
+    "trigger_method": "菜单按钮",
+    "folder_selection": "编辑器弹窗选择",
+    "version_control": "不需要",
+    "backup": "不需要",
+    "generate_meta": "不生成"
+  },
+  "files_to_install": [
+    "src/StateController.ts",
+    "src/StateSelect.ts",
+    "src/StateEnum.ts",
+    "src/StateErrorManager.ts",
+    "src/StatePropHandler.ts",
+    "src/Props/StateComponentProps.ts",
+    "src/Props/StateNodeProps.ts",
+    "src/Props/StateToolsProps.ts",
+    "src/Props/StateWidgetProps.ts"
+  ],
+  "implementation": {
+    "package_json": {
+      "added": "install" 菜单项",
+      "added": "安装" 消息处理",
+      "implemented": "从 GitHub API 获取源码",
+      "implemented": "文件夹选择对话框",
+      "implemented": "文件检测和安装逻辑"
+      "implemented": "成功消息提示"
+    }
+  },
+  "key_conclusions": [
+    "实现方案简单直接",
+    "无需版本检测",
+    "不生成 .meta 文件",
+    "支持覆盖和新建两种场景"
+  ],
+  "recommendations": [
+    "确保 GitHub 仓库 `ccc-state-controller-core` 包含所有源码文件",
+    "测试安装功能在 Cocos Creator 中",
+    "考虑添加错误处理和日志记录"
+  ],
+  "open_questions": [
+    "是否需要支持选择性安装（只安装部分文件）？",
+    "是否需要添加卸载功能？"
+  ]
+  "status": "completed"
+}

@@ -1,0 +1,89 @@
+{
+  "project_structure": "Cocos Creator 2.x editor plugin (ccc-smart-component-manager) with flat module structure: main.js (entry), scene-accessor.js (scene script with IPC handlers), panel/index.js (UI panel), property-mounter.js (auto-mount logic), search-engine.js (component search), data-manager.js (settings/data persistence), logger.js (logging). Communication flows: Panel -> Editor.Scene.callSceneScript -> scene-accessor.js handlers -> property-mounter.js.",
+  "relevant_files": [
+    {
+      "path": "scene-accessor.js",
+      "relevance": 1.0,
+      "rationale": "Contains performAutoMount() at line 442 which is the central integration point where auto-mount is triggered. Line 450 passes cc.director.getScene() as rootNode to propertyMounter.autoMountProperties(), which is the exact code that needs to change from whole-scene search to current-node-first search strategy",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["performAutoMount", "add-component", "execute-auto-mount", "execute-auto-mount-component", "getNodeByUuid"]
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": 1.0,
+      "rationale": "Contains autoMountProperties() at line 415 which accepts rootNode and traverses the entire tree via traverseNodeTree() at line 23. The traversal at line 456 searches from rootNode downward. This is the core function that needs a new search strategy: search current node's subtree first, then walk upward to parent nodes",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["autoMountProperties", "traverseNodeTree", "matchNodeName", "findComponentOnNode", "PropertyMounter"]
+    },
+    {
+      "path": "panel/index.js",
+      "relevance": 0.7,
+      "rationale": "UI panel triggers auto-mount via Editor.Scene.callSceneScript at line 1719 (add-component) and line 2905 (execute-auto-mount-component). The performAutoMountForComponent() at line 2887 is the manual trigger entry point. Panel may need UI updates if search scope becomes configurable",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["performAutoMountForComponent", "applyAutoMountSettings", "toggleAutoMountOptions"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.6,
+      "rationale": "Manages autoPropertyMount config at line 469 (getAutoMountConfig) with settings like ignoreCase and flexibleMatching. If search scope/strategy becomes a user setting, this module needs a new config field. Currently controls whether auto-mount is enabled via getAutoMountEnabled() at line 449",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["getAutoMountConfig", "getAutoMountEnabled", "updateAutoMountConfig", "autoPropertyMount"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.3,
+      "rationale": "Handles component name search in registry (not node tree search). searchComponents() at line 116 searches cc.js._registeredClassNames which is unrelated to node tree traversal. Included for context to distinguish from the property-mounter node search that needs optimization",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["searchComponents", "calculateMatchScore", "SearchEngine"]
+    }
+  ],
+  "patterns": "The auto-mount system follows a clear pattern: (1) scene-accessor.js receives IPC call from panel, (2) calls performAutoMount() which creates a PropertyMounter instance, (3) gets the scene root via cc.director.getScene(), (4) passes it to autoMountProperties(component, sceneRoot, options). The traverseNodeTree() uses depth-first recursive traversal with cycle detection and depth limits. Name matching uses matchNodeName() with exact and flexible letter matching. The best match (highest score) across the entire tree wins. This pattern means a node deep in the hierarchy could match a property even when a closer node with the same name exists.",
+  "dependencies": "Internal: property-mounter.js depends on logger.js and cc.Node/cc.Component APIs. scene-accessor.js depends on property-mounter.js (lazy-loaded at line 445), data-manager.js, search-engine.js, and logger.js. External: Cocos Creator 2.x Editor API (Editor.Scene.callSceneScript, Editor.Selection, Editor.Ipc), cc.director.getScene() for scene root access, cc.Node.children for tree traversal, cc.Node.parent for potential upward traversal (not currently used).",
+  "integration_points": "CRITICAL INTEGRATION POINTS:\n\n1. scene-accessor.js:450 - `const sceneRoot = cc.director.getScene()` then line 451 `propertyMounter.autoMountProperties(component, sceneRoot, ...)`. This is where the search root is determined. Currently always passes scene root. Must change to pass the current node first.\n\n2. scene-accessor.js:442 - `performAutoMount(component, node, comName, totalMountResults)` receives `node` (the node the component was added to) but ignores it for search scope, using `cc.director.getScene()` instead. The `node` parameter IS the current node that should be used as the starting search point.\n\n3. scene-accessor.js:510 - `this.performAutoMount(targetComponent, node, componentName, [])` in execute-auto-mount-component handler. Same pattern: has reference to current node but passes scene root internally.\n\n4. property-mounter.js:415 - `autoMountProperties(component, rootNode, options)` signature. The `rootNode` parameter controls search scope. Need to either: (a) add a new method for hierarchical search, or (b) modify this method to accept search strategy.\n\n5. property-mounter.js:456 - `this.traverseNodeTree(rootNode, (node) => {...})` is the actual tree walk. For the new strategy, need two phases: downward from current node, then upward through ancestors.\n\n6. panel/index.js:1719 - `Editor.Scene.callSceneScript('ccc-smart-component-manager', 'add-component', comName)` triggers auto-mount after component addition. No change needed here unless passing additional context.\n\n7. panel/index.js:2905 - `Editor.Scene.callSceneScript('ccc-smart-component-manager', 'execute-auto-mount-component', {nodeUuid, componentName})` manual trigger. Already passes nodeUuid which resolves to the current node.\n\n8. data-manager.js:469 - `getAutoMountConfig()` returns mount options. Could be extended with a `searchStrategy` field if making the behavior configurable.",
+  "constraints": "1. Cocos Creator 2.x API limitations: cc.Node.parent provides upward traversal, cc.director.getScene() provides scene root. No built-in nearest-first search.\n2. The traverseNodeTree() has maxDepth=50 and maxNodes=5000 safety limits that must be preserved in any new search strategy.\n3. Backward compatibility: the current behavior (whole-scene search) should remain available as fallback or when local search finds no match.\n4. Performance: upward traversal must not re-search already-visited subtrees. Need visited-node tracking across phases.\n5. The matchNodeName() scoring system (exact=100, flexible_exact=85-95) must remain consistent regardless of search direction - but a 'closer node' preference could be added as a tiebreaker or bonus.\n6. Scene scripts run in the scene renderer process; heavy traversal can block the editor. The two-phase search should ideally find matches faster (closer nodes first) reducing average traversal time.\n7. Multiple selected nodes: when adding a component to multiple nodes (line 59), each node should search from its own position, not share a common search root.",
+  "clarification_needs": [
+    {
+      "question": "When searching upward from the current node, should each ancestor node's entire subtree be searched, or only the ancestor node itself (checking its direct children)?",
+      "context": "The current implementation searches the entire subtree of the root node. When walking upward, searching each ancestor's full subtree would re-examine previously searched nodes and could be expensive. Alternatively, only checking direct children of each ancestor level would be faster but might miss deeply nested matches in sibling branches.",
+      "options": [
+        "Search each ancestor's full subtree (excluding already-visited subtrees)",
+        "Only check direct children of each ancestor node",
+        "Search each ancestor's subtree but with reduced depth limit"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Should the search strategy be configurable by the user, or always use the new current-node-first behavior?",
+      "context": "The data-manager already has autoPropertyMount settings (ignoreCase, flexibleMatching). Adding a searchStrategy option would let users choose between 'nearest-first' (new) and 'global' (current) behavior. However, this adds complexity to the settings UI.",
+      "options": [
+        "Always use nearest-first strategy (simpler, breaking change for edge cases)",
+        "Add a configurable searchStrategy setting with 'nearest' as default",
+        "Use nearest-first but fall back to global if no match found locally (best of both)"
+      ],
+      "recommended": 2
+    },
+    {
+      "question": "Should proximity to the current node affect the match score, or should the search simply stop at the first scope level that finds a match?",
+      "context": "Currently matchNodeName() returns scores (100 for exact, 85-95 for flexible). Two approaches: (A) add a proximity bonus so closer nodes score higher even in a global search, or (B) search in expanding scopes and stop at the first scope that has any match. Approach B is simpler but might miss a better-named node further away.",
+      "options": [
+        "Stop at the first scope level that finds any match (simpler, predictable)",
+        "Add proximity bonus to scores and still search globally (more flexible but slower)",
+        "Stop at first scope with match, but only if match score >= threshold (e.g., 85)"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-27T12:00:00Z",
+    "task_description": "当前项目中具体 组件添加时的自动挂载的查找顺序需要优化，当前默认是从整体节点树下进行查找，预期可以从当前节点开始往下查找，没有找到再从当前节点往上查找直到根节点",
+    "source": "cli-explore-agent",
+    "exploration_angle": "integration-points",
+    "exploration_index": 2,
+    "total_explorations": 3
+  }
+}

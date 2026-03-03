@@ -1,0 +1,124 @@
+{
+  "project_structure": "Cocos Creator 2.x editor extension (plugin) with a flat module architecture. The UI is entirely contained in panel/index.js as inline CSS (style property) and inline HTML (template property) within an Editor.Panel.extend() call. No external CSS frameworks, no build tools, no bundler -- all source files are plain CommonJS modules loaded directly by the Cocos Creator editor runtime. The project has 7 core JS modules at root level: main.js (entry), panel/index.js (UI), scene-accessor.js (scene bridge), search-engine.js, data-manager.js, logger.js, i18n-helper.js, property-mounter.js, and template-auto-dock.js (auto-dock hack).",
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Contains ALL UI code: ~500 lines of inline CSS variables/styles, ~600 lines of inline HTML template, and ~1500 lines of UI event handlers and DOM manipulation logic. This is the sole file defining the visual presentation layer.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "style", "template", "ready", "run", "messages"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.9,
+      "rationale": "Defines the Cocos Creator extension manifest including panel type ('dockable'), dimensions (width:450, height:120, min-height:60), engineSupport flag, and main-menu entries. These are hard constraints on the UI layout.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "main-menu", "scene-script"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.8,
+      "rationale": "Provides the data layer consumed by the UI: favorites list, usage statistics, settings (autoPropertyMount, shortcuts, confirmations, logLevel). The settings UI in panel/index.js renders controls bound to these data fields.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["DataManager", "getAutoMountSettings", "getConfirmationSettings", "getShortcutSettings", "getFavorites", "getStats"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.7,
+      "rationale": "Provides search results and highlight markup (highlightMatch returns HTML with span.ctex classes) that the UI renders in the search result list. The CSS must style these highlight spans.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["SearchEngine", "searchComponents", "highlightMatch", "getFavoriteComponents"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.6,
+      "rationale": "Provides the t() translation function used throughout the panel UI for placeholder text, button labels, and status messages. Supports zh/en locales. Any UI text changes must go through this system.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["I18nHelper", "t", "setLanguage", "getCurrentLanguage"]
+    },
+    {
+      "path": "i18n/zh.js",
+      "relevance": 0.55,
+      "rationale": "Contains all Chinese UI string definitions (PANEL, ADVANCED_PANEL, SEARCH, COMMON sections) that map to the visual labels and messages displayed in the panel UI.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["PANEL", "ADVANCED_PANEL", "SEARCH", "COMMON"]
+    },
+    {
+      "path": "logger.js",
+      "relevance": 0.4,
+      "rationale": "Used by panel/index.js for debug logging during UI interactions. The log level setting is exposed in the settings UI. Minimal UI impact but the settings panel renders a log level control.",
+      "role": "dependency",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["Logger", "setLogLevel", "LOG_LEVELS"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.5,
+      "rationale": "Implements auto-docking to the Inspector panel tab bar using internal Cocos Creator renderer APIs (dock-utils, drag-drop, panel manager). This directly affects how the UI panel is positioned within the editor layout.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr", "dropTab"]
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": 0.45,
+      "rationale": "Bridge between UI panel and Cocos Creator scene. The panel sends IPC messages (add-component, del-component, input-query, move-component) that this module handles. UI actions trigger scene-script calls.",
+      "role": "integration_point",
+      "discovery_source": "dependency-trace",
+      "key_symbols": ["add-component", "del-component", "input-query", "list-current-components", "move-component"]
+    }
+  ],
+  "patterns": "UI is built using Cocos Creator 2.x extension panel API (Editor.Panel.extend) with inline CSS and HTML template strings. No external CSS framework or UI component library is used. Custom CSS variables define a dark-theme design system with Tailwind-inspired naming (--bg-primary, --text-secondary, --spacing-md, --radius-lg). DOM manipulation is done via vanilla JS (document.createElement, innerHTML, addEventListener). Custom web components from Cocos Creator are used: <ui-button> for buttons. Context menus use Electron's remote.Menu and remote.MenuItem APIs. The panel uses Shadow DOM (:host selector) for style encapsulation.",
+  "dependencies": "ZERO external npm dependencies for the extension itself (no package.json dependencies field). All UI is pure vanilla JS/CSS/HTML. Runtime dependencies are provided by the Cocos Creator 2.x editor environment: (1) Editor API - Editor.Panel, Editor.Scene, Editor.Selection, Editor.Ipc, Editor.log; (2) Electron APIs - require('electron').remote for native menus and dialogs; (3) Cocos Creator web components - <ui-button> custom element; (4) Node.js built-ins - fs, path for data persistence; (5) cc namespace - cc.js._registeredClassNames, cc.js.isChildClassOf, cc.Component for component registry access. Test dependencies (Jest, jsdom) exist under tests/node_modules but are irrelevant to UI. The i18n system uses simple CommonJS require for locale files.",
+  "integration_points": "panel/index.js:1674 - Editor.Scene.callSceneScript for search queries via IPC. panel/index.js:1719 - Editor.Scene.callSceneScript for adding components. panel/index.js:1821 - Editor.Scene.callSceneScript for deleting components. panel/index.js:1851 - Editor.Scene.callSceneScript for listing current components. panel/index.js:2803 - Editor.Scene.callSceneScript for moving component order. panel/index.js:1705,1729,1766,1802 - require('electron').remote for native context menus and dialogs. panel/index.js:2174-2175 - Direct access to cc.js._registeredClassNames for component counting in settings stats. package.json panel config - Cocos Creator reads width/height/min-height/type to create the dockable panel window.",
+  "constraints": "1) Cocos Creator 2.x extension API only - no modern frameworks (React/Vue/Svelte) can be used directly; the UI must be built with Editor.Panel.extend({ style, template, ready, messages }). 2) Shadow DOM encapsulation - all CSS must work within :host scope. 3) No build pipeline - no webpack/vite/rollup; all code must be valid ES5/ES6 that runs in the Electron renderer process. 4) <ui-button> is the only available custom web component from the editor; all other UI elements must be standard HTML. 5) Electron remote API for native dialogs/menus - no web-based dialog libraries. 6) Panel dimensions constrained by package.json (default 450x120, min-height 60). 7) Dark theme only - the editor uses a dark color scheme and the panel must match. 8) No TypeScript compilation available at runtime - all source must be plain JS. 9) No CSS preprocessor (Sass/Less) - all styles are raw CSS in template literals.",
+  "clarification_needs": [
+    {
+      "question": "What is the primary UI/UX issue to address - is it the visual aesthetics (colors, spacing, typography), the interaction patterns (workflow, feedback), or the overall layout structure?",
+      "context": "The current UI has a comprehensive CSS variable system with modern dark-theme colors, but the inline implementation makes it hard to iterate. The layout is a simple vertical stack: existing-components bar, search input row, results list, and a settings modal.",
+      "options": [
+        "Visual polish only - improve colors, typography, spacing, and micro-animations within existing layout",
+        "Layout restructuring - redesign the panel layout, navigation, and information hierarchy",
+        "Full redesign - both visual aesthetics and interaction patterns including new features like tabs or collapsible sections",
+        "Component-level refinement - focus on individual UI elements (search results, component tags, context menus)"
+      ],
+      "recommended": 2
+    },
+    {
+      "question": "Should the redesign stay within the Cocos Creator 2.x Editor.Panel.extend API constraints, or is migrating to a newer panel system (e.g., Cocos Creator 3.x extension API) acceptable?",
+      "context": "The current implementation is locked to Cocos Creator 2.x Editor.Panel.extend with inline style/template strings, Shadow DOM, and <ui-button> components. Creator 3.x has a different extension system with Vue-based panels.",
+      "options": [
+        "Stay on Creator 2.x API - redesign within existing constraints (inline CSS/HTML, vanilla JS DOM)",
+        "Migrate to Creator 3.x extension API - allows Vue components and modern tooling",
+        "Hybrid approach - extract CSS/HTML to separate files while staying on 2.x API for better maintainability"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "What reference designs or design systems should guide the new look? The current UI uses a Tailwind-inspired dark theme with indigo primary color.",
+      "context": "The existing CSS variables define a complete design token system (colors, spacing, radii, shadows, fonts) suggesting the codebase is ready for systematic theming. However, the actual rendered result may not feel cohesive.",
+      "options": [
+        "Keep current color palette but improve consistency, spacing, and component polish",
+        "Adopt a specific design system aesthetic (e.g., GitHub dark, VS Code, JetBrains) for a more professional look",
+        "Use the /ui-ux-pro-max skill's design stack data to generate a data-driven design direction",
+        "Minimalist approach - reduce visual complexity, fewer colors, more whitespace"
+      ],
+      "recommended": 2
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "UI/UX redesign dependency analysis for ccc-smart-component-manager Cocos Creator extension - identifying UI frameworks, CSS libraries, build tools, and dependency constraints",
+    "source": "cli-explore-agent",
+    "exploration_angle": "dependencies",
+    "exploration_index": 3,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "id": "TASK-002",
+  "title": "Add ARIA labels, roles, and keyboard accessibility improvements",
+  "description": "Add proper ARIA attributes (aria-label, role, aria-expanded, aria-live) to all interactive elements in the panel. Improve keyboard navigation with proper tab order, focus management, and visible focus indicators. Ensure all interactive elements meet the 44x44px touch target minimum. This addresses the accessibility gaps identified in exploration-patterns.json.",
+  "type": "enhancement",
+  "priority": "high",
+  "effort": "medium",
+  "action": "Update",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js", "i18n/zh.js"],
+  "depends_on": [],
+  "parallel_group": 1,
+  "convergence": {
+    "criteria": [
+      "All icon-only buttons have aria-label attributes with descriptive text",
+      "Search results list has role='listbox' and individual results have role='option'",
+      "Component bar buttons have role='button' and aria-label with component name",
+      "Settings modal has role='dialog' and aria-modal='true'",
+      "Search input has aria-label and aria-autocomplete='list'",
+      "All interactive elements have minimum 44x44px click/touch target (padding if needed)",
+      "Focus indicators visible on all interactive elements (2px outline with offset)",
+      "Tab order follows visual layout: search input -> results -> component bar -> settings",
+      "aria-live='polite' on search results container for screen reader announcements"
+    ],
+    "verification": "Tab through all panel elements to verify focus order and visibility. Inspect DOM for ARIA attributes on every interactive element."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "template property (HTML structure)",
+      "change": "Add role, aria-label, aria-expanded, aria-modal, aria-live, aria-autocomplete attributes to interactive elements in the HTML template string"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "style property (CSS focus and target sizing)",
+      "change": "Enhance focus-visible styles with consistent 2px outline + 2px offset; add minimum touch target sizing (44x44px) to buttons and clickable elements"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "JS methods generating dynamic HTML (onInput2, refreshCurComs, renderSettingsContent)",
+      "change": "Add ARIA attributes to dynamically generated DOM elements (search results, component buttons, settings controls)"
+    },
+    {
+      "path": "i18n/zh.js",
+      "action": "modify",
+      "target": "translation keys",
+      "change": "Add ARIA label translation keys for accessibility text (e.g., ARIA_SEARCH_INPUT, ARIA_SETTINGS_BUTTON, ARIA_FAVORITE_TOGGLE)"
+    }
+  ],
+  "implementation": [
+    "Audit all interactive elements in template HTML: buttons, inputs, links, clickable divs - catalog which ones lack ARIA attributes",
+    "Add role attributes: role='listbox' on #list, role='option' on search result items, role='dialog' on settings modal, role='toolbar' on component bar",
+    "Add aria-label to all icon-only buttons using i18n t() function for localized labels",
+    "Add aria-live='polite' to search results container (#list) so screen readers announce result count changes",
+    "Add aria-autocomplete='list' and aria-expanded to search input",
+    "Update dynamically generated HTML in JS methods (onInput2 result rendering, refreshCurComs component buttons) to include ARIA attributes",
+    "Enhance CSS focus-visible styles: consistent 2px solid outline with 2px offset on all interactive elements, using --primary-color for focus ring color",
+    "Add minimum sizing to ensure 44x44px touch targets on all buttons (add padding where needed)",
+    "Add corresponding i18n keys in i18n/zh.js for all new ARIA label strings",
+    "Verify tab order by testing keyboard-only navigation through the entire panel"
+  ],
+  "reference": {
+    "pattern": "Existing prefers-reduced-motion and prefers-contrast media queries in CSS",
+    "files": ["panel/index.js", ".claude/skills/ui-ux-pro-max/SKILL.md", "i18n/zh.js"],
+    "examples": "ui-ux-pro-max rules: color-contrast 4.5:1, focus-states visible, aria-labels on icon buttons, touch-target-size 44x44px, keyboard-nav tab order matches visual order"
+  },
+  "rationale": {
+    "chosen_approach": "Add ARIA attributes directly to HTML template and dynamic HTML generation methods, with i18n support for label text",
+    "alternatives_considered": [
+      "JavaScript-based accessibility overlay (adds complexity, fragile)",
+      "Skip dynamic elements ARIA (incomplete accessibility)"
+    ],
+    "decision_factors": ["WCAG 2.1 AA compliance", "ui-ux-pro-max critical priority rules", "i18n compatibility"],
+    "tradeoffs": "Increases HTML template verbosity but ensures accessible experience for all users"
+  },
+  "test": {
+    "manual_checks": [
+      "Tab through entire panel - every interactive element receives focus with visible indicator",
+      "Screen reader (VoiceOver) announces all buttons, inputs, and dynamic content changes",
+      "All buttons meet 44x44px minimum touch target size",
+      "Settings dialog traps focus when open"
+    ],
+    "success_metrics": [
+      "100% of interactive elements have aria-label or visible text label",
+      "100% of icon-only buttons have aria-label",
+      "Focus indicator visible on every focusable element"
+    ],
+    "unit": [],
+    "integration": []
+  },
+  "cli_execution": {
+    "id": "ui-ux-pro-max-ui-renovation-2026-02-28-TASK-002",
+    "strategy": "new"
+  }
+}

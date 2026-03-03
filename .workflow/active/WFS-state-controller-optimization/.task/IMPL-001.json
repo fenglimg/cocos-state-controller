@@ -1,0 +1,69 @@
+{
+  "id": "IMPL-001",
+  "title": "BFS缓存优化",
+  "priority": "P0",
+  "effort": "2-3天",
+  "risk": "低",
+  "status": "completed",
+  "phase": 1,
+  "milestone": "M1: 性能优化",
+  "goal": "将状态切换时的O(n)遍历优化为O(1)缓存查找",
+  "subtasks": [
+    {
+      "id": "IMPL-001.1",
+      "title": "添加缓存属性",
+      "description": "在StateController中添加 _stateSelectCache 和 _cacheDirty 属性",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-001.2",
+      "title": "实现缓存构建方法",
+      "description": "实现 rebuildStateSelectCache() 方法，使用getComponentsInChildren一次性获取",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-001.3",
+      "title": "实现直接控制检测",
+      "description": "实现 isDirectlyControlled() 辅助方法，检查节点是否被当前控制器直接控制",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-001.4",
+      "title": "修改updateState使用缓存",
+      "description": "修改 updateState() 方法使用缓存而非BFS遍历",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-001.5",
+      "title": "添加缓存脏标记方法",
+      "description": "添加 markCacheDirty() 公共方法供外部调用",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-001.6",
+      "title": "StateSelect缓存失效通知",
+      "description": "在StateSelect中监听节点变化并通知控制器缓存失效",
+      "file": "assets/script/Controller/StateSelect.ts",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "状态切换使用缓存而非BFS遍历",
+    "节点增删时缓存自动重建",
+    "子控制器下的StateSelect不被错误缓存",
+    "性能测试显示O(n)→O(1)改进"
+  ],
+  "dependencies": [],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-02T23:57:30+08:00"
+    }
+  ]
+}

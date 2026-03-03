@@ -1,0 +1,6 @@
+.ace-tool/
+
+# panel/index.js is a generated build artifact.
+# Source files: panel/styles.css, panel/template.html, panel/logic.js
+# Rebuild with: node panel/build.js
+panel/index.js

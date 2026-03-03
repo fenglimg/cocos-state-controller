@@ -1,0 +1,94 @@
+{
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": "high",
+      "rationale": "核心UI面板，包含所有交互逻辑和界面组件"
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": "high",
+      "rationale": "搜索引擎核心模块，支持多种匹配模式"
+    },
+    {
+      "path": "scene-accessor.js",
+      "relevance": "high",
+      "rationale": "场景操作接口，组件添加/删除/管理的核心逻辑"
+    },
+    {
+      "path": "property-mounter.js",
+      "relevance": "high",
+      "rationale": "智能属性自动挂载功能，核心差异化特性"
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": "medium",
+      "rationale": "数据持久化管理，收藏夹和使用统计"
+    },
+    {
+      "path": "main.js",
+      "relevance": "medium",
+      "rationale": "插件生命周期管理"
+    },
+    {
+      "path": "logger.js",
+      "relevance": "low",
+      "rationale": "日志管理工具"
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": "low",
+      "rationale": "国际化支持（目前仅中文）"
+    }
+  ],
+  "existing_patterns": [
+    "事件驱动架构：面板与场景脚本通过IPC通信",
+    "数据持久化：本地JSON文件存储用户偏好",
+    "权重排序系统：收藏+使用频率影响搜索结果",
+    "模块化设计：搜索引擎、数据管理、属性挂载器分离",
+    "Cocos Creator 2.4.x 插件API模式"
+  ],
+  "architecture_constraints": [
+    "Cocos Creator 2.4.x API限制",
+    "单面板dockable设计，宽度固定450px",
+    "无法监听场景组件删除事件（已知限制）",
+    "搜索结果最多20个（性能限制）",
+    "仅支持中文国际化（英文未完成）"
+  ],
+  "integration_points": [
+    "Editor.Selection：节点选择系统",
+    "Editor.Scene：场景操作API",
+    "cc.Component：组件系统基类",
+    "Editor.Ipc：进程间通信",
+    "Editor.Panel：面板系统"
+  ],
+  "inspiration_sources": [
+    "add_component (dogking18)：原始插件基础",
+    "快速添加组件 (陈皮皮)：功能参考",
+    "现代UI设计：CSS变量、渐变、阴影效果"
+  ],
+  "current_features": [
+    "智能组件搜索：精确/前缀/包含/模糊匹配",
+    "组件收藏系统：收藏夹+权重加成",
+    "使用统计：频率统计影响排序",
+    "当前组件管理：列表显示+批量删除",
+    "智能属性挂载：自动关联同名节点组件",
+    "组件拖拽排序：v1.3.0新增",
+    "批量操作确认：超过10节点确认对话框",
+    "设置页面：自动挂载配置+日志级别"
+  ],
+  "potential_improvements": [
+    "性能优化：大型场景搜索响应",
+    "国际化：英文界面支持",
+    "可扩展性：插件系统/自定义组件支持",
+    "用户体验：快捷键/主题/预览功能",
+    "智能推荐：基于上下文推荐组件",
+    "协作功能：配置导入导出/云同步"
+  ],
+  "_metadata": {
+    "exploration_type": "brainstorm-codebase",
+    "timestamp": "2026-02-27T00:00:00.000Z",
+    "project_name": "ccc-smart-component-manager",
+    "version": "1.2.1"
+  }
+}

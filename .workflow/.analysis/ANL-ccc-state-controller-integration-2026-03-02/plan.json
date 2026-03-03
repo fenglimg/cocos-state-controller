@@ -1,0 +1,93 @@
+{
+  "session_id": "ANL-ccc-state-controller-integration-2026-03-02",
+  "topic": "实现 ccc-state-controller 安装功能",
+  "started": "2026-03-02",
+  "source_repo": "https://github.com/fenglimg/ccc-state-controller-core"
+  "decisions": {
+    "source_location": "独立 GitHub 仓库",
+    "trigger_method": "菜单按钮",
+    "folder_selection": "编辑器弹窗选择",
+    "version_control": "不需要",
+    "backup": "不需要"
+    "generate_meta": "不生成"
+  },
+  "files_to_install": [
+    {
+      "source": "src/StateController.ts",
+      "target": "{target}/StateController.ts",
+      "type": "core"
+    },
+    {
+      "source": "src/StateEnum.ts",
+      "target": "{target}/StateEnum.ts",
+      "type": "core"
+    },
+    {
+      "source": "src/StateSelect.ts",
+      "target": "{target}/StateSelect.ts",
+      "type": "core"
+    },
+    {
+      "source": "src/StateErrorManager.ts",
+      "target": "{target}/StateErrorManager.ts",
+      "type": "core"
+    },
+    {
+      "source": "src/StatePropHandler.ts",
+      "target": "{target}/StatePropHandler.ts",
+      "type": "core"
+    },
+    {
+      "source": "src/Props/StateComponentProps.ts",
+      "target": "{target}/Props/StateComponentProps.ts",
+      "type": "props"
+    },
+    {
+      "source": "src/Props/StateNodeProps.ts",
+      "target": "{target}/Props/StateNodeProps.ts",
+      "type": "props"
+    },
+    {
+      "source": "src/Props/StateToolsProps.ts",
+      "target": "{target}/Props/StateToolsProps.ts",
+      "type": "props"
+    },
+    {
+      "source": "src/Props/StateWidgetProps.ts",
+      "target": "{target}/Props/StateWidgetProps.ts",
+      "type": "props"
+    }
+  ],
+  "implementation_tasks": [
+    {
+      "id": "IMPL-001",
+      "title": "修改扩展包 main.js 添加安装逻辑",
+      "description": "在 packages/ccc-state-controller/main.js 中添加:\n1. 菜单注册 '安装状态控制器'\n2. IPC 消息处理\n3. 安装功能实现",
+      "priority": "high"
+    },
+    {
+      "id": "IMPL-002",
+      "title": "实现文件夹选择对话框",
+      "description": "使用 Editor.Dialog 或原生弹窗让用户选择目标文件夹",
+      "priority": "high"
+    },
+    {
+      "id": "IMPL-003",
+      "title": "实现文件复制逻辑",
+      "description": "从 GitHub 仓库获取源码并复制到目标文件夹:\n1. 检测文件是否存在\n2. 存在则覆盖，不存在则新建\n3. 不生成 .meta 文件",
+      "priority": "high"
+    },
+    {
+      "id": "IMPL-004",
+      "title": "添加安装成功提示",
+      "description": "安装完成后显示成功消息和安装的文件列表",
+      "priority": "medium"
+    },
+    {
+      "id": "IMPL-005",
+      "title": "测试安装功能",
+      "description": "测试菜单触发、文件夹选择、文件安装/覆盖功能",
+      "priority": "medium"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "project_structure": "Cocos Creator editor extension (ccc-smart-component-manager) with a single-panel architecture. The UI lives entirely in panel/index.js (3134 lines) as an Editor.Panel.extend() object containing inline CSS (style property ~500 lines), inline HTML template (~750 lines), element bindings ($), and behavior methods. Supporting modules: data-manager.js (singleton, favorites/usage/settings persistence), search-engine.js (fuzzy/exact/prefix component matching), property-mounter.js (auto-property binding), i18n-helper.js + i18n/zh.js (internationalization), logger.js (logging), template-auto-dock.js (auto-dock to inspector), main.js (entry point). No external UI framework; uses Cocos Creator's built-in ui-button web components and raw DOM manipulation.",
+
+  "relevant_files": [
+    {
+      "path": "panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Contains ALL UI code: 500+ lines of CSS custom properties and styles (lines 14-501), 750+ lines of HTML template with main page, settings page, and settings modal (lines 503-1257), element bindings (lines 1260-1295), and all UI behavior methods including search, component display, settings page, keyboard shortcuts, and context menus (~1800 lines of JS)",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["Editor.Panel.extend", "style", "template", "$", "ready", "onInput2", "addCom", "refreshCurComs", "showSettingsPage", "showMainPage"]
+    },
+    {
+      "path": "data-manager.js",
+      "relevance": 0.8,
+      "rationale": "Singleton DataManager class manages all user preference data that drives UI state: favorites list, usage counts, auto-mount settings, shortcut configuration, confirmation dialog toggles, and log level. Any UI renovation affecting settings panels or component display order depends on this data layer",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["DataManager", "getDisplayName", "isFavorite", "getWeightBonus", "getAutoMountConfig", "getShortcutSettings", "getConfirmationSettings", "getStats"]
+    },
+    {
+      "path": "search-engine.js",
+      "relevance": 0.75,
+      "rationale": "SearchEngine class provides the search result data model (score, type, isFavorite, isFrequent, displayName) that directly determines how search results are rendered in the UI list (#list), including match highlighting via highlightMatch() and result sorting logic",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["SearchEngine", "searchComponents", "calculateMatchScore", "highlightMatch", "getFavoriteComponents"]
+    },
+    {
+      "path": "i18n/zh.js",
+      "relevance": 0.6,
+      "rationale": "Contains all Chinese UI text strings organized by section (PANEL, ADVANCED_PANEL, SEARCH, COMMON) that would need updating if UI labels, tooltips, or section titles change during renovation",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["PANEL", "ADVANCED_PANEL", "SEARCH", "COMMON"]
+    },
+    {
+      "path": "i18n-helper.js",
+      "relevance": 0.5,
+      "rationale": "I18nHelper class with t() translation function used throughout panel/index.js for all user-facing text. Supports {{param}} template interpolation and zh/en language detection",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["I18nHelper", "t", "setLanguage", "getCurrentLanguage"]
+    },
+    {
+      "path": "package.json",
+      "relevance": 0.55,
+      "rationale": "Defines panel configuration: type=dockable, default dimensions (width:450, height:120, min-height:60), panel title, scene-script binding, and menu structure that constrain UI layout possibilities",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["panel", "main-menu", "scene-script"]
+    },
+    {
+      "path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "relevance": 0.65,
+      "rationale": "Defines the ui-ux-pro-max design intelligence rules (accessibility, touch targets, performance, animation, typography, style selection) that will guide the renovation decisions and provide the design system framework",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["color-contrast", "touch-target-size", "focus-states", "reduced-motion", "no-emoji-icons"]
+    },
+    {
+      "path": "template-auto-dock.js",
+      "relevance": 0.4,
+      "rationale": "Auto-dock script that programmatically docks the panel to the inspector tab area using Cocos Creator internal APIs (dockUtil, panelMgr). Affects how the panel is physically positioned in the editor layout",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_symbols": ["dockUtil", "dropMgr", "panelMgr"]
+    }
+  ],
+
+  "patterns": "CURRENT UI PATTERNS FOUND:\n\n1. **CSS Design System (panel/index.js:14-66)**: Comprehensive CSS custom properties on :host - colors (--primary-color:#6366f1, --bg-primary:#1e293b dark theme), spacing scale (xs:4px to 2xl:24px), border-radius scale (sm:4px to xl:12px), shadow scale (sm/md/lg/xl), typography (system fonts + monospace). This is a well-structured design token system.\n\n2. **Component Rendering Pattern**: All UI elements are built via string concatenation in JS methods that set innerHTML. Search results use `<div class='search-result ${classes}'>` with conditional CSS classes (normal/favorite/frequent). Component buttons in #coms use Cocos Creator's `<ui-button>` web component with extensive !important overrides.\n\n3. **Interaction Patterns**: Hover states use translateY(-1px/-2px) + box-shadow elevation. Active states reverse the transform. Animations use cubic-bezier(0.4, 0, 0.2, 1) easing consistently. Keyboard navigation (A/D keys for component movement, Escape to clear, configurable focus shortcut).\n\n4. **Layout Patterns**: Flexbox-based vertical layout (.container). Search results use CSS Grid with auto-fit (minmax(220px, 1fr)). Component bar (#coms) is horizontal flex with overflow-x scroll. Settings dialog is a modal overlay with backdrop-filter blur.\n\n5. **State Management Pattern**: No reactive framework - direct DOM manipulation via this.$element references. Page switching (main/settings) via display:none toggling. Data flows through Editor.Scene.callSceneScript IPC for component queries.\n\n6. **Emoji Icons Pattern**: Current UI uses emoji characters for all icons (gear, star, fire, arrow, plus, refresh). The ui-ux-pro-max guidelines explicitly recommend SVG icons over emojis (no-emoji-icons rule).\n\n7. **Accessibility Patterns**: Has prefers-reduced-motion support, prefers-contrast:high media query, focus-visible outlines, and prefers-color-scheme:dark. Missing: ARIA labels on buttons, role attributes on interactive elements.\n\n8. **Responsive Patterns**: Three breakpoint tiers for height (600px, 800px) and one for width (600px). Settings dialog adapts dimensions and grid columns.",
+
+  "dependencies": "INTERNAL DEPENDENCIES:\n- panel/index.js imports: data-manager.js, search-engine.js, logger.js, i18n-helper.js (all via require())\n- data-manager.js imports: logger.js, fs, path\n- search-engine.js imports: data-manager.js, logger.js\n- property-mounter.js imports: logger.js\n- scene-accessor.js: loaded by Cocos Creator engine separately (scene-script in package.json)\n\nEXTERNAL/PLATFORM DEPENDENCIES:\n- Cocos Creator Editor API: Editor.Panel.extend(), Editor.Scene.callSceneScript(), Editor.Ipc, Editor.Selection\n- Cocos Creator Web Components: <ui-button> custom element\n- cc namespace: cc.js.isChildClassOf, cc.Component (runtime engine API)\n- Node.js: fs, path, require (Electron environment)\n- No npm UI dependencies, no CSS frameworks, no build system for the panel code",
+
+  "integration_points": "1. **Panel Entry Point** (panel/index.js:12): Editor.Panel.extend({}) - the entire UI is one monolithic panel definition\n2. **Style Injection** (panel/index.js:14-501): Inline CSS string in `style` property - any style changes must modify this string\n3. **Template Injection** (panel/index.js:503-1257): Inline HTML string in `template` property - structural changes go here\n4. **Element Bindings** (panel/index.js:1260-1295): `$` object maps DOM selectors to `this.$name` references - new elements need entries here\n5. **Search Results Rendering** (panel/index.js:~1659): onInput2() triggers IPC call, response handler builds innerHTML for #list\n6. **Component Bar Rendering** (panel/index.js:~1368): refresh() and refreshCurComs() populate #coms with ui-button elements\n7. **Settings Page Generation** (panel/index.js:~1358): showSettingsPage() generates settings content in #settings-content-page\n8. **IPC Communication** (panel/index.js:~1674): Editor.Scene.callSceneScript for scene queries, Editor.Ipc.sendToPanel for cross-panel messaging\n9. **Data Persistence** (data-manager.js:12-13): user-data.json file in __dirname stores favorites, usage stats, all settings",
+
+  "constraints": "1. **Cocos Creator 2.x Editor Extension Framework**: Must use Editor.Panel.extend() pattern with style/template/$/ready structure. Cannot use modern SPA frameworks (React/Vue) directly in panel code.\n2. **Inline CSS/HTML Only**: No external CSS files or HTML templates supported by the panel system. All styles and markup must be string literals in the panel definition object.\n3. **Web Component Limitations**: <ui-button> is a Cocos Creator custom element with its own shadow DOM styles, requiring !important overrides for visual customization (seen extensively in current code).\n4. **Electron Renderer Process**: Runs in Electron's renderer with Node.js integration. Can use require() and fs, but DOM APIs are standard web APIs.\n5. **Panel Size Constraints**: Default 450x120px, min-height 60px, dockable type. UI must function well at compact sizes while supporting expansion.\n6. **No Build Pipeline**: Raw JS files loaded directly by the editor. No transpilation, bundling, or CSS preprocessing available.\n7. **Backward Compatibility**: Existing user-data.json format and IPC message contracts (scene-accessor.js) must be preserved.\n8. **Single-File UI**: The 3134-line panel/index.js monolith constrains refactoring options since the editor expects a single file at panel/main path.",
+
+  "clarification_needs": [
+    {
+      "question": "What is the scope of the UI renovation - full visual redesign or targeted improvements to specific areas?",
+      "context": "The current panel/index.js already has a modernized design system with CSS custom properties, dark theme, animations, and responsive breakpoints. A full redesign would touch all 3134 lines, while targeted improvements could focus on specific pain points.",
+      "options": [
+        "Full visual redesign: new color palette, typography, layout structure, and interaction patterns",
+        "Targeted improvements: fix specific UX issues (emoji icons to SVG, accessibility gaps, settings UX) while preserving current design language",
+        "Design system refinement: enhance the existing CSS custom properties, add missing tokens, improve consistency without structural changes"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "Should the monolithic panel/index.js be refactored into smaller modules as part of the renovation?",
+      "context": "The current 3134-line single file contains all CSS, HTML, and JS behavior. The Cocos Creator 2.x panel system expects a single file, but internal code organization could be improved by extracting style/template strings or helper functions into separate require()'d modules.",
+      "options": [
+        "Keep single-file structure but reorganize internally for clarity",
+        "Extract CSS and HTML template into separate files loaded via require/fs.readFileSync",
+        "Keep current structure as-is, focus only on visual/UX changes"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Which ui-ux-pro-max design style should guide the renovation aesthetic?",
+      "context": "The ui-ux-pro-max skill includes 67 design styles. The current UI uses a dark theme with indigo accent (#6366f1) and subtle animations. The style choice will determine color palette, shadow treatment, border radius, and overall visual feel.",
+      "options": [
+        "Minimalism: clean lines, generous whitespace, subtle interactions (matches current direction)",
+        "Glassmorphism: frosted glass effects, transparency, blur backgrounds (more visually dramatic)",
+        "Flat design with depth: flat colors with strategic shadows and elevation (practical, accessible)",
+        "Keep current style, just apply ui-ux-pro-max best practices for accessibility and consistency"
+      ],
+      "recommended": 3
+    }
+  ],
+
+  "_metadata": {
+    "timestamp": "2026-02-28T12:00:00Z",
+    "task_description": "使用 /ui-ux-pro-max 对当前UI的改造计划。Plan for renovating/redesigning the current project's UI using ui-ux-pro-max design intelligence.",
+    "source": "cli-explore-agent",
+    "exploration_angle": "patterns",
+    "exploration_index": 1,
+    "total_explorations": 3,
+    "duration_seconds": 45
+  }
+}

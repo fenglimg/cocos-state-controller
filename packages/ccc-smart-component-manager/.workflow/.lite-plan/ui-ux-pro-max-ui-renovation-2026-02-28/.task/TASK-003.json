@@ -1,0 +1,107 @@
+{
+  "id": "TASK-003",
+  "title": "Improve search UX, list rendering interactions, and visual polish",
+  "description": "Enhance the search experience with better loading states, result count display, empty state messaging, and smoother transitions. Improve component list rendering with better hover/active states, consistent spacing, and scroll behavior. Apply overall visual polish: refine shadows, border-radius usage, animation timings, and micro-interactions following ui-ux-pro-max guidelines. Reorganize the internal code structure for clarity without changing the Editor.Panel.extend() pattern.",
+  "type": "enhancement",
+  "priority": "medium",
+  "effort": "large",
+  "action": "Update",
+  "scope": "panel/index.js",
+  "focus_paths": ["panel/index.js"],
+  "depends_on": [],
+  "parallel_group": 1,
+  "convergence": {
+    "criteria": [
+      "Search shows loading skeleton or spinner during IPC query (replacing blank state during 200ms debounce + IPC round trip)",
+      "Search results display count badge (e.g., '12 results') in the results area",
+      "Empty search state shows helpful message with icon instead of blank area",
+      "Search result hover/active animations use 150-300ms duration with transform/opacity only (no width/height animations)",
+      "Component bar scroll behavior improved: scroll snap or smooth scrolling with visible scroll indicators",
+      "Consistent border-radius usage: small elements use --radius-sm, cards use --radius-md, modals use --radius-lg",
+      "Shadow usage refined: subtle shadows for cards (--shadow-sm), elevated shadows for modals (--shadow-lg)",
+      "All CSS transitions use transform and opacity only for 60fps performance (no layout-triggering properties)",
+      "Internal code sections clearly delineated with comment blocks: CSS section, HTML section, bindings, lifecycle, search methods, component methods, settings methods, IPC handlers"
+    ],
+    "verification": "Type in search input and observe loading state, result count, and transition animations. Scroll component bar and verify smooth behavior. Check code organization in panel/index.js."
+  },
+  "files": [
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "style property (CSS animations, transitions, loading states)",
+      "change": "Add loading skeleton/spinner CSS, refine hover/active transitions to 150-300ms using transform/opacity only, add scroll-snap styles, polish shadow and border-radius usage"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "template property (HTML for loading states and empty states)",
+      "change": "Add loading indicator element in search results area, add empty state message template, add result count display element"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "onInput2 and search result rendering methods",
+      "change": "Show loading state when search starts, display result count, show empty state message when no results, smooth transition between states"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "refreshCurComs and component bar methods",
+      "change": "Improve scroll behavior with smooth scrolling, add scroll indicators for overflow content"
+    },
+    {
+      "path": "panel/index.js",
+      "action": "modify",
+      "target": "Overall code organization",
+      "change": "Add section comment blocks to clearly delineate CSS, HTML, bindings, lifecycle, and method groups without changing functionality"
+    }
+  ],
+  "implementation": [
+    "Add CSS for loading skeleton animation: @keyframes shimmer with linear-gradient background-position animation, .loading-skeleton class",
+    "Add CSS for search result count badge, empty state container with centered icon and message",
+    "Refine all CSS transitions: audit every transition property, ensure only transform/opacity are animated (replace any width/height/margin transitions), set durations to 150-300ms range",
+    "Add scroll-snap-type: x mandatory to component bar (#coms) with scroll-snap-align: start on items; add scrollbar styling for consistency",
+    "Update onInput2 method: show loading skeleton when search starts (before debounce fires), show result count after results arrive, show empty state message when results array is empty",
+    "Update search result rendering: add subtle entrance animation (opacity 0->1, translateY 4px->0) for smoother appearance",
+    "Polish shadow usage: ensure cards use --shadow-sm, elevated elements use --shadow-md, modals use --shadow-lg consistently",
+    "Polish border-radius usage: small interactive elements (buttons, badges) use --radius-sm, content cards use --radius-md, modals/dialogs use --radius-lg",
+    "Add section comment blocks throughout panel/index.js: /* ========== CSS DESIGN TOKENS ========== */, /* ========== HTML TEMPLATE ========== */, etc.",
+    "Test all animations respect prefers-reduced-motion (existing media query should cascade, verify new animations are covered)"
+  ],
+  "reference": {
+    "pattern": "Existing cubic-bezier(0.4, 0, 0.2, 1) easing and translateY hover patterns",
+    "files": ["panel/index.js", ".claude/skills/ui-ux-pro-max/SKILL.md"],
+    "examples": "ui-ux-pro-max: duration-timing 150-300ms, transform-performance (use transform/opacity only), loading-states (skeleton screens or spinners), content-jumping (reserve space for async content)"
+  },
+  "rationale": {
+    "chosen_approach": "Incremental UX improvements within existing DOM structure: loading states, result counts, empty states, animation polish, and code organization comments",
+    "alternatives_considered": [
+      "Virtual scrolling for large result lists (over-engineering for typical result counts < 50)",
+      "Full layout restructure with CSS Grid (risk of breaking docked panel sizing)",
+      "Extract UI rendering into separate module files (user chose to keep single-file)"
+    ],
+    "decision_factors": ["User wants improved search UX", "Must stay within single-file constraint", "Performance on Electron 2-4", "prefers-reduced-motion respect"],
+    "tradeoffs": "Loading states add minor complexity to search flow but significantly improve perceived performance"
+  },
+  "test": {
+    "manual_checks": [
+      "Search shows loading indicator during query, then transitions smoothly to results",
+      "Result count displays correctly (matches actual result count)",
+      "Empty search state shows helpful message, not blank area",
+      "Component bar scrolls smoothly with visible scroll indicators",
+      "All animations disabled when prefers-reduced-motion is set",
+      "Panel functions correctly at default 450x120 size and when resized"
+    ],
+    "success_metrics": [
+      "All transition durations between 150-300ms",
+      "Zero layout-triggering animation properties (no width/height/margin animations)",
+      "Code sections clearly identifiable via comment blocks"
+    ],
+    "unit": [],
+    "integration": []
+  },
+  "cli_execution": {
+    "id": "ui-ux-pro-max-ui-renovation-2026-02-28-TASK-003",
+    "strategy": "new"
+  }
+}

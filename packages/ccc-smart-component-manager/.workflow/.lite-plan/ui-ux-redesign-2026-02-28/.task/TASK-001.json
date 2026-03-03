@@ -1,0 +1,27 @@
+{
+  "id": "TASK-001",
+  "title": "使用 /ui-ux-pro-max 生成设计系统方案",
+  "description": "调用 /ui-ux-pro-max 设计智能工具，分析当前 panel/index.js 中的 UI 现状（CSS 变量、布局模式、emoji 图标），生成完整的设计系统方案：包括色板（暗色主题优先）、字体配对、间距系统、图标系统（替换 emoji）、组件状态样式（hover/focus/active/disabled）、以及适配 Cocos Creator 编辑器风格的设计 tokens。输出为 W3C Design Tokens 格式的 JSON 文件。",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "生成完整的 design tokens JSON（colors、typography、spacing、shadows、radii）",
+      "包含组件样式定义（button、input、card、badge、tag、section-header）",
+      "包含图标系统方案（SVG 或 Unicode 替代 emoji）",
+      "色板与 Cocos Creator 编辑器暗色主题协调",
+      "包含 hover/focus/active/disabled 状态定义"
+    ]
+  },
+  "files": [
+    { "path": "panel/index.js", "change": "读取当前 CSS 变量和样式模式作为分析输入（lines 14-501）" },
+    { "path": "panel/design-tokens.json", "change": "新建：输出设计 tokens 文件" }
+  ],
+  "implementation": [
+    "读取 panel/index.js 中现有 CSS 变量系统（lines 14-66）和组件样式",
+    "调用 /ui-ux-pro-max plan 动作，分析现有设计并推荐改进方向",
+    "生成 W3C Design Tokens 格式的 design-tokens.json",
+    "确保 tokens 覆盖：primitive colors、semantic colors、typography、spacing、shadows、radii、transitions",
+    "定义替代 emoji 的图标系统（SVG inline 或 Unicode 符号）"
+  ],
+  "test": "验证 design-tokens.json 结构完整性，确认所有 token 类别存在且值有效"
+}

@@ -1,0 +1,251 @@
+{
+  "relevant_files": [
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\StateController.ts",
+      "relevance": "high",
+      "rationale": "Core state management controller with BFS-based update propagation, state lifecycle management, and inspector integration. Main optimization target for performance and architecture improvements.",
+      "role": "modify_target",
+      "discovery_source": "ace-search",
+      "key_code": [
+        {
+          "symbol": "StateController class",
+          "location": "L30-L850",
+          "description": "Main controller component managing state enumeration, state transitions via selectedIndex setter, and hierarchical state updates using BFS traversal"
+        },
+        {
+          "symbol": "updateState() method",
+          "location": "L740-L810",
+          "description": "Core notification mechanism using BFS queue-based traversal to propagate state changes to all child StateSelect components"
+        },
+        {
+          "symbol": "selectedIndex setter",
+          "location": "L148-L191",
+          "description": "State transition entry point with boundary validation, previous state tracking, and change detection flag"
+        }
+      ],
+      "topic_relation": "State management optimization directly targets this file's BFS traversal algorithm, state transition logic, and inspector refresh mechanisms"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\StateSelect.ts",
+      "relevance": "high",
+      "rationale": "Property binding component with complex data structure (TCtrl/TPage/TProp) managing state-to-property mappings. Critical for data model optimization and UI responsiveness.",
+      "role": "modify_target",
+      "discovery_source": "ace-search",
+      "key_code": [
+        {
+          "symbol": "StateSelect class",
+          "location": "L85-L1000+",
+          "description": "Property binding component with controller mapping, property data storage, and change propagation logic"
+        },
+        {
+          "symbol": "TCtrl/TPage/TProp types",
+          "location": "L48-L79",
+          "description": "Nested data structure storing state-property mappings with metadata fields ($$lastProp$$, $$changedProp$$, $$controlledProps$$)"
+        },
+        {
+          "symbol": "updateState() method",
+          "location": "L323-L400",
+          "description": "Handles incoming state changes from controller, updates property values, and refreshes UI"
+        }
+      ],
+      "topic_relation": "Data model optimization focuses on simplifying TCtrl/TPage/TProp structure and improving property change detection efficiency"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\StatePropHandler.ts",
+      "relevance": "high",
+      "rationale": "Property handler registry pattern with 40+ registered handlers for different component types. Extension point for new property types with clean interface design.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "IPropHandler interface",
+          "location": "L44-L51",
+          "description": "Clean interface defining getValue/setValue/getDefaultValue contract for property handlers"
+        },
+        {
+          "symbol": "PropHandlerManager class",
+          "location": "L62-L103",
+          "description": "Centralized registry using Map<EnumPropName, IPropHandler> with O(1) lookup performance"
+        },
+        {
+          "symbol": "Handler registration",
+          "location": "L783-L822",
+          "description": "40+ property handler registrations covering node properties, components, and widget attributes"
+        }
+      ],
+      "topic_relation": "Handler pattern serves as architectural reference for extensibility and separation of concerns in state management"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\StateErrorManager.ts",
+      "relevance": "medium",
+      "rationale": "Centralized error handling with configurable log levels, graceful fallback mechanism, and validation utilities. Provides debugging support and runtime safety.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "StateErrorManager class",
+          "location": "L30-L217",
+          "description": "Unified error handling with ErrorLevel enum, context-aware logging, and gracefulFallback<T> for safe error recovery"
+        },
+        {
+          "symbol": "gracefulFallback<T>() method",
+          "location": "L142-L151",
+          "description": "Safe execution wrapper catching exceptions and returning fallback values to prevent crashes"
+        }
+      ],
+      "topic_relation": "Error management integration point for robust state transitions and debugging support during optimization"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\Props\\StateNodeProps.ts",
+      "relevance": "medium",
+      "rationale": "Node property group (Active, Position, Scale, Color, Size, Euler, Anchor, Opacity) with getter/setter delegating to StateSelect. Inspector UI integration.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "StateNodeProps class",
+          "location": "L6-L81",
+          "description": "8 node property checkboxes with visibility control via isPropertyControlled() and togglePropertyControl()"
+        }
+      ],
+      "topic_relation": "Inspector UI binding pattern for node properties, potential optimization target for reducing getter/setter overhead"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\Props\\StateComponentProps.ts",
+      "relevance": "medium",
+      "rationale": "Component property group (Label, Sprite, Button, Toggle, etc.) with 18 property checkboxes using same delegation pattern as StateNodeProps.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "StateComponentProps class",
+          "location": "L6-L279",
+          "description": "18 component property checkboxes with conditional visibility based on component availability"
+        }
+      ],
+      "topic_relation": "Extension of property binding pattern to component-specific properties, follows same delegation architecture"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\Props\\StateWidgetProps.ts",
+      "relevance": "medium",
+      "rationale": "Widget property group for layout constraints (Top, Bottom, Left, Right, alignment modes). Part of inspector property organization.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "StateWidgetProps class",
+          "location": "L1-L150",
+          "description": "14 widget-related property checkboxes following same delegation pattern"
+        }
+      ],
+      "topic_relation": "Widget-specific property bindings completing the inspector property hierarchy"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Controller\\StateEnum.ts",
+      "relevance": "medium",
+      "rationale": "Enum definitions for EnumStateName (dynamic), EnumUpdataType (7 types), EnumCtrlName (dynamic), EnumPropName (property types). Dynamic enum generation.",
+      "role": "type_definition",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "EnumUpdataType enum",
+          "location": "L6-L21",
+          "description": "7 update types: Name, SelPage, State, Delete, Init, Prop, Move - defines state change notification types"
+        }
+      ],
+      "topic_relation": "Type system foundation for state management communication protocol"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\assets\\script\\Helloworld.ts",
+      "relevance": "low",
+      "rationale": "Demo usage showing StateController reference and manual state switching via selectedIndex. Simple integration example.",
+      "role": "context_only",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "onClickSwitchMode()",
+          "location": "L10-L12",
+          "description": "Example of manual state switching: toggles between state 0 and 1"
+        }
+      ],
+      "topic_relation": "Usage example demonstrating external API for state transitions"
+    },
+    {
+      "path": "C:\\Project\\CocosProjects\\cocos-state-controller\\packages\\ccc-smart-component-manager\\tests\\__tests__\\property-mounter.test.js",
+      "relevance": "low",
+      "rationale": "Test file from related package showing DFS traversal, node matching, and auto-mounting patterns. Different architecture but useful testing patterns.",
+      "role": "test_target",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "createNodeTree() helper",
+          "location": "L13-L21",
+          "description": "Test utility for building node hierarchies - useful pattern for state controller testing"
+        }
+      ],
+      "topic_relation": "Testing patterns for node traversal and property mounting that could inform state controller testing strategy"
+    }
+  ],
+  "existing_patterns": [
+    "BFS queue-based traversal for state propagation (StateController.updateState)",
+    "Handler registry pattern with IPropHandler interface (PropHandlerManager)",
+    "Property group classes delegating to owner component (StateNodeProps/StateComponentProps/StateWidgetProps)",
+    "Nested data structure with metadata fields ($$lastProp$$, $$changedProp$$, $$controlledProps$$)",
+    "Graceful fallback with try-catch and safe return values (StateErrorManager.gracefulFallback)",
+    "Dynamic enum generation via cc.Class.Attr.setClassAttr",
+    "Controller transition with data inheritance (StateSelect.handleControllerTransition)",
+    "Two-phase property mounting (search + pending + apply)",
+    "Inspector-only properties with editorOnly flag"
+  ],
+  "architecture_constraints": [
+    "Cocos Creator 2.4.13 engine with cc.Component base class",
+    "Editor-only execution via CC_EDITOR flag and executeInEditMode decorator",
+    "Property system requires cc._decorator integration (@property decorator)",
+    "Serialization via _ctrlData property with complex nested structure",
+    "Dynamic enum updates require cc.Class.Attr.setClassAttr manipulation",
+    "Node validation via isValid property to prevent null reference errors",
+    "Parent-child hierarchy assumptions for controller-select relationship",
+    "Inspector refresh via Editor.Utils.refreshInspector() with setTimeout workaround",
+    "TypeScript with cc._decorator metadata system for property exposure"
+  ],
+  "integration_points": [
+    "StateController → StateSelect: updateState() notification with EnumUpdataType",
+    "StateSelect → StateController: getCurrCtrl() lookup via _ctrlsMap",
+    "StateSelect → PropHandlerManager: getValue/setValue for property manipulation",
+    "Property Groups → StateSelect: togglePropertyControl() delegation",
+    "StateController → Inspector: smartRefreshInspector() with Editor.Utils",
+    "StateSelect → Parent Node: updateCtrlName() on parent change",
+    "StateController → Enum System: Dynamic enum updates via cc.Class.Attr",
+    "StateErrorManager → Console: Conditional logging based on ErrorLevel"
+  ],
+  "inspiration_sources": [
+    "Property mounter two-phase pattern (Phase 1: direct mount, Phase 2: pending mounts)",
+    "DFS vs BFS traversal comparison for state propagation",
+    "Handler registry pattern enabling 40+ property types with clean extension",
+    "Graceful fallback pattern preventing crashes in edge cases",
+    "Visited Set pattern preventing duplicate node processing",
+    "Dynamic enum generation for runtime state definition",
+    "Inspector-only properties reducing serialization overhead",
+    "Log level configuration for debugging control"
+  ],
+  "_metadata": {
+    "exploration_type": "brainstorm-codebase",
+    "timestamp": "2026-03-02T00:00:00.000Z",
+    "project": "cocos-state-controller",
+    "tech_stack": {
+      "engine": "Cocos Creator 2.4.13",
+      "language": "TypeScript",
+      "platform": "Web/Mobile",
+      "architecture": "Component-based state management"
+    },
+    "analysis_depth": "deep-scan",
+    "files_analyzed": 10,
+    "key_findings": [
+      "BFS traversal in StateController.updateState() is core performance bottleneck",
+      "TCtrl/TPage/TProp data structure has 3 layers of nesting with redundant metadata",
+      "Handler registry pattern successfully supports 40+ property types",
+      "Inspector refresh uses setTimeout workaround indicating Editor API limitations",
+      "Property groups (Node/Component/Widget) follow consistent delegation pattern"
+    ]
+  }
+}

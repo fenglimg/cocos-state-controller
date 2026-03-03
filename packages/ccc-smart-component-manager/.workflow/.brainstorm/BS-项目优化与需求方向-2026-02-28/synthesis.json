@@ -1,0 +1,186 @@
+{
+  "session_id": "BS-项目优化与需求方向-2026-02-28",
+  "topic": "当前项目的现有优化和新的需求方向是什么",
+  "completed": "2026-02-28T17:30:00+08:00",
+  "total_rounds": 3,
+  "top_ideas": [
+    {
+      "rank": 1,
+      "title": "紧急 Bug 修复: saveData boolean 默认值",
+      "description": "data-manager.js:85-108 中 saveData() 使用 || 运算符做 boolean 默认值,导致用户无法关闭自动挂载等功能(false || true === true)。改为 ?? 即可修复。",
+      "source_perspective": "全视角共识",
+      "score": 10,
+      "novelty": 1,
+      "feasibility": 10,
+      "strengths": ["高影响(核心设置功能恢复)", "极低成本(改几个字符)", "零风险"],
+      "challenges": [],
+      "next_steps": ["直接修复 data-manager.js 中所有 || 为 ??", "添加单元测试验证 false 值保存"],
+      "priority": "P0",
+      "effort": "trivial"
+    },
+    {
+      "rank": 2,
+      "title": "性能优化: UUID 缓存 + 异步 I/O",
+      "description": "1) getNodeByUuid() 添加 WeakMap 缓存,场景变化时自动失效。2) DataManager 同步写改为防抖异步写,移除冗余 validateDataConsistency。",
+      "source_perspective": "system-architect + product-owner",
+      "score": 9,
+      "novelty": 2,
+      "feasibility": 9,
+      "strengths": ["多节点操作性能提升 10-100x", "减少主线程阻塞", "低风险"],
+      "challenges": ["缓存失效时机需要精确控制", "异步写的数据丢失风险(极低)"],
+      "next_steps": ["实现 UUID→Node WeakMap 缓存", "DataManager 防抖写(500ms)", "移除 validateDataConsistency"],
+      "priority": "P0",
+      "effort": "small"
+    },
+    {
+      "rank": 3,
+      "title": "快捷键系统 + 快捷焦点",
+      "description": "通过 Editor 菜单 accelerator 注册全局快捷键,支持: 1) 一键唤起并聚焦搜索框 2) 自定义快捷键绑定常用组件。三级降级: accelerator → globalShortcut → panel DOM。",
+      "source_perspective": "product-manager + codex feasibility",
+      "score": 8.5,
+      "novelty": 3,
+      "feasibility": 9,
+      "strengths": ["开发效率提升显著", "技术方案成熟可靠", "用户感知强"],
+      "challenges": ["快捷键冲突检测", "panel DOM ready 时序", "跨平台 Cmd/Ctrl 差异"],
+      "next_steps": ["package.json 添加 accelerator 菜单项", "panel 添加 focus-search IPC handler", "重试聚焦机制"],
+      "priority": "P0",
+      "effort": "medium"
+    },
+    {
+      "rank": 4,
+      "title": "自动挂载预览确认面板",
+      "description": "替换 Editor.Dialog.messageBox 同步阻塞为 panel 内 overlay UI。显示待挂载属性列表(属性名→目标节点→匹配分数→范围),支持逐项勾选确认。核心重构: 同步→异步状态机(Promise + IPC requestId)。",
+      "source_perspective": "product-manager + codex feasibility",
+      "score": 8,
+      "novelty": 5,
+      "feasibility": 7,
+      "strengths": ["消除阻塞对话框", "可视化增强信任", "支持批量确认"],
+      "challenges": ["property-mounter.js 流程拆分(最大工作量)", "异步期间竞态条件", "scene 侧挂起上下文管理"],
+      "next_steps": ["设计 MountCandidate 数据结构", "重构 property-mounter 为异步", "实现 overlay UI", "添加超时/失效防御"],
+      "priority": "P1",
+      "effort": "large"
+    },
+    {
+      "rank": 5,
+      "title": "全场景引用追踪器",
+      "description": "组件列表增加'探测'按钮,遍历当前场景所有节点,列出挂载了指定组件的所有节点路径,支持一键选中定位。解决'不敢改代码'的恐惧。",
+      "source_perspective": "gemini creative",
+      "score": 7.5,
+      "novelty": 8,
+      "feasibility": 7,
+      "strengths": ["解决维护阶段核心痛点", "差异化功能", "可复用现有遍历基础设施"],
+      "challenges": ["大场景遍历性能", "异步遍历+UI更新", "跨场景追踪不可实现(仅当前场景)"],
+      "next_steps": ["scene-accessor 添加 trace-component-usage handler", "panel 添加追踪结果列表 UI", "性能: 异步分批遍历"],
+      "priority": "P1",
+      "effort": "medium"
+    },
+    {
+      "rank": 6,
+      "title": "智能健康审计",
+      "description": "审计模式扫描场景/选中节点,识别: Missing Script、空渲染组件(无图片Sprite)、冲突组件(多Layout)、未挂载属性。提供问题报告和一键清理。",
+      "source_perspective": "gemini creative",
+      "score": 7,
+      "novelty": 7,
+      "feasibility": 7,
+      "strengths": ["从'管理'延伸到'维护'", "项目质量提升", "可作为独立 tab"],
+      "challenges": ["问题类型定义需要领域知识", "一键修复的安全性", "误报风险"],
+      "next_steps": ["定义审计规则集(5-10条核心规则)", "scene-accessor 添加 audit handler", "panel 添加审计报告 UI"],
+      "priority": "P2",
+      "effort": "medium"
+    },
+    {
+      "rank": 7,
+      "title": "组件节点跳转 + 滚轮滑动",
+      "description": "点击已有组件列表中的组件跳转选中对应节点(仅单一组件时)。已有组件区域支持滚轮滑动。两个小功能,ICE评分极高。",
+      "source_perspective": "CHANGELOG planned + product-owner ICE",
+      "score": 6.5,
+      "novelty": 2,
+      "feasibility": 10,
+      "strengths": ["需求明确", "实现极简", "用户感知强"],
+      "challenges": ["几乎无挑战"],
+      "next_steps": ["组件按钮添加点击跳转逻辑", "CSS overflow-y: auto 支持滚轮"],
+      "priority": "P1",
+      "effort": "small"
+    }
+  ],
+  "parked_ideas": [
+    {
+      "title": "CC 3.x 兼容层设计",
+      "reason": "当前用户群在 2.4.x,投入产出比不高",
+      "future_trigger": "当 CC 3.x 用户占比超过 30%"
+    },
+    {
+      "title": "Panel 模块化拆分",
+      "reason": "工作量大,可在功能开发过程中渐进拆分",
+      "future_trigger": "当 logic.js 超过 2500 行或需要添加新 tab 页"
+    },
+    {
+      "title": "组件预设集/模板系统",
+      "reason": "高价值但大工作量,排在核心体验优化之后",
+      "future_trigger": "v1.5.0+ 版本"
+    },
+    {
+      "title": "上下文感知推荐",
+      "reason": "需要足够的使用数据积累",
+      "future_trigger": "当使用统计系统成熟后"
+    },
+    {
+      "title": "组件协作便签",
+      "reason": "用户基数小时价值有限",
+      "future_trigger": "当团队用户需求出现"
+    },
+    {
+      "title": "可插拔搜索 Provider 架构",
+      "reason": "架构投资,当前搜索功能满足需求",
+      "future_trigger": "当需要接入外部数据源或第三方扩展时"
+    }
+  ],
+  "key_insights": [
+    "高影响低成本优先: saveData bug 和 UUID 缓存是最佳 ROI",
+    "快捷键是操作效率的最大瓶颈,CC 2.4.x 菜单 accelerator 是成熟方案",
+    "自动挂载预览是用户信任度的关键,但重构工作量最大",
+    "从'组件管理'延伸到'组件维护'(引用追踪+健康审计)是差异化方向",
+    "技术债与功能交替:每版本附带一项技术债清理",
+    "property-mounter 同步→异步重构是未来多个功能的基础"
+  ],
+  "recommendations": {
+    "primary": "分 4 个版本渐进迭代: v1.3.1(bug修复+性能) → v1.4.0(快捷键+跳转) → v1.5.0(挂载预览+引用追踪) → v1.6.0(健康审计+模板系统)",
+    "alternatives": [
+      "激进方案: 先完成 Panel 模块化拆分,再添加新功能(架构先行)",
+      "最小方案: 仅做 bug 修复+快捷键+跳转,快速发布 v1.4.0"
+    ],
+    "not_recommended": [
+      "CC 3.x 迁移(当前无需求)",
+      "可插拔搜索架构(过度设计)"
+    ]
+  },
+  "follow_up": [
+    {
+      "type": "implementation",
+      "title": "v1.3.1 Bug修复+性能版本",
+      "items": ["saveData ?? 修复", "UUID WeakMap 缓存", "DataManager 防抖写", "logger 分级", "user-data.json gitignore"]
+    },
+    {
+      "type": "implementation",
+      "title": "v1.4.0 操作效率版本",
+      "items": ["菜单 accelerator 快捷键", "快捷焦点", "组件节点跳转", "滚轮滑动", "search-engine 测试"]
+    },
+    {
+      "type": "implementation",
+      "title": "v1.5.0 智能增强版本",
+      "items": ["自动挂载预览 overlay", "property-mounter 异步重构", "全场景引用追踪", "data-manager 测试"]
+    },
+    {
+      "type": "research",
+      "title": "v1.6.0 维护工具版本",
+      "items": ["智能健康审计规则定义", "组件预设集设计", "Panel 渐进模块化"]
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-02-28T17:30:00+08:00",
+    "total_ideas_generated": 22,
+    "ideas_survived": 7,
+    "ideas_parked": 6,
+    "perspectives_used": ["system-architect", "product-manager", "product-owner", "gemini-creative", "codex-feasibility"]
+  }
+}

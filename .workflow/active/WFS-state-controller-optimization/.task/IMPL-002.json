@@ -1,0 +1,54 @@
+{
+  "id": "IMPL-002",
+  "title": "selectedPage修复",
+  "priority": "P0",
+  "effort": "0.5天",
+  "risk": "低",
+  "status": "completed",
+  "phase": 1,
+  "milestone": "M1: 性能优化",
+  "goal": "解决设置状态时selectedPage不会及时更新的问题",
+  "subtasks": [
+    {
+      "id": "IMPL-002.1",
+      "title": "触发selectedPage变更通知",
+      "description": "在 selectedIndex setter 中触发 _emitSelectedPageChanged()",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-002.2",
+      "title": "实现变更通知方法",
+      "description": "实现 _emitSelectedPageChanged() 私有方法触发编辑器刷新",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-002.3",
+      "title": "添加公共刷新方法",
+      "description": "添加 refreshSelectedPage() 公共方法供外部调用",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    },
+    {
+      "id": "IMPL-002.4",
+      "title": "添加调试日志",
+      "description": "在 selectedPage getter 中添加调试日志",
+      "file": "assets/script/Controller/StateController.ts",
+      "status": "pending"
+    }
+  ],
+  "acceptanceCriteria": [
+    "状态切换后selectedPage立即更新",
+    "refreshSelectedPage()方法可正常调用",
+    "调试日志正确输出状态信息"
+  ],
+  "dependencies": [],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T00:00:10+08:00"
+    }
+  ]
+}

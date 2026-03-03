@@ -1,0 +1,37 @@
+<!-- Extracted from panel/index.js - Do not edit index.js directly -->
+
+<!-- Main page -->
+<div id="main" class="container page-view page-active">
+  <div class="row" id="coms"></div>
+  <div class="row">
+    <input id="com_name" placeholder="" type="">
+    <ui-button id="btn" title="添加组件">
+      <svg class="icon" viewBox="0 0 16 16"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" fill="currentColor"/></svg>
+    </ui-button>
+    <ui-button id="refresh-btn" title="刷新组件列表">
+      <svg class="icon" viewBox="0 0 16 16"><path d="M8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.001 7.001 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.501 5.501 0 0 0 8 2.5ZM1.705 8.005a.75.75 0 0 1 .834.656 5.501 5.501 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.001 7.001 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834Z" fill="currentColor"/></svg>
+    </ui-button>
+    <ui-button id="settings-btn" title="设置">
+      <svg class="icon" viewBox="0 0 16 16"><path d="M8 1a.75.75 0 0 1 .75.75v.3c.78.12 1.5.44 2.1.9l.21-.21a.75.75 0 0 1 1.06 1.06l-.21.21c.46.6.78 1.32.9 2.1h.3a.75.75 0 0 1 0 1.5h-.3c-.12.78-.44 1.5-.9 2.1l.21.21a.75.75 0 0 1-1.06 1.06l-.21-.21c-.6.46-1.32.78-2.1.9v.3a.75.75 0 0 1-1.5 0v-.3c-.78-.12-1.5-.44-2.1-.9l-.21.21a.75.75 0 0 1-1.06-1.06l.21-.21a4.49 4.49 0 0 1-.9-2.1h-.3a.75.75 0 0 1 0-1.5h.3c.12-.78.44-1.5.9-2.1l-.21-.21a.75.75 0 0 1 1.06-1.06l.21.21c.6-.46 1.32-.78 2.1-.9v-.3A.75.75 0 0 1 8 1ZM6 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z" fill="currentColor"/></svg>
+    </ui-button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<!-- Settings page -->
+<div id="settings-page" class="container page-view page-hidden">
+  <div class="settings-header-bar">
+    <ui-button id="back-btn" title="返回">
+      <svg class="icon" viewBox="0 0 16 16"><path d="M7.78 12.53a.75.75 0 0 1-1.06 0L2.47 8.28a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 1.06L4.56 7.25h7.69a.75.75 0 0 1 0 1.5H4.56l3.22 3.22a.75.75 0 0 1 0 1.06Z" fill="currentColor"/></svg>
+    </ui-button>
+    <div class="settings-page-title">
+      <svg class="icon-lg" viewBox="0 0 16 16"><path d="M8 1a.75.75 0 0 1 .75.75v.3c.78.12 1.5.44 2.1.9l.21-.21a.75.75 0 0 1 1.06 1.06l-.21.21c.46.6.78 1.32.9 2.1h.3a.75.75 0 0 1 0 1.5h-.3c-.12.78-.44 1.5-.9 2.1l.21.21a.75.75 0 0 1-1.06 1.06l-.21-.21c-.6.46-1.32.78-2.1.9v.3a.75.75 0 0 1-1.5 0v-.3c-.78-.12-1.5-.44-2.1-.9l-.21.21a.75.75 0 0 1-1.06-1.06l.21-.21a4.49 4.49 0 0 1-.9-2.1h-.3a.75.75 0 0 1 0-1.5h.3c.12-.78.44-1.5.9-2.1l-.21-.21a.75.75 0 0 1 1.06-1.06l.21.21c.6-.46 1.32-.78 2.1-.9v-.3A.75.75 0 0 1 8 1ZM6 8a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z" fill="currentColor"/></svg>
+      智能组件管理器设置
+    </div>
+  </div>
+  <div id="settings-content-page">
+    <!-- Settings content dynamically generated -->
+  </div>
+</div>
+
+<div id="tip"></div>

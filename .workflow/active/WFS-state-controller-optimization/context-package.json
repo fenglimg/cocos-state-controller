@@ -1,0 +1,147 @@
+{
+  "sessionId": "WFS-state-controller-optimization",
+  "generatedAt": "2026-03-02T15:35:00Z",
+  "projectAnalysis": {
+    "name": "cocos-state-controller",
+    "engine": "Cocos Creator 2.4.13",
+    "language": "TypeScript",
+    "type": "Component-based state management system"
+  },
+  "criticalFiles": [
+    {
+      "path": "assets/script/Controller/StateController.ts",
+      "role": "Core state management controller",
+      "modificationTarget": true,
+      "keySymbols": ["StateController", "updateState()", "selectedIndex"]
+    },
+    {
+      "path": "assets/script/Controller/StateSelect.ts",
+      "role": "Property binding component",
+      "modificationTarget": true,
+      "keySymbols": ["StateSelect", "_ctrlData", "getPropData()"]
+    },
+    {
+      "path": "assets/script/Controller/StatePropHandler.ts",
+      "role": "Property handler registry",
+      "modificationTarget": false,
+      "keySymbols": ["PropHandlerManager", "IPropHandler"]
+    },
+    {
+      "path": "assets/script/Controller/StateErrorManager.ts",
+      "role": "Error handling system",
+      "modificationTarget": false,
+      "keySymbols": ["StateErrorManager", "gracefulFallback"]
+    },
+    {
+      "path": "assets/script/Controller/StateEnum.ts",
+      "role": "Type definitions",
+      "modificationTarget": false,
+      "keySymbols": ["EnumPropName", "EnumUpdataType", "EnumStateName"]
+    },
+    {
+      "path": "assets/script/Controller/Props/StateNodeProps.ts",
+      "role": "Node property group",
+      "modificationTarget": true,
+      "keySymbols": ["StateNodeProps"]
+    },
+    {
+      "path": "assets/script/Controller/Props/StateToolsProps.ts",
+      "role": "Tool property group",
+      "modificationTarget": true,
+      "keySymbols": ["StateToolsProps"]
+    },
+    {
+      "path": "packages/ccc-state-controller/package.json",
+      "role": "Extension package config",
+      "modificationTarget": true,
+      "keySymbols": []
+    },
+    {
+      "path": "packages/ccc-state-controller/main.js",
+      "role": "Extension main process",
+      "modificationTarget": true,
+      "keySymbols": []
+    }
+  ],
+  "architectureConstraints": [
+    "Cocos Creator 2.4.13 engine with cc.Component base class",
+    "Editor-only execution via CC_EDITOR flag",
+    "Property system requires cc._decorator integration",
+    "Serialization via _ctrlData with complex nested structure",
+    "Dynamic enum updates require cc.Class.Attr manipulation"
+  ],
+  "integrationPoints": [
+    {
+      "from": "StateController",
+      "to": "StateSelect",
+      "method": "updateState() notification",
+      "type": "broadcast"
+    },
+    {
+      "from": "StateSelect",
+      "to": "PropHandlerManager",
+      "method": "getValue/setValue",
+      "type": "delegation"
+    },
+    {
+      "from": "Extension Package",
+      "to": "Core Source",
+      "method": "File copy/install",
+      "type": "installer"
+    }
+  ],
+  "existingPatterns": [
+    "BFS queue-based traversal for state propagation",
+    "Handler registry pattern with IPropHandler interface",
+    "Property group classes delegating to owner component",
+    "Graceful fallback with try-catch"
+  ],
+  "brainstormArtifacts": {
+    "session": "BS-state-controller-optimization-2026-03-02",
+    "topIdeas": [
+      {
+        "rank": 1,
+        "title": "BFS缓存优化 + 组件缓存",
+        "score": 95
+      },
+      {
+        "rank": 2,
+        "title": "智能属性推断",
+        "score": 88
+      },
+      {
+        "rank": 3,
+        "title": "属性监听器系统",
+        "score": 82
+      },
+      {
+        "rank": 4,
+        "title": "可视化状态编辑器",
+        "score": 78
+      },
+      {
+        "rank": 5,
+        "title": "数据结构扁平化",
+        "score": 70
+      }
+    ]
+  },
+  "extensionDesign": {
+    "corePackage": "packages/ccc-state-controller-core/",
+    "extensionPackage": "packages/ccc-state-controller/",
+    "installFeatures": {
+      "targetPath": "用户自定义路径",
+      "versionManagement": "版本文件 + 覆盖更新",
+      "testingSupport": "集成测试预留"
+    }
+  },
+  "conflictRisk": "low",
+  "riskAssessment": {
+    "level": "low",
+    "reasons": [
+      "基于现有代码优化，不引入破坏性变更",
+      "扩展包为新增功能，与现有代码隔离",
+      "已明确向后兼容约束"
+    ]
+  }
+}
