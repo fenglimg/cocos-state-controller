@@ -1,0 +1,8 @@
+{
+  "session_id": "unified-tests-eslint-2026-03-03",
+  "task_description": "编写测试文件为统一入口 cocos-state-controller（该目录）/tests 下，同时外部需要支持eslint配置当前目录precommit的代码检查（排除tests目录）考虑assets和 packages/ccc-state-controller 和 packages/ccc-state-controller-core 这三个目录。",
+  "timestamp": "2026-03-03T18:30:00+08:00",
+  "complexity": "Medium",
+  "exploration_count": 0,
+  "explorations": []
+}

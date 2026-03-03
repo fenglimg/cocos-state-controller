@@ -1,0 +1,62 @@
+{
+  "id": "TASK-001",
+  "title": "统一测试入口配置",
+  "description": "将分散的测试文件移动到统一入口 tests/ 目录，并配置 Jest 以支持多目录测试扫描",
+  "status": "completed",
+  "type": "refactor",
+  "scope": "tests/",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      "tests/ 目录包含所有测试文件",
+      "Jest 配置支持扫描 assets/ 和 packages/ 目录下的源码",
+      "现有测试文件 StatePropHandler.test.ts 已移动到 tests/ 目录",
+      "npm test 可以正常运行所有测试"
+    ],
+    "verification": "ls tests/**/*.test.ts 2>/dev/null | wc -l >= 1 && npm test --passWithNoTests",
+    "definition_of_done": "所有测试文件统一在 tests/ 目录下，Jest 配置正确"
+  },
+  "files": [
+    {
+      "path": "tests/jest.config.local.js",
+      "action": "modify",
+      "change": "更新 Jest 配置以支持扫描 assets/ 和 packages/ 目录，添加新的 moduleNameMapper"
+    },
+    {
+      "path": "tests/core/StatePropHandler.test.ts",
+      "action": "create",
+      "change": "从 packages/ccc-state-controller-core/tests/ 移动测试文件"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "创建测试子目录结构",
+      "description": "在 tests/ 下创建 core/ 和 packages/ 子目录，用于组织不同来源的测试",
+      "modification_points": [
+        "创建 tests/core/ 目录",
+        "创建 tests/packages/ 目录"
+      ]
+    },
+    {
+      "step": 2,
+      "title": "移动现有测试文件",
+      "description": "将 packages/ccc-state-controller-core/tests/ 下的测试文件移动到 tests/core/",
+      "modification_points": [
+        "移动 StatePropHandler.test.ts 到 tests/core/",
+        "删除空的 packages/ccc-state-controller-core/tests/ 目录"
+      ]
+    },
+    {
+      "step": 3,
+      "title": "更新 Jest 配置",
+      "description": "修改 jest.config.local.js 以支持扫描多个目录的测试",
+      "modification_points": [
+        "更新 roots 配置以包含 assets 和 packages 目录",
+        "更新 testMatch 配置",
+        "更新 moduleNameMapper 以支持 packages/* 路径",
+        "更新 collectCoverageFrom 以包含所有源码目录"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "summary": "统一测试入口 + ESLint Precommit 配置",
+  "approach": "1) 移动现有测试文件到统一 tests/ 目录；2) 更新 Jest 配置支持多目录扫描；3) 创建根 ESLint 配置支持 precommit 代码检查",
+  "task_ids": ["TASK-001", "TASK-002"],
+  "task_count": 2,
+  "complexity": "Medium",
+  "estimated_time": "30-45 minutes",
+  "recommended_execution": "Agent",
+  "scan_directories": [
+    "assets/",
+    "packages/ccc-state-controller/",
+    "packages/ccc-state-controller-core/"
+  ],
+  "exclude_directories": [
+    "tests/",
+    "node_modules/",
+    "temp/",
+    "coverage/"
+  ],
+  "_metadata": {
+    "timestamp": "2026-03-03T18:30:00+08:00",
+    "source": "direct-planning",
+    "planning_mode": "direct",
+    "plan_type": "feature"
+  }
+}

@@ -1,0 +1,16 @@
+# Tests directory - excluded from ESLint
+tests/
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+temp/
+dist/
+build/
+
+# Coverage reports
+coverage/
+
+# Generated files
+*.d.ts

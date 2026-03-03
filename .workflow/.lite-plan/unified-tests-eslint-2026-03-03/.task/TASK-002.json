@@ -1,0 +1,58 @@
+{
+  "id": "TASK-002",
+  "title": "配置 ESLint + Precommit 检查",
+  "description": "在项目根目录配置 ESLint，支持 precommit 钩子进行代码检查，排除 tests/ 目录，覆盖 assets/ 和 packages/ccc-state-controller/ 和 packages/ccc-state-controller-core/",
+  "status": "completed",
+  "type": "feature",
+  "scope": "root",
+  "depends_on": [],
+  "convergence": {
+    "criteria": [
+      ".eslintrc.js 配置文件存在",
+      "ESLint 配置排除 tests/ 目录",
+      "ESLint 扫描 assets/, packages/ccc-state-controller/, packages/ccc-state-controller-core/",
+      "package.json 包含 lint 脚本",
+      "husky/lint-staged 配置 precommit 钩子"
+    ]
+  },
+  "files": [
+    { "path": ".eslintrc.js", "action": "create", "change": "创建 ESLint 配置文件" },
+    { "path": ".eslintignore", "action": "create", "change": "创建 ESLint 忽略文件" },
+    { "path": "package.json", "action": "create", "change": "创建根 package.json 包含 lint 脚本和 precommit 配置" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "创建 ESLint 配置",
+      "description": "创建 .eslintrc.js 配置 TypeScript 和 JavaScript 支持",
+      "modification_points": [
+        "配置 parser: @typescript-eslint/parser",
+        "配置 plugins: @typescript-eslint",
+        "配置 extends: eslint:recommended, @typescript-eslint/recommended",
+        "配置 env: node, es2021"
+      ]
+    },
+    {
+      "step": 2,
+      "title": "创建 ESLint 忽略文件",
+      "description": "创建 .eslintignore 排除 tests/ 目录和其他不需要检查的文件",
+      "modification_points": [
+        "添加 tests/ 到忽略列表",
+        "添加 node_modules/ 到忽略列表",
+        "添加 temp/ 到忽略列表",
+        "添加 coverage/ 到忽略列表"
+      ]
+    },
+    {
+      "step": 3,
+      "title": "创建根 package.json",
+      "description": "创建根 package.json 包含 lint 脚本和 husky precommit 配置",
+      "modification_points": [
+        "添加 scripts.lint 脚本",
+        "添加 scripts.lint:fix 脚本",
+        "配置 lint-staged 规则",
+        "配置 husky precommit 钩子"
+      ]
+    }
+  ]
+}
