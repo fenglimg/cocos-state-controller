@@ -1,29 +1,38 @@
 {
   "name": "ccc-state-controller",
   "version": "1.0.0",
-  "description": "Cocos Creator 状态控制器安装工具",
+  "description": "Cocos Creator State Controller Installer - Install and manage state controller in your projects",
   "author": "fenglimg",
   "main": "main.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
   "main-menu": {
-    "i18n:MAIN_MENU.package.title/ccc-state-controller/open": {
+    "i18n:MAIN_MENU.package.title/State Controller/Open Panel": {
       "message": "ccc-state-controller:open"
     },
-    "i18n:MAIN_MENU.package.title/ccc-state-controller/install": {
+    "i18n:MAIN_MENU.package.title/State Controller/Quick Install": {
       "message": "ccc-state-controller:install"
     },
-    "i18n:MAIN_MENU.package.title/ccc-state-controller/update": {
+    "i18n:MAIN_MENU.package.title/State Controller/Quick Update": {
       "message": "ccc-state-controller:update"
     },
-    "i18n:MAIN_MENU.package.title/ccc-state-controller/check-update": {
+    "i18n:MAIN_MENU.package.title/State Controller/Check for Updates": {
       "message": "ccc-state-controller:check-update"
     }
   },
   "panel": {
     "main": "panel/index.js",
     "type": "dockable",
-    "title": "ccc-state-controller",
-    "width": 400,
-    "height": 300
+    "title": "State Controller Installer",
+    "width": 420,
+    "height": 520,
+    "min-width": 380,
+    "min-height": 400
   },
-  "dependencies": {}
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0"
+  }
 }

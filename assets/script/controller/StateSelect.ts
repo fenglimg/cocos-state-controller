@@ -78,6 +78,18 @@ type TCtrl = {
     [stateId: string]: TPage
 };
 
+/** IMPL-005: 扁平化数据接口 */
+type FlatStateData = {
+    /** 属性值 */
+    value: TPropValue;
+    /** 控制器ID */
+    ctrlId: number;
+    /** 状态ID */
+    stateId: number;
+    /** 属性类型 */
+    propType: EnumPropName;
+};
+
 @ccclass("StateSelect")
 @menu("State/StateSelect")
 @executeInEditMode()
@@ -192,9 +204,157 @@ export class StateSelect extends cc.Component {
     @property
     private _ctrlData: TCtrl = {};
 
+    // #region IMPL-005: 数据结构优化
+
+    /** 扁平化数据存储（优化访问性能） */
+    private _flatData: Map<string, FlatStateData> = new Map();
+
+    /** 数据迁移标记 */
+    private _migrationComplete: boolean = false;
+
+    // #endregion IMPL-005
+
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
-    private parentCheckInterval: number = null;
+    private parentCheckInterval: ReturnType<typeof setInterval> = null;
+
+    // #region IMPL-004: 属性监听器系统
+
+    /** 是否启用属性自动同步监听 */
+    @property({
+        tooltip: "启用属性自动同步监听\n\n当外部修改属性时自动记录变化",
+        displayName: "启用属性监听",
+    })
+    private _autoSyncEnabled: boolean = false;
+
+    /** 属性同步检测间隔（毫秒） */
+    @property({
+        tooltip: "属性同步检测间隔（毫秒）\n\n建议值：100-1000ms，值越小检测越及时但性能开销越大",
+        displayName: "同步间隔(ms)",
+        visible: function (this: StateSelect) {
+            return this._autoSyncEnabled;
+        },
+    })
+    private _syncInterval: number = 200;
+
+    /** 属性快照存储 */
+    private _propertySnapshot: Map<EnumPropName, TPropValue> = new Map();
+
+    /** 属性监听定时器ID */
+    private _propertyWatchTimer: number = null;
+
+    /** 受控属性缓存（避免频繁重建） */
+    private _controlledPropsCache: EnumPropName[] = null;
+    private _controlledPropsCacheDirty: boolean = true;
+
+    // #endregion IMPL-004
+
+    // #region IMPL-005: 数据结构优化方法
+
+    /**
+     * IMPL-005.3: 生成组合键
+     * 格式: "ctrlId_stateId_propType"
+     */
+    private makeKey(ctrlId: number, stateId: number, propType: EnumPropName): string {
+        return `${ctrlId}_${stateId}_${propType}`;
+    }
+
+    /**
+     * IMPL-005.4: 快速获取属性值
+     * 从扁平化Map中直接获取，避免三层嵌套访问
+     */
+    private getPropValueFast(ctrlId: number, stateId: number, propType: EnumPropName): TPropValue {
+        const key = this.makeKey(ctrlId, stateId, propType);
+        const flatData = this._flatData.get(key);
+        return flatData ? flatData.value : undefined;
+    }
+
+    /**
+     * IMPL-005.5: 快速设置属性值
+     * 同时更新扁平化Map和原始三层结构（保持兼容性）
+     */
+    private setPropValueFast(ctrlId: number, stateId: number, propType: EnumPropName, value: TPropValue): void {
+        const key = this.makeKey(ctrlId, stateId, propType);
+
+        // 更新扁平化数据
+        this._flatData.set(key, {
+            value,
+            ctrlId,
+            stateId,
+            propType,
+        });
+
+        // 同时更新原始三层结构（保持向后兼容）
+        if (!this._ctrlData[ctrlId]) {
+            this._ctrlData[ctrlId] = {};
+        }
+        if (!this._ctrlData[ctrlId][stateId]) {
+            this._ctrlData[ctrlId][stateId] = {} as TProp;
+        }
+        this._ctrlData[ctrlId][stateId][propType] = value;
+    }
+
+    /**
+     * IMPL-005.6: 从旧结构迁移数据
+     * 将三层嵌套的_ctrlData迁移到扁平化Map
+     */
+    private migrateFromLegacyData(): void {
+        if (this._migrationComplete) {
+            return;
+        }
+
+        StateErrorManager.debug("开始数据迁移：从三层结构到扁平化Map", {
+            component: "StateSelect",
+            method: "migrateFromLegacyData",
+        });
+
+        let migratedCount = 0;
+        this._flatData.clear();
+
+        // 遍历所有控制器
+        for (const ctrlId in this._ctrlData) {
+            const pageData = this._ctrlData[ctrlId];
+            if (!pageData) continue;
+
+            // 遍历所有状态
+            for (const stateId in pageData) {
+                const propData = pageData[stateId];
+                if (!propData) continue;
+
+                // 遍历所有属性
+                for (const key in propData) {
+                    // 跳过元数据键
+                    if (key.startsWith("$$")) continue;
+
+                    const propType = parseInt(key);
+                    if (isNaN(propType)) continue;
+
+                    const value = propData[propType];
+                    if (value === undefined) continue;
+
+                    // 添加到扁平化Map
+                    const ctrlIdNum = parseInt(ctrlId);
+                    const stateIdNum = parseInt(stateId);
+                    this.setPropValueFast(ctrlIdNum, stateIdNum, propType, value);
+                    migratedCount++;
+                }
+            }
+        }
+
+        this._migrationComplete = true;
+
+        if (migratedCount > 0) {
+            Editor.log(`[StateSelect] 数据迁移完成：${migratedCount} 个属性已迁移到扁平化结构`);
+        }
+
+        StateErrorManager.debug("数据迁移完成", {
+            component: "StateSelect",
+            method: "migrateFromLegacyData",
+            params: { migratedCount },
+        });
+    }
+
+    // #endregion IMPL-005
 
     // #region 控制器当前状态
     @property({ type: EnumStateName, tooltip: "控制器当前状态" })
@@ -375,7 +535,12 @@ export class StateSelect extends cc.Component {
         this.widgetProps.owner = this;
         this.toolsProps.owner = this;
 
-        // 🔧 IMPL-001.6: 通知控制器缓存失效
+        // IMPL-005: 触发数据迁移
+        if (!this._migrationComplete) {
+            this.migrateFromLegacyData();
+        }
+
+        // IMPL-001.6: 通知控制器缓存失效
         this.notifyControllerCacheDirty();
 
         StateErrorManager.debug("开始StateSelect预加载", {
@@ -449,6 +614,11 @@ export class StateSelect extends cc.Component {
         this.node.on("anchor-changed", this.anchorChanged, this);
         this.node.on("color-changed", this.colorChanged, this);
         this.node.on("spriteframe-changed", this.spriteFrameChanged, this);
+
+        // IMPL-004.10: 启动属性监听
+        if (this._autoSyncEnabled) {
+            this.startPropertyWatch();
+        }
     }
 
     protected onDestroy() {
@@ -458,7 +628,10 @@ export class StateSelect extends cc.Component {
             this.parentCheckInterval = null;
         }
 
-        // 🔧 IMPL-001.6: 销毁时通知控制器缓存失效
+        // IMPL-004.10: 停止属性监听
+        this.stopPropertyWatch();
+
+        // IMPL-001.6: 销毁时通知控制器缓存失效
         this.notifyControllerCacheDirty();
 
         if (this.node && this.node.isValid) {
@@ -739,6 +912,373 @@ export class StateSelect extends cc.Component {
 
         return cloned as TProp;
     }
+
+    // ============== IMPL-004: 属性监听器系统 ==============
+
+    /**
+     * IMPL-004.3: 启动属性监听定时器
+     * 定期检测受控属性的外部变化
+     */
+    public startPropertyWatch(): void {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        // 如果已经启动，先停止
+        if (this._propertyWatchTimer !== null) {
+            this.stopPropertyWatch();
+        }
+
+        // 初始化快照
+        this.updatePropertySnapshot();
+
+        // 启动定时器
+        const interval = Math.max(50, Math.min(5000, this._syncInterval));
+        this._propertyWatchTimer = setInterval(() => {
+            this.checkPropertyChanges();
+        }, interval) as unknown as number;
+
+        StateErrorManager.info("属性监听已启动", {
+            component: "StateSelect",
+            method: "startPropertyWatch",
+            params: { interval: interval, controlledPropsCount: this._propertySnapshot.size },
+        });
+    }
+
+    /**
+     * IMPL-004.4: 停止属性监听定时器
+     */
+    public stopPropertyWatch(): void {
+        if (this._propertyWatchTimer !== null) {
+            clearInterval(this._propertyWatchTimer);
+            this._propertyWatchTimer = null;
+
+            StateErrorManager.info("属性监听已停止", {
+                component: "StateSelect",
+                method: "stopPropertyWatch",
+            });
+        }
+
+        // 清理快照
+        this._propertySnapshot.clear();
+        this._controlledPropsCache = null;
+        this._controlledPropsCacheDirty = true;
+    }
+
+    /**
+     * IMPL-004.5: 检测属性外部变化
+     * 比较当前属性值与快照，记录变化
+     */
+    public checkPropertyChanges(): void {
+        if (!CC_EDITOR || !this.node || !this.node.isValid) {
+            return;
+        }
+
+        const controlledProps = this.getControlledProps();
+        if (controlledProps.length === 0) {
+            return;
+        }
+
+        const changedProps: { type: EnumPropName; oldValue: TPropValue; newValue: TPropValue }[] = [];
+
+        for (const propType of controlledProps) {
+            const snapshotValue = this._propertySnapshot.get(propType);
+            const currentValue = this.handleValue(propType);
+
+            // 使用深度比较检测变化
+            if (!this.deepEqualValue(snapshotValue, currentValue)) {
+                changedProps.push({
+                    type: propType,
+                    oldValue: snapshotValue,
+                    newValue: currentValue,
+                });
+
+                // 更新快照
+                this._propertySnapshot.set(propType, this.cloneValue(currentValue));
+            }
+        }
+
+        // 处理检测到的变化
+        if (changedProps.length > 0) {
+            this.onPropertyExternallyChanged(changedProps);
+        }
+    }
+
+    /**
+     * IMPL-004.6: 获取受控属性列表
+     * 返回所有被控制的属性类型
+     */
+    public getControlledProps(): EnumPropName[] {
+        // 使用缓存优化性能
+        if (!this._controlledPropsCacheDirty && this._controlledPropsCache) {
+            return this._controlledPropsCache;
+        }
+
+        const propData = this.getPropData();
+        const result: EnumPropName[] = [];
+
+        if (!propData) {
+            this._controlledPropsCache = result;
+            this._controlledPropsCacheDirty = false;
+            return result;
+        }
+
+        // 从新的controlledProps结构获取
+        const controlledProps = propData.$$controlledProps$$ || {};
+        for (const propName in controlledProps) {
+            const propType = controlledProps[propName];
+            if (propType !== undefined && propType !== EnumPropName.Non) {
+                result.push(propType);
+            }
+        }
+
+        // 兼容性：从旧的changedProp结构获取
+        const changedProp = propData.$$changedProp$$ || {};
+        for (const propName in changedProp) {
+            const propType = changedProp[propName];
+            if (propType !== undefined && propType !== EnumPropName.Non && !result.includes(propType)) {
+                result.push(propType);
+            }
+        }
+
+        this._controlledPropsCache = result;
+        this._controlledPropsCacheDirty = false;
+
+        return result;
+    }
+
+    /**
+     * IMPL-004.7: 处理外部属性变化
+     * 当检测到外部修改时调用
+     */
+    public onPropertyExternallyChanged(
+        changes: Array<{ type: EnumPropName; oldValue: TPropValue; newValue: TPropValue }>,
+    ): void {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        for (const change of changes) {
+            const { type, oldValue, newValue } = change;
+            const propName = EnumPropName[type] || `Unknown(${type})`;
+
+            StateErrorManager.info("检测到外部属性变化", {
+                component: "StateSelect",
+                method: "onPropertyExternallyChanged",
+                params: {
+                    propName: propName,
+                    oldValue: this.formatValue(oldValue),
+                    newValue: this.formatValue(newValue),
+                },
+            });
+
+            // 更新属性数据
+            const propData = this.getPropData();
+            if (propData) {
+                // 更新到propertyData
+                if (propData.$$propertyData$$) {
+                    propData.$$propertyData$$[type] = this.cloneValue(newValue);
+                }
+                // 兼容性：同时更新到直接存储
+                propData[type] = this.cloneValue(newValue);
+
+                // 如果是当前选中的属性，更新界面
+                if (this._propKey === type) {
+                    this._propValue = newValue;
+                }
+            }
+        }
+
+        // 标记缓存需要重建
+        this._controlledPropsCacheDirty = true;
+    }
+
+    /**
+     * IMPL-004.8: 更新属性快照
+     * 保存当前所有受控属性的值
+     */
+    public updatePropertySnapshot(): void {
+        this._propertySnapshot.clear();
+
+        const controlledProps = this.getControlledProps();
+        for (const propType of controlledProps) {
+            const value = this.handleValue(propType);
+            this._propertySnapshot.set(propType, this.cloneValue(value));
+        }
+
+        StateErrorManager.debug("属性快照已更新", {
+            component: "StateSelect",
+            method: "updatePropertySnapshot",
+            params: { snapshotSize: this._propertySnapshot.size },
+        });
+    }
+
+    /**
+     * IMPL-004.9: 深度比较两个属性值是否相等
+     * 支持Vec3/Vec2/Color/Size等复杂类型
+     */
+    public deepEqualValue(a: TPropValue, b: TPropValue): boolean {
+        // 两个都是undefined/null
+        if (a == void 0 && b == void 0) {
+            return true;
+        }
+        // 一个有值一个没有
+        if (a == void 0 || b == void 0) {
+            return false;
+        }
+        // 类型不同
+        if (typeof a !== typeof b) {
+            return false;
+        }
+        // 基本类型直接比较
+        if (typeof a !== "object") {
+            return a === b;
+        }
+        // 构造函数不同
+        if (a.constructor !== b.constructor) {
+            return false;
+        }
+
+        // 处理各种对象类型
+        if (a.constructor === cc.Vec3) {
+            const va = a as cc.Vec3;
+            const vb = b as cc.Vec3;
+            return va.x === vb.x && va.y === vb.y && va.z === vb.z;
+        }
+        if (a.constructor === cc.Vec2) {
+            const va = a as cc.Vec2;
+            const vb = b as cc.Vec2;
+            return va.x === vb.x && va.y === vb.y;
+        }
+        if (a.constructor === cc.Color) {
+            const ca = a as cc.Color;
+            const cb = b as cc.Color;
+            return ca.r === cb.r && ca.g === cb.g && ca.b === cb.b && ca.a === cb.a;
+        }
+        if (a.constructor === cc.Size) {
+            const sa = a as cc.Size;
+            const sb = b as cc.Size;
+            return sa.width === sb.width && sa.height === sb.height;
+        }
+        if (a.constructor === cc.Quat) {
+            const qa = a as cc.Quat;
+            const qb = b as cc.Quat;
+            return qa.x === qb.x && qa.y === qb.y && qa.z === qb.z && qa.w === qb.w;
+        }
+
+        // Asset对象比较引用
+        if (a instanceof cc.Asset) {
+            return a === b;
+        }
+
+        // 其他对象尝试JSON比较
+        try {
+            return JSON.stringify(a) === JSON.stringify(b);
+        }
+        catch {
+            return false;
+        }
+    }
+
+    /**
+     * IMPL-004.9: 克隆属性值
+     * 返回值的深拷贝
+     */
+    public cloneValue(value: TPropValue): TPropValue {
+        if (value == void 0) {
+            return value;
+        }
+
+        // 基本类型直接返回
+        if (typeof value !== "object") {
+            return value;
+        }
+
+        // 处理各种对象类型
+        if (value.constructor === cc.Vec3) {
+            const v = value as cc.Vec3;
+            return cc.v3(v.x, v.y, v.z);
+        }
+        if (value.constructor === cc.Vec2) {
+            const v = value as cc.Vec2;
+            return cc.v2(v.x, v.y);
+        }
+        if (value.constructor === cc.Color) {
+            const c = value as cc.Color;
+            return cc.color(c.r, c.g, c.b, c.a);
+        }
+        if (value.constructor === cc.Size) {
+            const s = value as cc.Size;
+            return cc.size(s.width, s.height);
+        }
+        if (value.constructor === cc.Quat) {
+            const q = value as cc.Quat;
+            const result = new cc.Quat();
+            result.set(q);
+            return result;
+        }
+
+        // Asset对象保留引用
+        if (value instanceof cc.Asset) {
+            return value;
+        }
+
+        // 其他对象尝试JSON克隆
+        try {
+            return JSON.parse(JSON.stringify(value));
+        }
+        catch {
+            return value;
+        }
+    }
+
+    /**
+     * IMPL-004.9: 格式化属性值为字符串
+     * 用于日志输出
+     */
+    public formatValue(value: TPropValue): string {
+        if (value == void 0) {
+            return "undefined";
+        }
+
+        if (typeof value !== "object") {
+            return String(value);
+        }
+
+        if (value.constructor === cc.Vec3) {
+            const v = value as cc.Vec3;
+            return `Vec3(${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)})`;
+        }
+        if (value.constructor === cc.Vec2) {
+            const v = value as cc.Vec2;
+            return `Vec2(${v.x.toFixed(2)}, ${v.y.toFixed(2)})`;
+        }
+        if (value.constructor === cc.Color) {
+            const c = value as cc.Color;
+            return `Color(${c.r}, ${c.g}, ${c.b}, ${c.a})`;
+        }
+        if (value.constructor === cc.Size) {
+            const s = value as cc.Size;
+            return `Size(${s.width.toFixed(2)}, ${s.height.toFixed(2)})`;
+        }
+        if (value.constructor === cc.Quat) {
+            const q = value as cc.Quat;
+            return `Quat(${q.x.toFixed(3)}, ${q.y.toFixed(3)}, ${q.z.toFixed(3)}, ${q.w.toFixed(3)})`;
+        }
+
+        if (value instanceof cc.Asset) {
+            return `Asset(${(value as cc.Asset).name || "unnamed"})`;
+        }
+
+        try {
+            return JSON.stringify(value);
+        }
+        catch {
+            return "[object]";
+        }
+    }
+
+    // ============== END IMPL-004 ==============
 
     /** 选择最佳控制器用于承接 */
     private selectBestController(newCtrls: StateController[], oldCtrl: StateController): StateController {
@@ -1315,8 +1855,16 @@ export class StateSelect extends cc.Component {
         return this._ctrlData[targetCtrlId];
     }
 
-    /** 获取某个状态的属性数据 */
+    /**
+     * IMPL-005.7: 获取某个状态的属性数据（兼容新结构）
+     * 保持原有API，内部触发数据迁移
+     */
     private getPropData(state?: number, ctrlId?: number): TProp {
+        // IMPL-005: 自动触发数据迁移
+        if (!this._migrationComplete && CC_EDITOR) {
+            this.migrateFromLegacyData();
+        }
+
         const pageData = this.getPageData(ctrlId);
         const targetState = state != void 0 ? state : this.ctrlState;
         if (pageData[targetState] == void 0) {
@@ -2036,6 +2584,90 @@ export class StateSelect extends cc.Component {
         // 嵌套 CCClass 的 setter 触发后，inspector 只刷新子对象区域
         // 需要强制刷新整个 inspector 以使 propValue 可见性变更生效
         // this.forceRefreshInspector();
+    }
+
+    /** 🔧 智能属性推断：扫描节点所有可用的属性 */
+    public scanAvailableProperties(): EnumPropName[] {
+        if (!this.node || !this.node.isValid) {
+            return [];
+        }
+
+        const availableProps: EnumPropName[] = [];
+
+        // 遍历所有属性类型（跳过 Non=0）
+        for (const propKey in EnumPropName) {
+            const propType = parseInt(propKey);
+            if (isNaN(propType) || propType === EnumPropName.Non) {
+                continue;
+            }
+
+            // 检查属性是否可用
+            if (this.isPropertyAvailable(propType as EnumPropName)) {
+                availableProps.push(propType as EnumPropName);
+            }
+        }
+
+        StateErrorManager.info("扫描可用属性完成", {
+            component: "StateSelect",
+            method: "scanAvailableProperties",
+            params: { count: availableProps.length, props: availableProps.map(p => EnumPropName[p]) },
+        });
+
+        return availableProps;
+    }
+
+    /** 🔧 智能属性推断：一键配置所有可用属性 */
+    public autoConfigureAllProperties(): { enabled: number; skipped: number; failed: number } {
+        if (!CC_EDITOR) {
+            return { enabled: 0, skipped: 0, failed: 0 };
+        }
+
+        StateErrorManager.info("开始一键配置所有可用属性", {
+            component: "StateSelect",
+            method: "autoConfigureAllProperties",
+        });
+
+        const result = { enabled: 0, skipped: 0, failed: 0 };
+        const availableProps = this.scanAvailableProperties();
+
+        for (const propType of availableProps) {
+            // 跳过已控制的属性
+            if (this.isPropertyControlled(propType)) {
+                result.skipped++;
+                continue;
+            }
+
+            // 启用属性控制
+            try {
+                this.togglePropertyControl(propType, true);
+                result.enabled++;
+
+                StateErrorManager.debug("属性已自动启用", {
+                    component: "StateSelect",
+                    method: "autoConfigureAllProperties",
+                    params: { propType: EnumPropName[propType] },
+                });
+            }
+            catch (error) {
+                result.failed++;
+                StateErrorManager.warn("属性启用失败", {
+                    component: "StateSelect",
+                    method: "autoConfigureAllProperties",
+                    params: { propType: EnumPropName[propType], error: error.message },
+                });
+            }
+        }
+
+        // 刷新编辑器界面
+        this.forceRefreshInspector();
+
+        StateErrorManager.info("一键配置完成", {
+            component: "StateSelect",
+            method: "autoConfigureAllProperties",
+            params: result,
+        });
+
+        return result;
     }
 
     /** 🔧 架构重构：添加属性控制（分离控制状态和数据状态） */

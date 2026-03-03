@@ -1,4 +1,4 @@
-import { StateSelect } from "../StateSelect";
+import { StateSelect } from "../../Controller/StateSelect";
 
 const { ccclass, property } = cc._decorator;
 
@@ -65,5 +65,20 @@ export class StateToolsProps {
 
     public set reloadController(v: boolean) {
         if (this.owner && CC_EDITOR && v) this.owner.manualReloadController();
+    }
+
+    @property({
+        displayName: "⚡ 一键配置属性",
+        tooltip: "自动扫描节点所有可用属性并一键启用控制\n\n用途：快速配置所有可控制的属性，包括节点基础属性和组件属性",
+    })
+    public get autoConfigureProps() {
+        return false;
+    }
+
+    public set autoConfigureProps(v: boolean) {
+        if (this.owner && CC_EDITOR && v) {
+            const result = this.owner.autoConfigureAllProperties();
+            Editor.log(`[StateController] 一键配置完成: 启用=${result.enabled}, 跳过=${result.skipped}, 失败=${result.failed}`);
+        }
     }
 }

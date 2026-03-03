@@ -1,7 +1,7 @@
 import { EnumPropName } from "../StateEnum";
 import { StateSelect } from "../StateSelect";
 
-const { ccclass, menu, property, executeInEditMode } = cc._decorator;
+const { ccclass, property } = cc._decorator;
 /** Widget 属性分组 - inspector 中显示为可折叠区域 */
 @ccclass("StateWidgetProps")
 export class StateWidgetProps {

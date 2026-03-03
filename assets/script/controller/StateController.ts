@@ -6,9 +6,9 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
-import { StateErrorManager } from "./StateErrorManager";
-import { StateSelect } from "./StateSelect";
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "../Controller/StateEnum";
+import { StateErrorManager } from "../Controller/StateErrorManager";
+import { StateSelect } from "../Controller/StateSelect";
 
 cc.Enum(EnumStateName);
 cc.Enum(InspectorRefreshMode);
@@ -253,7 +253,13 @@ export class StateController extends cc.Component {
 
         // 🔧 首先检查并初始化所有未正确初始化的状态对象
         for (let index = 0; index < newLen; index++) {
-            if (!value[index] || value[index].name === undefined || value[index].stateId === undefined) {
+            // 🔧 新增的状态由编辑器默认构造，name为""且stateId为0（未分配），需要正确初始化
+            const isUninitialized =
+                !value[index] ||
+                value[index].name === undefined ||
+                value[index].stateId === undefined ||
+                (value[index].name === "" && value[index].stateId === 0 && index >= oldLen);
+            if (isUninitialized) {
                 // 🔧 使用智能命名方法生成状态名字
                 const smartStateName = this.getSmartStateName(index);
                 const newStateId = this.stateIdAuto++;
@@ -977,7 +983,7 @@ export class StateController extends cc.Component {
     }
 
     /** 🔧 新增：防抖定时器 */
-    private _refreshTimer: number = null;
+    private _refreshTimer: ReturnType<typeof setTimeout> = null;
 
     /** 🔧 新增：待刷新标记 */
     private _pendingRefresh: boolean = false;

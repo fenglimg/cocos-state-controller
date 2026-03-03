@@ -14,3 +14,7 @@ coverage/
 
 # Generated files
 *.d.ts
+
+# Cocos Creator generated files
+library/
+local/
