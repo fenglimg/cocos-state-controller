@@ -4,7 +4,7 @@
   "priority": "P1",
   "effort": "2-3天",
   "risk": "低",
-  "status": "pending",
+  "status": "completed",
   "phase": 3,
   "milestone": "M3: 编辑器集成",
   "goal": "实现源码安装的核心功能",
@@ -57,5 +57,7 @@
     "文件复制支持覆盖和备份",
     "安装验证检测所有必需文件"
   ],
-  "dependencies": ["IMPL-007"]
+  "dependencies": [
+    "IMPL-007"
+  ]
 }

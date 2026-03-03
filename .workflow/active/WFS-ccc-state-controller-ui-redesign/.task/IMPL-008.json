@@ -1,0 +1,184 @@
+{
+  "id": "IMPL-008",
+  "title": "Visual Validation and Accessibility Verification",
+  "description": "Perform final visual validation of the redesigned panel UI. Verify all CSS variables are correctly applied, check 4.5:1 contrast ratios for text elements, ensure smooth transitions (150-300ms), and confirm all element IDs and event listeners are preserved. Document any issues found.",
+  "status": "completed",
+  "type": "test-gen",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Verify",
+  "depends_on": [
+    "IMPL-007"
+  ],
+  "focus_paths": [
+    "packages/ccc-state-controller/panel/index.js"
+  ],
+  "convergence": {
+    "criteria": [
+      "All 17 element IDs preserved: #status-card, #status-icon, #status-text, #status-detail, #target-path, #browse-btn, #core-version, #installed-version, #available-version, #install-btn, #update-btn, #reinstall-btn, #uninstall-btn, #progress-container, #progress-fill, #progress-text, #log-container",
+      "All 5 $ bindings preserved in $ object: statusCard, statusIcon, statusText, statusDetail, targetPath, browseBtn, coreVersion, installedVersion, availableVersion, installBtn, updateBtn, reinstallBtn, uninstallBtn, progressContainer, progressFill, progressText, logContainer",
+      "All 5 confirm event listeners preserved via addEventListener in _bindEvents method",
+      "All transitions within 150-300ms range",
+      "No JavaScript errors in panel initialization",
+      "Visual consistency across all states (installed, not-installed, update-available, error)"
+    ],
+    "verification": "grep -c '\\$:' packages/ccc-state-controller/panel/index.js >= 17 && grep -c 'addEventListener' packages/ccc-state-controller/panel/index.js >= 5 && grep -c 'id=\"' packages/ccc-state-controller/panel/index.js >= 17",
+    "definition_of_done": "Panel UI redesign complete with verified accessibility and preserved functionality"
+  },
+  "files": [
+    {
+      "path": "packages/ccc-state-controller/panel/index.js",
+      "action": "modify",
+      "change": "Final adjustments and verification comments if needed"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Verify element IDs preserved",
+      "description": "Confirm all HTML element IDs are intact",
+      "modification_points": [
+        "Check 17 element IDs exist in template property",
+        "Verify $ bindings match element IDs",
+        "Confirm no ID changes"
+      ],
+      "logic_flow": [
+        "Extract all id='...' attributes from template",
+        "Compare with $ object bindings",
+        "Report any mismatches"
+      ],
+      "depends_on": [],
+      "output": "id_verification"
+    },
+    {
+      "step": 2,
+      "title": "Verify event listeners preserved",
+      "description": "Confirm all addEventListener calls and $ bindings are intact",
+      "modification_points": [
+        "Check 5 confirm event listeners in _bindEvents method using addEventListener",
+        "Verify 17 $ object bindings match element IDs",
+        "Verify IPC message handlers in messages object",
+        "Confirm no event binding changes"
+      ],
+      "logic_flow": [
+        "Count addEventListener calls in _bindEvents",
+        "Verify $ object has all 17 bindings",
+        "Verify each button has confirm listener",
+        "Verify IPC message handlers"
+      ],
+      "depends_on": [
+        1
+      ],
+      "output": "event_verification"
+    },
+    {
+      "step": 3,
+      "title": "Accessibility and transition verification",
+      "description": "Verify contrast ratios and transition timing",
+      "modification_points": [
+        "Check --primary-color (#22C55E) contrast on --bg-primary (#0F172A): should be >= 4.5:1",
+        "Check --text-primary (#F8FAFC) contrast on --bg-primary: should be >= 4.5:1",
+        "Verify all transitions use --transition-fast (100ms), --transition-normal (150ms), or --transition-slow (250ms)"
+      ],
+      "logic_flow": [
+        "Calculate contrast ratios for key color pairs",
+        "Verify all transitions are within 150-300ms range",
+        "Document any accessibility issues"
+      ],
+      "depends_on": [
+        2
+      ],
+      "output": "accessibility_verification"
+    },
+    {
+      "step": 4,
+      "title": "Document final state",
+      "description": "Update planning-notes.md with N+1 context",
+      "modification_points": [
+        "Record design decisions in N+1 Context section",
+        "Document any deferred items",
+        "Note verification results"
+      ],
+      "logic_flow": [
+        "Update planning-notes.md",
+        "Record CSS variable approach decision",
+        "Document completion status"
+      ],
+      "depends_on": [
+        3
+      ],
+      "output": "documentation_complete"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": [
+        "Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"
+      ],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "extract_element_ids",
+      "action": "Extract all element IDs from template",
+      "commands": [
+        "bash(grep -oE 'id=\"[^\"]+\"' packages/ccc-state-controller/panel/index.js | sort -u)"
+      ],
+      "output_to": "element_ids"
+    },
+    {
+      "step": "count_event_listeners",
+      "action": "Count addEventListener calls and $ bindings",
+      "commands": [
+        "bash(grep -c 'addEventListener' packages/ccc-state-controller/panel/index.js)",
+        "bash(grep -c '\\$:' packages/ccc-state-controller/panel/index.js)"
+      ],
+      "output_to": "event_and_binding_counts"
+    }
+  ],
+  "artifacts": [],
+  "inherited": {
+    "from": "IMPL-007",
+    "context": [
+      "Complete CSS variable migration with zero hardcoded values"
+    ]
+  },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-008",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-007"
+  },
+  "meta": {
+    "type": "test-gen",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    },
+    "test_framework": "manual",
+    "coverage_target": "100% visual coverage"
+  },
+  "reference": {
+    "accessibility": "WCAG AA 4.5:1 contrast ratio",
+    "transition_timing": "150-300ms for micro-interactions"
+  },
+  "rationale": {
+    "final_verification": "Ensures redesign meets all quality and accessibility requirements"
+  },
+  "risks": [
+    "Manual visual inspection required in Cocos Creator"
+  ],
+  "test": {
+    "reusable_tools": [],
+    "commands": {
+      "run_tests": "Manual: Open panel in Cocos Creator 2.x and verify visual appearance",
+      "verify_ids": "grep -c 'id=\"' packages/ccc-state-controller/panel/index.js",
+      "verify_events": "grep -c 'addEventListener' packages/ccc-state-controller/panel/index.js"
+    }
+  }
+}

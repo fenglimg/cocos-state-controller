@@ -1,0 +1,225 @@
+{
+  "project_structure": "Cocos Creator 2.x extension project with three main packages: ccc-state-controller (installer extension with panel UI), ccc-state-controller-core (TypeScript game logic), and ccc-smart-component-manager (reference implementation). Test environment is isolated in tests/ directory with separate node_modules. Extension packages follow Cocos Creator 2.x pattern: main.js for IPC handlers, panel/index.js for UI, src/ for business logic.",
+  "relevant_files": [
+    {
+      "path": "packages/ccc-state-controller/main.js",
+      "relevance": 0.95,
+      "rationale": "Central IPC message hub that coordinates communication between Cocos Editor and panel UI. Contains all message handlers (install, update, uninstall, get-status) that bridge the installer module with the Editor API.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "messages['ccc-state-controller:install']",
+          "location": "L199-L239",
+          "description": "IPC handler for installation, calls installer.install() and sends progress updates via Editor.Ipc.sendToPanel"
+        },
+        {
+          "symbol": "Editor.Ipc.sendToAll('assets:refresh')",
+          "location": "L89, L115, L234",
+          "description": "Critical integration point that refreshes Cocos Editor asset database after file operations"
+        }
+      ],
+      "topic_relation": "Integration-points exploration identifies this as the main coordinator between Cocos Creator Editor API (Editor.Panel, Editor.Ipc, Editor.Dialog) and the installer business logic"
+    },
+    {
+      "path": "packages/ccc-state-controller/panel/index.js",
+      "relevance": 0.90,
+      "rationale": "Panel UI implementation using Editor.Panel.extend() pattern. Contains IPC client code that communicates with main.js via Editor.Ipc.sendToMain. This is the target for ui-ux-pro-max refactoring.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "Editor.Ipc.sendToMain('ccc-state-controller:init-panel')",
+          "location": "L432-L454",
+          "description": "Panel initialization via IPC - receives corePath, targetPath, and coreVersion from main process"
+        },
+        {
+          "symbol": "Editor.Panel.extend({ style, template, $, ready, messages })",
+          "location": "L7-L780",
+          "description": "Cocos Creator 2.x panel extension pattern with CSS, HTML template, element bindings, and IPC message handlers"
+        }
+      ],
+      "topic_relation": "Integration-points exploration targets this file for UI refactoring - it uses Editor.Panel.extend pattern which must be preserved while improving UX with ui-ux-pro-max guidelines"
+    },
+    {
+      "path": "packages/ccc-state-controller/src/installer/index.js",
+      "relevance": 0.85,
+      "rationale": "Core installer business logic module that exports install/update/validate/rollback functions. Called by main.js IPC handlers. Must be covered by unit tests.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "install(corePackagePath, targetDir, options)",
+          "location": "L33-L121",
+          "description": "Main installation function orchestrating versionManager, fileCopier, and validator modules"
+        },
+        {
+          "symbol": "getStatus(targetDir)",
+          "location": "L219-L245",
+          "description": "Returns installation status with version, files list, and validation state"
+        }
+      ],
+      "topic_relation": "Integration-points exploration identifies this as the business logic layer that connects installer modules (version-manager, file-copier, validator) with the extension IPC layer"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/installer.test.js",
+      "relevance": 0.88,
+      "rationale": "Existing integration test suite for installer module with 5 test suites (fresh install, version update, validation, rollback, edge cases). Provides pattern for unit test structure.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "createTestContext(scenarioName)",
+          "location": "L98-L110",
+          "description": "Test context factory creating isolated test directories with mock-core and target folders"
+        },
+        {
+          "symbol": "REQUIRED_FILES array",
+          "location": "L23-L33",
+          "description": "Defines files to validate during installation tests - shared constant with validator.js"
+        }
+      ],
+      "topic_relation": "Integration-points exploration uses this as reference pattern for test structure, helper functions, and mock creation approach"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/utils/test-helper.js",
+      "relevance": 0.80,
+      "rationale": "Test utility module providing mock creation (createMockCore, createMockInstallation), assertions, and file operations. Essential for writing new tests.",
+      "role": "dependency",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "createMockCore(targetDir, options)",
+          "location": "L55-L112",
+          "description": "Creates mock core package structure matching actual core package for isolated testing"
+        },
+        {
+          "symbol": "assertSuccess(result, message)",
+          "location": "L208-L213",
+          "description": "Assertion helper that filters warning messages from errors array when checking success"
+        }
+      ],
+      "topic_relation": "Integration-points exploration identifies this as the test infrastructure connecting test files with mock file system operations"
+    },
+    {
+      "path": "packages/ccc-state-controller-core/tests/StateController.test.ts",
+      "relevance": 0.75,
+      "rationale": "Existing unit test for StateController core component using Jest with Cocos Creator mock environment. Demonstrates mocking pattern for cc namespace and Editor global.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "beforeAll(() => { global.cc = {...}; global.Editor = {...} })",
+          "location": "L48-L85",
+          "description": "Mock environment setup for Cocos Creator cc namespace and Editor global object"
+        },
+        {
+          "symbol": "describe('BFS Cache Mechanism', () => {...})",
+          "location": "L275-L407",
+          "description": "Example of testing cache invalidation and rebuild patterns in StateController"
+        }
+      ],
+      "topic_relation": "Integration-points exploration uses this as reference for Jest test patterns with Cocos Creator mocking in isolated test environment"
+    },
+    {
+      "path": "tests/jest.config.local.js",
+      "relevance": 0.70,
+      "rationale": "Jest configuration for isolated test environment in tests/ directory. Defines moduleNameMapper for assets/* paths and setupFiles for Cocos environment mocking.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "moduleNameMapper: { '^assets/(.*)$': '<rootDir>/../assets/$1' }",
+          "location": "L26-L29",
+          "description": "Maps assets/* imports to project root assets directory for test resolution"
+        },
+        {
+          "symbol": "setupFiles: ['jest-canvas-mock', 'env/cocos2d-js-for-preview.js', 'env/setup-cocos.ts']",
+          "location": "L50-L54",
+          "description": "Test environment setup files for Cocos Creator API mocking"
+        }
+      ],
+      "topic_relation": "Integration-points exploration identifies this as the test configuration connecting Jest runner with Cocos Creator mock environment"
+    },
+    {
+      "path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "relevance": 0.65,
+      "rationale": "UI/UX design skill with comprehensive guidelines for accessibility, touch interactions, performance, layout, and typography. Will be used to refactor panel UI.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "python3 scripts/search.py '<query>' --design-system",
+          "location": "L137-L150",
+          "description": "CLI command to generate complete design system with pattern, style, colors, typography"
+        },
+        {
+          "symbol": "Pre-Delivery Checklist",
+          "location": "L344-L378",
+          "description": "Checklist for visual quality, interaction, light/dark mode, layout, and accessibility before delivery"
+        }
+      ],
+      "topic_relation": "Integration-points exploration identifies this skill as the design system source for UI refactoring task - provides styles, colors, and UX guidelines"
+    },
+    {
+      "path": "packages/ccc-smart-component-manager/panel/logic.js",
+      "relevance": 0.55,
+      "rationale": "Reference implementation of panel logic using similar patterns (i18n-helper, data-manager, logger). Shows how another extension handles panel state and Editor integration.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "ready() { ... this.setupGlobalKeyboardShortcuts() }",
+          "location": "L74-L148",
+          "description": "Panel initialization pattern with debounce control, keyboard shortcuts, and theme application"
+        }
+      ],
+      "topic_relation": "Integration-points exploration uses this as reference for panel patterns including i18n integration, data management, and keyboard handling"
+    }
+  ],
+  "patterns": "1. **Extension IPC Pattern**: main.js exports messages object with handlers; panel communicates via Editor.Ipc.sendToMain/sendToPanel. 2. **Panel Extension Pattern**: Editor.Panel.extend({style, template, $, ready, messages}) for Cocos Creator 2.x. 3. **Test Isolation Pattern**: tests/ directory has own node_modules, jest.config maps assets/* to parent directory. 4. **Mock Creation Pattern**: test-helper.js provides createMockCore/createMockInstallation for file system mocking. 5. **Cocos Mock Pattern**: beforeAll sets up global.cc and global.Editor objects with jest.fn() mocks.",
+  "dependencies": "1. **External**: Cocos Creator 2.x Editor API (Editor.Panel, Editor.Ipc, Editor.Dialog, Editor.Project). 2. **Internal**: installer module (version-manager, file-copier, validator). 3. **Test**: jest, ts-jest, jest-canvas-mock (isolated in tests/node_modules). 4. **UI**: ui-ux-pro-max skill (Python scripts for design system generation). 5. **Core Package**: ccc-state-controller-core provides TypeScript source files installed to projects.",
+  "integration_points": "1. **Editor.Ipc** (main.js L89, L207, L234, L253, L270, L290, L327, L339): Main-to-panel and main-to-all communication for progress updates and asset refresh. 2. **Editor.Panel.open** (main.js L69): Opens installer panel from menu. 3. **Editor.Dialog.showOpenDialog** (main.js L166-L176): Directory selection dialog integration. 4. **Editor.Project.path / Editor.projectInfo.path** (main.js L18-L23): Project path resolution for default installation target. 5. **fs / path** (installer/index.js): Node.js file system operations for copy/validate/uninstall. 6. **Panel-to-Main IPC** (panel/index.js L432, L459, L482, L521, L552, L585, L612): Panel sends requests to main.js handlers. 7. **Test-to-Source Mapping** (jest.config.local.js L27): moduleNameMapper connects tests/assets/* imports to actual source files.",
+  "constraints": "1. **Cocos Creator 2.x Compatibility**: Must use Editor.Panel.extend pattern, cannot use modern frameworks. 2. **Extension Runtime**: Panel runs in Electron renderer context with Node.js integration. 3. **Test Isolation**: Tests run in jsdom environment with mocked Cocos API, not real Editor. 4. **IPC Async**: All Editor.Ipc calls are asynchronous with callback pattern. 5. **File System Access**: Main process has full fs access, panel has limited access via IPC. 6. **UI Framework**: Panel uses native Cocos UI elements (ui-input, ui-button) not standard HTML. 7. **Version File Format**: .ccc-state-controller-version stores semantic version string (x.y.z).",
+  "clarification_needs": [
+    {
+      "question": "Should the panel UI refactoring preserve the existing Editor.Panel.extend pattern or consider alternative approaches?",
+      "context": "The current panel uses Cocos Creator 2.x native pattern with inline CSS and template strings. ui-ux-pro-max provides modern design guidelines but the technical constraints require Cocos compatibility.",
+      "options": [
+        "Preserve Editor.Panel.extend pattern, apply ui-ux-pro-max only to CSS styling and layout improvements",
+        "Refactor to use a build step (like ccc-smart-component-manager/panel/build.js) to separate logic from template",
+        "Minimal changes - only fix accessibility and contrast issues without structural refactoring"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "What level of unit test coverage is expected for the installer module?",
+      "context": "Currently tests/installer.test.js covers integration scenarios. packages/ccc-state-controller-core/tests/ shows Jest unit test patterns. Need to clarify scope for test coverage task.",
+      "options": [
+        "Full coverage: Add unit tests for each installer module (version-manager, file-copier, validator) separately",
+        "Integration focus: Expand existing installer.test.js with more edge cases and error scenarios",
+        "Critical path only: Focus tests on install/update/validate core workflows"
+      ],
+      "recommended": 2
+    },
+    {
+      "question": "Should test infrastructure be shared between packages/ccc-state-controller and packages/ccc-state-controller-core?",
+      "context": "Currently ccc-state-controller has tests/ with own jest setup, ccc-state-controller-core has tests/ with different patterns. Tests also exist in root tests/ for game logic.",
+      "options": [
+        "Consolidate all tests into root tests/ directory with shared configuration",
+        "Keep package-specific tests separate but share test utilities (mock helpers, assertions)",
+        "Maintain complete separation - each package has independent test setup"
+      ],
+      "recommended": 1
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-03-03T15:30:00.000Z",
+    "task_description": "优化 ccc-state-controller 项目：1) 参考 tests/ 目录结构完善单元测试覆盖 2) 使用 ui-ux-pro-max 重构 packages/ccc-state-controller 面板UI",
+    "source": "cli-explore-agent",
+    "exploration_angle": "integration-points",
+    "exploration_index": 2,
+    "total_explorations": 3,
+    "duration_seconds": 120
+  }
+}

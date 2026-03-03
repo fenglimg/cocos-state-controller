@@ -1,0 +1,239 @@
+{
+  "id": "IMPL-001",
+  "title": "Expand Installer Module Unit Tests",
+  "description": "Implement comprehensive unit tests for installer sub-modules (version-manager, file-copier, validator) following TESTING_GUIDE.md patterns. Target: Add 45+ test cases covering all public methods, edge cases, and error handling paths. Tests should follow Pure Logic Strategy with Jest mocks for file system operations.",
+  "status": "completed",
+  "type": "test-gen",
+  "scope": "packages/ccc-state-controller/src/installer",
+  "action": "Create",
+  "depends_on": [],
+  "focus_paths": [
+    "packages/ccc-state-controller/src/installer/version-manager.js",
+    "packages/ccc-state-controller/src/installer/file-copier.js",
+    "packages/ccc-state-controller/src/installer/validator.js",
+    "packages/ccc-state-controller/tests/"
+  ],
+  "convergence": {
+    "criteria": [
+      "3 new test files created: version-manager.test.js, file-copier.test.js, validator.test.js",
+      "45+ test cases total across all 3 modules",
+      "All tests pass: npm test -- installer (exit code 0)",
+      "Coverage >= 80% for each module: npm test -- --coverage"
+    ],
+    "verification": "ls packages/ccc-state-controller/tests/*.test.js | wc -l = 4 && npm test -- installer 2>&1 | grep 'passed'",
+    "definition_of_done": "All installer sub-modules have comprehensive unit test coverage following TESTING_GUIDE.md patterns"
+  },
+  "files": [
+    {
+      "path": "packages/ccc-state-controller/tests/version-manager.test.js",
+      "action": "create",
+      "change": "New test file for version-manager module (15+ test cases)"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/file-copier.test.js",
+      "action": "create",
+      "change": "New test file for file-copier module (15+ test cases)"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/validator.test.js",
+      "action": "create",
+      "change": "New test file for validator module (15+ test cases)"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Create version-manager.test.js",
+      "description": "Implement unit tests for version-manager module covering compareVersions, readPackageVersion, readVersionFile, writeVersionFile, checkForUpdate, getInstalledVersion, setInstalledVersion, getCorePackageVersion",
+      "modification_points": [
+        "Create 1 test file: tests/version-manager.test.js",
+        "Implement 15+ test cases organized in describe blocks: Lifecycle/Singleton, Core Logic, State Management, Edge Cases",
+        "Mock fs.existsSync, fs.readFileSync, fs.writeFileSync for file operations",
+        "Test version comparison: 1.0.0 vs 1.0.1, 1.0.0 vs 2.0.0, equal versions, null versions"
+      ],
+      "logic_flow": [
+        "Load TESTING_GUIDE.md patterns for Pure Logic Strategy",
+        "Create test file with jest.mock('fs') before imports",
+        "Add describe blocks for each function category",
+        "Implement test cases with beforeEach for mock reset",
+        "Add edge case tests for null, undefined, invalid version formats"
+      ],
+      "depends_on": [],
+      "output": "version_manager_tests"
+    },
+    {
+      "step": 2,
+      "title": "Create file-copier.test.js",
+      "description": "Implement unit tests for file-copier module covering copyFile, copyDirectory, restoreBackup, cleanBackups, installCorePackage",
+      "modification_points": [
+        "Create 1 test file: tests/file-copier.test.js",
+        "Implement 15+ test cases for file operations",
+        "Mock fs methods: existsSync, copyFileSync, mkdirSync, readdirSync, unlinkSync",
+        "Test scenarios: file not found, overwrite=false, backup creation, recursive directory copy"
+      ],
+      "logic_flow": [
+        "Mock fs module with jest.mock before import",
+        "Create describe blocks: copyFile, copyDirectory, restoreBackup, cleanBackups",
+        "Test backup path generation with timestamp",
+        "Test recursive directory copying with exclude patterns",
+        "Test error handling for permission denied, disk full scenarios"
+      ],
+      "depends_on": [
+        1
+      ],
+      "output": "file_copier_tests"
+    },
+    {
+      "step": 3,
+      "title": "Create validator.test.js",
+      "description": "Implement unit tests for validator module covering validateFile, validateTypeScriptFile, validateInstallation, validateVersionFile, validateFullInstallation, getInstalledFiles, checkInstallationStatus",
+      "modification_points": [
+        "Create 1 test file: tests/validator.test.js",
+        "Implement 15+ test cases for validation logic",
+        "Mock fs for file existence and content checks",
+        "Test REQUIRED_FILES array validation, version format validation"
+      ],
+      "logic_flow": [
+        "Mock fs module before import",
+        "Create describe blocks for each validation function",
+        "Test file validation: exists, isFile, not empty",
+        "Test TypeScript validation: has exports, no syntax error markers",
+        "Test version file validation: valid semver format",
+        "Test getInstalledFiles recursive file discovery"
+      ],
+      "depends_on": [
+        1
+      ],
+      "output": "validator_tests"
+    },
+    {
+      "step": 4,
+      "title": "Verify all tests pass",
+      "description": "Run all installer tests and verify coverage thresholds",
+      "modification_points": [
+        "Run npm test -- installer to execute all installer tests",
+        "Verify 45+ total test cases across 4 test files (existing + 3 new)",
+        "Check coverage report for >= 80% on each module"
+      ],
+      "logic_flow": [
+        "Execute test suite",
+        "Review test output for any failures",
+        "Generate coverage report",
+        "Fix any failing tests or coverage gaps"
+      ],
+      "depends_on": [
+        2,
+        3
+      ],
+      "output": "test_verification"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package for artifact paths and smart context",
+      "commands": [
+        "Read(.workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json)"
+      ],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_testing_guide",
+      "action": "Load TESTING_GUIDE.md for canonical test patterns",
+      "commands": [
+        "Read(tests/TESTING_GUIDE.md)"
+      ],
+      "output_to": "testing_patterns",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_existing_tests",
+      "action": "Load existing installer.test.js and test-helper.js for pattern reference",
+      "commands": [
+        "Read(packages/ccc-state-controller/tests/installer.test.js)",
+        "Read(packages/ccc-state-controller/tests/utils/test-helper.js)"
+      ],
+      "output_to": "existing_test_patterns",
+      "on_error": "skip_optional"
+    },
+    {
+      "step": "load_source_modules",
+      "action": "Load installer source modules to understand function signatures",
+      "commands": [
+        "Read(packages/ccc-state-controller/src/installer/version-manager.js)",
+        "Read(packages/ccc-state-controller/src/installer/file-copier.js)",
+        "Read(packages/ccc-state-controller/src/installer/validator.js)"
+      ],
+      "output_to": "source_modules",
+      "on_error": "fail"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "synthesis_specification",
+      "source": "context_package",
+      "path": "tests/TESTING_GUIDE.md",
+      "priority": "highest",
+      "usage": "Canonical test patterns for Pure Logic Strategy, mock setup, describe organization"
+    }
+  ],
+  "inherited": {},
+  "context_package_path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-unit-test-and-ui-refactor-IMPL-001",
+    "strategy": "new"
+  },
+  "meta": {
+    "type": "test-gen",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    },
+    "test_framework": "jest",
+    "coverage_target": "80%"
+  },
+  "test": {
+    "reusable_tools": [
+      "packages/ccc-state-controller/tests/utils/test-helper.js"
+    ],
+    "commands": {
+      "run_tests": "npm test -- installer",
+      "run_coverage": "npm test -- --coverage --testPathPattern=installer",
+      "run_specific": "npm test -- {test_file}"
+    }
+  },
+  "reference": {
+    "testing_guide": "tests/TESTING_GUIDE.md",
+    "existing_tests": "packages/ccc-state-controller/tests/installer.test.js",
+    "test_helper": "packages/ccc-state-controller/tests/utils/test-helper.js"
+  },
+  "rationale": {
+    "test_count": "45+ cases ensures comprehensive coverage of all public methods and edge cases",
+    "module_priority": "version-manager first (no dependencies), then file-copier and validator (independent)"
+  },
+  "risks": [
+    "File system mocking complexity - mitigate by following existing test-helper.js patterns"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "in_progress",
+      "changed_at": "2026-03-03T16:00:00Z"
+    },
+    {
+      "from": "in_progress",
+      "to": "completed",
+      "changed_at": "2026-03-03T16:30:00Z"
+    },
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T05:29:29Z"
+    }
+  ]
+}

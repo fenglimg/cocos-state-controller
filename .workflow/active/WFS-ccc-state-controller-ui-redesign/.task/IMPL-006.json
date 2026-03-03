@@ -1,0 +1,133 @@
+{
+  "id": "IMPL-006",
+  "title": "Progress and Log Component Styling",
+  "description": "Refactor .progress-container, .progress-bar, .progress-fill, and .log-container styles with CSS variables. Update progress indicator colors from orange to green CTA. Update log entry colors with semantic tokens (info, success, error, warn).",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-005"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      ".progress-bar background uses var(--bg-tertiary)",
+      ".progress-fill background uses var(--primary-color)",
+      ".progress-text color uses var(--text-secondary)",
+      ".log-container background uses var(--bg-primary)",
+      ".log-entry.info color uses var(--info-color)",
+      ".log-entry.success color uses var(--success-color)",
+      ".log-entry.error color uses var(--error-color)",
+      ".log-entry.warn color uses var(--warning-color)"
+    ],
+    "verification": "grep -A10 '.progress-\\|.log-' packages/ccc-state-controller/panel/index.js | grep -c 'var(--' >= 6",
+    "definition_of_done": "Progress and log components use semantic color variables"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Update .progress-container, .progress-bar, .progress-fill, .log-container selectors (lines 211-279)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate progress container styles",
+      "description": "Update .progress-container and related selectors",
+      "modification_points": [
+        ".progress-bar: background: var(--bg-tertiary), border-radius: var(--radius-sm)",
+        ".progress-fill: background: var(--primary-color), transition: width var(--transition-slow)",
+        ".progress-text: color: var(--text-secondary), font-size: var(--font-size-sm)"
+      ],
+      "logic_flow": [
+        "Update progress bar background",
+        "Change progress fill from orange (#f90) to green (--primary-color)",
+        "Update text styling"
+      ],
+      "depends_on": [],
+      "output": "progress_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate log container styles",
+      "description": "Update .log-container base styles",
+      "modification_points": [
+        "Replace background-color: #2a2a2a with background: var(--bg-primary)",
+        "Replace border: 1px solid #444 with border: 1px solid var(--border-default)",
+        "Replace border-radius: 4px with var(--radius-md)",
+        "Replace padding: 8px with var(--spacing-2)",
+        "Update font-family to var(--font-mono)"
+      ],
+      "logic_flow": [
+        "Update log container background",
+        "Update border and radius",
+        "Update spacing and typography"
+      ],
+      "depends_on": [1],
+      "output": "log_container_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Migrate log entry semantic colors",
+      "description": "Update .log-entry variants with semantic color variables",
+      "modification_points": [
+        ".log-entry base: color: var(--text-secondary)",
+        ".log-entry.info: color: var(--info-color) (#5cc4ff)",
+        ".log-entry.success: color: var(--success-color) (#50e3a4)",
+        ".log-entry.error: color: var(--error-color) (#f45b6b)",
+        ".log-entry.warn: color: var(--warning-color) (#e8b83d)"
+      ],
+      "logic_flow": [
+        "Update base log entry color",
+        "Update each semantic variant",
+        "Verify color contrast for readability"
+      ],
+      "depends_on": [2],
+      "output": "log_entries_migrated"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "analyze_progress_log_styles",
+      "action": "Review current progress and log styling",
+      "commands": ["bash(grep -n -A8 '.progress-\\|.log-' packages/ccc-state-controller/panel/index.js)"],
+      "output_to": "progress_log_styles"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-005", "context": ["Status card system with semantic colors"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-006",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-005"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "color_mapping": {
+      "#f90 (progress)": "--primary-color (#22C55E)",
+      "#7af (info)": "--info-color (#5cc4ff)",
+      "#4a4 (success)": "--success-color (#50e3a4)",
+      "#c42 (error)": "--error-color (#f45b6b)",
+      "#fa0 (warn)": "--warning-color (#e8b83d)"
+    }
+  },
+  "rationale": {
+    "semantic_log_colors": "Log entries use semantic colors for quick visual parsing of message types"
+  },
+  "risks": [],
+  "test": {}
+}

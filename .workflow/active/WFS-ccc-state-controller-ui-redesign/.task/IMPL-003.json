@@ -1,0 +1,120 @@
+{
+  "id": "IMPL-003",
+  "title": "Input Component Styling",
+  "description": "Refactor ui-input component styles to use CSS variables. Update background, border, focus states, and transitions. Replace hardcoded colors (#3c3c3c, #555, #f90) with design tokens while maintaining Cocos Creator 2.x native component compatibility.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-002"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      "ui-input background-color uses var(--bg-elevated)",
+      "ui-input border uses var(--border-default)",
+      "ui-input:focus border-color uses var(--primary-color)",
+      "ui-input:focus box-shadow uses var(--primary-color) with opacity",
+      "Transition property uses var(--transition-fast)"
+    ],
+    "verification": "grep -A5 'ui-input' packages/ccc-state-controller/panel/index.js | grep -c 'var(--' >= 4",
+    "definition_of_done": "All ui-input styles migrated to CSS variables with proper focus states"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Update ui-input and .path-input-group selectors (lines 68-91)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate ui-input base styles",
+      "description": "Replace hardcoded colors in ui-input selector",
+      "modification_points": [
+        "Replace background-color: #3c3c3c with background: var(--bg-elevated)",
+        "Replace border: 1px solid #555 with border: 1px solid var(--border-default)",
+        "Replace color: #fff with color: var(--text-primary)",
+        "Add transition: border-color var(--transition-fast), background var(--transition-fast)"
+      ],
+      "logic_flow": [
+        "Locate ui-input selector",
+        "Replace each hardcoded color",
+        "Add transition for smooth hover/focus effects"
+      ],
+      "depends_on": [],
+      "output": "input_base_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate ui-input focus state",
+      "description": "Update focus styles with CSS variables and improve accessibility",
+      "modification_points": [
+        "Replace border-color: #f90 with border-color: var(--primary-color)",
+        "Replace box-shadow color with var(--primary-color) using 25% opacity",
+        "Ensure focus state provides visible feedback (4.5:1 contrast)"
+      ],
+      "logic_flow": [
+        "Locate ui-input:focus selector",
+        "Replace focus border color with --primary-color (green)",
+        "Update box-shadow to use --primary-color with rgba opacity"
+      ],
+      "depends_on": [1],
+      "output": "input_focus_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Update path input group",
+      "description": "Ensure .path-input-group uses consistent spacing",
+      "modification_points": [
+        "Replace gap: 8px with gap: var(--spacing-2)",
+        "Verify flex layout remains functional"
+      ],
+      "logic_flow": [
+        "Update gap to use spacing variable",
+        "Test visual alignment"
+      ],
+      "depends_on": [2],
+      "output": "path_input_migrated"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "analyze_input_styles",
+      "action": "Review current ui-input styling",
+      "commands": ["bash(grep -n -A10 '^    ui-input' packages/ccc-state-controller/panel/index.js)"],
+      "output_to": "input_styles"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-002", "context": ["Host and layout colors migrated to CSS variables"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-003",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-002"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "native_component": "Cocos Creator 2.x ui-input",
+    "events": ["value property", "placeholder property", "readonly property"]
+  },
+  "rationale": {
+    "focus_color": "Focus ring changed from orange to green for consistency with CTA color"
+  },
+  "risks": ["Must preserve ui-input native component functionality"],
+  "test": {}
+}

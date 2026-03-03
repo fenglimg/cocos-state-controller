@@ -1,0 +1,266 @@
+{
+  "id": "IMPL-004",
+  "title": "Add Edge Case and Error Handling Tests",
+  "description": "Expand test coverage for edge cases and error handling scenarios across installer modules. Add tests for: null/undefined inputs, file system errors (ENOENT, EACCES), network timeouts, corrupted files, partial installations. Follow TESTING_GUIDE.md quality assurance patterns including mutation testing checklist.",
+  "status": "completed",
+  "type": "test-gen",
+  "scope": "packages/ccc-state-controller/src/installer",
+  "action": "Modify",
+  "depends_on": [
+    "IMPL-001"
+  ],
+  "focus_paths": [
+    "packages/ccc-state-controller/tests/version-manager.test.js",
+    "packages/ccc-state-controller/tests/file-copier.test.js",
+    "packages/ccc-state-controller/tests/validator.test.js",
+    "packages/ccc-state-controller/tests/installer.test.js"
+  ],
+  "convergence": {
+    "criteria": [
+      "15+ new edge case tests added across all installer test files",
+      "Error handling tests cover: ENOENT, EACCES, ENOSPC, EINVAL",
+      "Null/undefined input tests for all public functions",
+      "Mutation testing checklist applied to critical functions"
+    ],
+    "verification": "grep -c 'describe.*Edge Case\\|describe.*Error' packages/ccc-state-controller/tests/*.test.js >= 8",
+    "definition_of_done": "All installer modules have comprehensive edge case and error handling coverage"
+  },
+  "files": [
+    {
+      "path": "packages/ccc-state-controller/tests/version-manager.test.js",
+      "action": "modify",
+      "change": "Add edge case tests: null versions, malformed semver, file read errors"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/file-copier.test.js",
+      "action": "modify",
+      "change": "Add error handling tests: ENOENT, EACCES, disk full, permission denied"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/validator.test.js",
+      "action": "modify",
+      "change": "Add edge case tests: empty files, corrupted content, missing directories"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/installer.test.js",
+      "action": "modify",
+      "change": "Add integration edge cases: partial install recovery, concurrent operations"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Add version-manager edge cases",
+      "description": "Add edge case tests for version-manager: null/undefined versions, malformed semver strings, file system errors",
+      "modification_points": [
+        "Add describe('Edge Cases') block with 5+ tests",
+        "Test compareVersions with null, undefined, empty string",
+        "Test malformed versions: '1', '1.0', '1.0.0.0', 'a.b.c'",
+        "Test file read errors: ENOENT, EACCES",
+        "Test version file with whitespace, BOM"
+      ],
+      "logic_flow": [
+        "Add new describe block to existing test file",
+        "Create test cases following TESTING_GUIDE.md patterns",
+        "Mock fs errors with mockImplementationOnce",
+        "Verify error handling returns null or appropriate default",
+        "Test boundary values: 0.0.0, 999.999.999"
+      ],
+      "depends_on": [],
+      "output": "version_edge_cases"
+    },
+    {
+      "step": 2,
+      "title": "Add file-copier error handling tests",
+      "description": "Add error handling tests for file-copier: file system errors, permission issues, disk space",
+      "modification_points": [
+        "Add describe('Error Handling') block with 5+ tests",
+        "Test copyFile with ENOENT source, EACCES destination",
+        "Test copyDirectory with partial failures",
+        "Test restoreBackup with missing backup file",
+        "Test cleanBackups with permission denied"
+      ],
+      "logic_flow": [
+        "Mock fs methods to throw errors",
+        "Test each error type: ENOENT, EACCES, ENOSPC, EISDIR",
+        "Verify error messages are descriptive",
+        "Test partial failure scenarios (some files fail)",
+        "Verify backups array correctly populated on error"
+      ],
+      "depends_on": [],
+      "output": "file_copier_errors"
+    },
+    {
+      "step": 3,
+      "title": "Add validator edge cases",
+      "description": "Add edge case tests for validator: empty files, corrupted content, missing directories",
+      "modification_points": [
+        "Add describe('Edge Cases') block with 5+ tests",
+        "Test validateFile with empty file (size=0)",
+        "Test validateTypeScriptFile with syntax error markers",
+        "Test validateInstallation with partial file set",
+        "Test validateVersionFile with invalid formats"
+      ],
+      "logic_flow": [
+        "Mock fs to return empty or corrupted content",
+        "Test REQUIRED_FILES validation with missing items",
+        "Test version format validation: 'invalid', '1', '1.0.0-beta'",
+        "Test getInstalledFiles with symlinks, hidden files",
+        "Verify all error paths return valid=false with descriptive error"
+      ],
+      "depends_on": [],
+      "output": "validator_edge_cases"
+    },
+    {
+      "step": 4,
+      "title": "Add installer integration edge cases",
+      "description": "Add integration edge cases to installer.test.js: partial install recovery, concurrent operations",
+      "modification_points": [
+        "Add describe('Recovery Scenarios') block to installer.test.js",
+        "Test install recovery after partial failure",
+        "Test rollback with incomplete backups",
+        "Test update interruption and recovery",
+        "Test uninstall with locked files"
+      ],
+      "logic_flow": [
+        "Create scenarios with intentional failures mid-operation",
+        "Test getStatus after partial install",
+        "Verify rollback handles missing backups gracefully",
+        "Test concurrent install calls (should serialize)",
+        "Document expected behavior for each edge case"
+      ],
+      "depends_on": [
+        1,
+        2,
+        3
+      ],
+      "output": "installer_edge_cases"
+    },
+    {
+      "step": 5,
+      "title": "Apply mutation testing checklist",
+      "description": "Review all tests against TESTING_GUIDE.md mutation testing checklist to ensure tests catch real bugs",
+      "modification_points": [
+        "Review each test: would changing source code break the test?",
+        "Add assertions for critical return values",
+        "Verify error messages are tested, not just presence of error",
+        "Document any gaps in test coverage"
+      ],
+      "logic_flow": [
+        "For each describe block, apply mutation checklist",
+        "If test doesn't catch mutation, add assertion",
+        "Ensure boundary values tested at edges",
+        "Verify mock calls verify correct arguments",
+        "Document test quality score"
+      ],
+      "depends_on": [
+        4
+      ],
+      "output": "mutation_review"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": [
+        "Read(.workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json)"
+      ],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_testing_guide",
+      "action": "Load TESTING_GUIDE.md for mutation testing checklist",
+      "commands": [
+        "Read(tests/TESTING_GUIDE.md)"
+      ],
+      "output_to": "testing_patterns",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_existing_tests",
+      "action": "Load existing test files to extend",
+      "commands": [
+        "Read(packages/ccc-state-controller/tests/version-manager.test.js)",
+        "Read(packages/ccc-state-controller/tests/file-copier.test.js)",
+        "Read(packages/ccc-state-controller/tests/validator.test.js)",
+        "Read(packages/ccc-state-controller/tests/installer.test.js)"
+      ],
+      "output_to": "existing_tests",
+      "on_error": "fail"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "synthesis_specification",
+      "source": "context_package",
+      "path": "tests/TESTING_GUIDE.md",
+      "priority": "highest",
+      "usage": "Mutation testing checklist and quality assurance patterns"
+    }
+  ],
+  "inherited": {
+    "from": "IMPL-001",
+    "context": [
+      "Base unit tests for installer modules created",
+      "Test helper utilities available"
+    ]
+  },
+  "context_package_path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-unit-test-and-ui-refactor-IMPL-004",
+    "strategy": "resume",
+    "resume_from": "WFS-unit-test-and-ui-refactor-IMPL-001"
+  },
+  "meta": {
+    "type": "test-gen",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    },
+    "test_framework": "jest",
+    "coverage_target": "90%"
+  },
+  "test": {
+    "reusable_tools": [
+      "packages/ccc-state-controller/tests/utils/test-helper.js"
+    ],
+    "commands": {
+      "run_tests": "npm test -- installer",
+      "run_coverage": "npm test -- --coverage --testPathPattern=installer",
+      "run_specific": "npm test -- {test_file}"
+    }
+  },
+  "reference": {
+    "testing_guide": "tests/TESTING_GUIDE.md"
+  },
+  "rationale": {
+    "edge_case_priority": "Edge cases often hide critical bugs - comprehensive coverage prevents production issues",
+    "mutation_testing": "Ensures tests actually verify behavior, not just pass"
+  },
+  "risks": [
+    "Some edge cases may be impossible to simulate in Jest - document as known limitations"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "in_progress",
+      "changed_at": "2026-03-03T13:33:59+08:00"
+    },
+    {
+      "from": "in_progress",
+      "to": "completed",
+      "changed_at": "2026-03-03T13:48:48+08:00"
+    },
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T13:50:19+08:00"
+    }
+  ]
+}

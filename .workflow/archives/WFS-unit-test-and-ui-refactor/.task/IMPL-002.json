@@ -1,0 +1,189 @@
+{
+  "id": "IMPL-002",
+  "title": "Refactor Panel UI with ui-ux-pro-max Guidelines",
+  "description": "Refactor packages/ccc-state-controller/panel/index.js applying ui-ux-pro-max design guidelines while preserving Editor.Panel.extend() pattern for Cocos Creator 2.x compatibility. Extract inline CSS following dark theme conventions, improve accessibility (4.5:1 contrast ratio), add cursor-pointer to interactive elements. Reference ccc-smart-component-manager/panel/logic.js for modern patterns.",
+  "status": "completed",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel",
+  "action": "Modify",
+  "depends_on": [],
+  "focus_paths": [
+    "packages/ccc-state-controller/panel/index.js",
+    ".claude/skills/ui-ux-pro-max/SKILL.md",
+    "packages/ccc-smart-component-manager/panel/logic.js"
+  ],
+  "convergence": {
+    "criteria": [
+      "All interactive elements have cursor-pointer style",
+      "Text contrast ratio >= 4.5:1 (verify with accessibility tool)",
+      "No emoji icons - use SVG or text only",
+      "Editor.Panel.extend() pattern preserved (no structural changes to extend call)",
+      "Panel functionality unchanged: install/update/validate/uninstall buttons work"
+    ],
+    "verification": "grep -c 'cursor.*pointer' packages/ccc-state-controller/panel/index.js >= 5 && grep -c 'emoji\\|\\[\\u{1F300}-\\u{1F9FF}\\]' packages/ccc-state-controller/panel/index.js = 0",
+    "definition_of_done": "Panel UI follows ui-ux-pro-max guidelines with improved accessibility while maintaining Cocos Creator 2.x compatibility"
+  },
+  "files": [
+    {
+      "path": "packages/ccc-state-controller/panel/index.js",
+      "action": "modify",
+      "change": "Refactor CSS styles for accessibility, add cursor-pointer, improve contrast, organize style sections"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Analyze current panel structure",
+      "description": "Review existing panel/index.js to understand current CSS structure, interactive elements, and identify accessibility issues",
+      "modification_points": [
+        "Read panel/index.js lines 1-300 (style section)",
+        "Identify all interactive elements without cursor-pointer",
+        "Check contrast ratios for text elements",
+        "List all current CSS classes and their purposes"
+      ],
+      "logic_flow": [
+        "Load panel/index.js",
+        "Parse CSS style section",
+        "Identify ui-button, ui-input, and clickable elements",
+        "Document current color values for contrast analysis",
+        "Create refactoring checklist"
+      ],
+      "depends_on": [],
+      "output": "panel_analysis"
+    },
+    {
+      "step": 2,
+      "title": "Apply ui-ux-pro-max design improvements",
+      "description": "Refactor CSS styles following ui-ux-pro-max guidelines: add cursor-pointer, improve contrast, organize sections",
+      "modification_points": [
+        "Add cursor: pointer to all ui-button selectors (lines ~90-130)",
+        "Update text colors for 4.5:1 contrast: #ccc -> #ddd, #888 -> #999",
+        "Organize CSS into logical sections with comments",
+        "Ensure focus states have visible outlines"
+      ],
+      "logic_flow": [
+        "Apply cursor-pointer to ui-button, .button-group button elements",
+        "Update color values: background #333 -> #333 (keep), text #ccc -> #e0e0e0",
+        "Add focus-visible outlines for accessibility",
+        "Reorganize CSS: base styles, components, states, utilities",
+        "Add section comments for maintainability"
+      ],
+      "depends_on": [
+        1
+      ],
+      "output": "css_improvements"
+    },
+    {
+      "step": 3,
+      "title": "Verify panel functionality",
+      "description": "Test panel in Cocos Creator to ensure all buttons and interactions still work after refactoring",
+      "modification_points": [
+        "Load panel in Cocos Creator 2.x",
+        "Test Install button click handler",
+        "Test Update button visibility logic",
+        "Test Validate button handler",
+        "Test Uninstall button handler"
+      ],
+      "logic_flow": [
+        "Open Cocos Creator",
+        "Open ccc-state-controller panel",
+        "Click each button and verify IPC messages sent",
+        "Check console for errors",
+        "Verify visual appearance matches design intent"
+      ],
+      "depends_on": [
+        2
+      ],
+      "output": "panel_verification"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package for artifact paths",
+      "commands": [
+        "Read(.workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json)"
+      ],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_ui_ux_skill",
+      "action": "Load ui-ux-pro-max skill for design guidelines",
+      "commands": [
+        "Read(.claude/skills/ui-ux-pro-max/SKILL.md)"
+      ],
+      "output_to": "ui_guidelines",
+      "on_error": "skip_optional"
+    },
+    {
+      "step": "load_panel_source",
+      "action": "Load panel source for refactoring",
+      "commands": [
+        "Read(packages/ccc-state-controller/panel/index.js)"
+      ],
+      "output_to": "panel_source",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_reference_panel",
+      "action": "Load smart-component-manager panel for modern pattern reference",
+      "commands": [
+        "Read(packages/ccc-smart-component-manager/panel/logic.js)"
+      ],
+      "output_to": "reference_patterns",
+      "on_error": "skip_optional"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "synthesis_specification",
+      "source": "context_package",
+      "path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "priority": "highest",
+      "usage": "Design guidelines for accessibility, contrast, cursor styles"
+    },
+    {
+      "type": "feature_spec",
+      "source": "context_package",
+      "path": "packages/ccc-smart-component-manager/panel/logic.js",
+      "priority": "high",
+      "usage": "Reference implementation for modern panel patterns"
+    }
+  ],
+  "inherited": {},
+  "context_package_path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-unit-test-and-ui-refactor-IMPL-002",
+    "strategy": "new"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": "parallel-ui",
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "ui_guidelines": ".claude/skills/ui-ux-pro-max/SKILL.md",
+    "reference_panel": "packages/ccc-smart-component-manager/panel/logic.js"
+  },
+  "rationale": {
+    "preserve_pattern": "Editor.Panel.extend() is required for Cocos Creator 2.x compatibility",
+    "accessibility_priority": "4.5:1 contrast ratio is WCAG AA standard"
+  },
+  "risks": [
+    "Cocos Creator custom elements (ui-button, ui-input) may have limited styling support - test thoroughly"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T13:32:15+08:00"
+    }
+  ]
+}

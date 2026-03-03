@@ -4,7 +4,7 @@
   "priority": "P2",
   "effort": "3-5天",
   "risk": "中",
-  "status": "pending",
+  "status": "completed",
   "phase": 2,
   "milestone": "M2: 功能增强",
   "goal": "简化三层嵌套的_ctrlData结构，提升访问效率",
@@ -65,5 +65,14 @@
     "属性访问性能提升",
     "迁移日志正确输出"
   ],
-  "dependencies": ["IMPL-001"]
+  "dependencies": [
+    "IMPL-001"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T10:40:46+08:00"
+    }
+  ]
 }

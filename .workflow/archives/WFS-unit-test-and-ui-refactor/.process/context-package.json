@@ -1,0 +1,567 @@
+{
+  "metadata": {
+    "task_description": "优化 ccc-state-controller 项目：1) 参考 tests/ 目录结构完善单元测试覆盖 2) 使用 ui-ux-pro-max 重构 packages/ccc-state-controller 面板UI",
+    "timestamp": "2026-03-03T15:45:00Z",
+    "keywords": ["unit-testing", "jest", "cocos-creator", "ui-refactoring", "ui-ux-pro-max", "panel", "installer"],
+    "complexity": "medium",
+    "session_id": "WFS-unit-test-and-ui-refactor"
+  },
+  "prioritized_context": {
+    "user_intent": {
+      "goal": "优化 ccc-state-controller 项目，包含两个主要任务：1) 单元测试完善 2) UI/UX 重构",
+      "scope": "packages/ccc-state-controller (extension package with installer and panel UI)",
+      "key_constraints": [
+        "参考 packages/ccc-smart-component-manager 的实现模式",
+        "Cocos Creator 2.x 兼容性要求",
+        "保持现有功能向后兼容"
+      ]
+    },
+    "priority_tiers": {
+      "critical": [
+        {
+          "path": "tests/TESTING_GUIDE.md",
+          "relevance": 1.0,
+          "rationale": "Canonical reference for Cocos Creator Jest patterns - defines test structure, mock strategies, and quality criteria. All new unit tests must follow these established conventions.",
+          "role": "pattern_reference"
+        },
+        {
+          "path": "packages/ccc-state-controller/panel/index.js",
+          "relevance": 0.95,
+          "rationale": "Target for UI refactoring using ui-ux-pro-max. Uses Editor.Panel.extend() pattern with inline CSS/template. Contains state management, IPC communication, and button handlers.",
+          "role": "modify_target"
+        },
+        {
+          "path": "packages/ccc-state-controller/src/installer/index.js",
+          "relevance": 0.92,
+          "rationale": "Core installer business logic - exposes install/update/validate/rollback/getStatus/uninstall APIs. Target for unit test coverage expansion.",
+          "role": "test_target"
+        },
+        {
+          "path": "packages/ccc-state-controller/main.js",
+          "relevance": 0.90,
+          "rationale": "Central IPC message hub coordinating Editor API with installer module. Contains all message handlers (install, update, uninstall, get-status) and Editor.Ipc communication.",
+          "role": "integration_point"
+        }
+      ],
+      "high": [
+        {
+          "path": "packages/ccc-state-controller/tests/installer.test.js",
+          "relevance": 0.88,
+          "rationale": "Existing integration test suite with scenario-based organization (Fresh Install, Update, Validation, Rollback, Edge Cases). Provides pattern for test structure and test context creation.",
+          "role": "pattern_reference"
+        },
+        {
+          "path": "packages/ccc-state-controller/tests/utils/test-helper.js",
+          "relevance": 0.85,
+          "rationale": "Test utility module providing createMockCore, createMockInstallation, file assertions, and version comparison helpers. Essential for writing new installer tests.",
+          "role": "dependency"
+        },
+        {
+          "path": "packages/ccc-smart-component-manager/panel/logic.js",
+          "relevance": 0.82,
+          "rationale": "Reference implementation showing modern panel patterns: i18n integration, data manager, logger, SVG icons, modular imports. Key reference for panel refactoring.",
+          "role": "pattern_reference"
+        },
+        {
+          "path": "tests/jest.config.local.js",
+          "relevance": 0.80,
+          "rationale": "Jest configuration for isolated test environment with moduleNameMapper for assets/* paths and setupFiles for Cocos environment mocking.",
+          "role": "config"
+        }
+      ],
+      "medium": [
+        {
+          "path": "packages/ccc-state-controller-core/tests/StateController.test.ts",
+          "relevance": 0.75,
+          "rationale": "Reference test showing mock-cc pattern with beforeAll global setup, jest.clearAllMocks in beforeEach, and comprehensive describe organization.",
+          "role": "pattern_reference"
+        },
+        {
+          "path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+          "relevance": 0.72,
+          "rationale": "UI/UX design skill with 67 styles, 96 palettes, workflow for design system generation. Key reference for UI refactoring with Pre-Delivery Checklist.",
+          "role": "pattern_reference"
+        },
+        {
+          "path": "packages/ccc-state-controller/src/installer/version-manager.js",
+          "relevance": 0.65,
+          "rationale": "Version management module for reading/writing version files and comparing semantic versions. Needs unit test coverage.",
+          "role": "test_target"
+        },
+        {
+          "path": "packages/ccc-state-controller/src/installer/file-copier.js",
+          "relevance": 0.65,
+          "rationale": "File copying module with backup/restore functionality. Needs unit test coverage.",
+          "role": "test_target"
+        },
+        {
+          "path": "packages/ccc-state-controller/src/installer/validator.js",
+          "relevance": 0.65,
+          "rationale": "Installation validation module checking required files and structure. Needs unit test coverage.",
+          "role": "test_target"
+        }
+      ],
+      "low": [
+        {
+          "path": "packages/ccc-smart-component-manager/panel/index.js",
+          "relevance": 0.50,
+          "rationale": "Full assembled panel from smart-component-manager for reference. Shows build output structure.",
+          "role": "reference"
+        },
+        {
+          "path": "tests/env/setup-cocos.ts",
+          "relevance": 0.45,
+          "rationale": "Test environment bootstrap for proto loading and cc.game initialization. Required setup for tests using Cocos runtime.",
+          "role": "config"
+        }
+      ]
+    },
+    "dependency_order": [
+      "tests/TESTING_GUIDE.md (test patterns foundation)",
+      "packages/ccc-state-controller/tests/utils/test-helper.js (test utilities)",
+      "packages/ccc-state-controller/src/installer/index.js (core business logic)",
+      "packages/ccc-state-controller/src/installer/*-manager.js (sub-modules)",
+      "packages/ccc-state-controller/main.js (IPC integration)",
+      "packages/ccc-state-controller/panel/index.js (UI panel)",
+      "packages/ccc-smart-component-manager/panel/logic.js (reference patterns)"
+    ],
+    "sorting_rationale": "Priority based on: (1) User goal alignment - testing guide is critical for test task, panel is critical for UI task; (2) Exploration critical files synthesis - files mentioned across multiple exploration angles ranked higher; (3) Dependency graph - core modules before dependent modules; (4) Role classification - modify_target and test_target before pattern_reference."
+  },
+  "project_context": {
+    "architecture_patterns": [
+      "Cocos Creator 2.x Extension Pattern (Editor.Panel.extend)",
+      "IPC Communication Pattern (main.js <-> panel/index.js)",
+      "Installer Module Pattern (version-manager, file-copier, validator)",
+      "Test Isolation Pattern (tests/ directory with own node_modules)"
+    ],
+    "coding_conventions": {
+      "naming": {
+        "classes": "PascalCase",
+        "methods_functions": "camelCase",
+        "private_members": "_underscore prefix",
+        "constants": "UPPER_SNAKE_CASE or PascalCase",
+        "files": "Match class name"
+      },
+      "typescript": {
+        "strict_type_checking": true,
+        "prefer_interfaces": true,
+        "arrow_functions_for_callbacks": true,
+        "template_literals": true
+      },
+      "cocos_creator": {
+        "property_decorator": "@property for inspector-exposed properties",
+        "lifecycle": "onLoad, start, onDestroy",
+        "types": "cc.Node and cc.Component from cc namespace"
+      },
+      "testing": {
+        "mock_before_import": "jest.mock() MUST come before import",
+        "ui_component_instantiation": "node.addComponent() with node.active = false",
+        "private_access": "instance['member'] syntax preferred",
+        "describe_organization": "4-block structure: Lifecycle, UI Update, Event Handlers, Edge Cases"
+      }
+    },
+    "tech_stack": {
+      "language": "TypeScript (core), JavaScript (extension panels)",
+      "frameworks": ["Cocos Creator 2.x"],
+      "libraries": ["Jest", "ts-jest", "jest-canvas-mock"],
+      "build_system": "Node.js",
+      "test_framework": "Jest with isolated test environment"
+    }
+  },
+  "project_guidelines": {
+    "forbidden_patterns": [
+      "Using emojis as UI icons (use SVG instead)",
+      "Mock after import (jest.mock must come before)",
+      "Direct new ComponentClass() instantiation (use node.addComponent)",
+      "Testing mock itself instead of real logic"
+    ],
+    "quality_gates": [
+      "All tests must follow TESTING_GUIDE.md patterns",
+      "Panel UI must use Editor.Panel.extend pattern",
+      "IPC communication via Editor.Ipc.sendToMain/sendToPanel",
+      "Minimum 4.5:1 contrast ratio for text",
+      "cursor-pointer on all interactive elements"
+    ],
+    "cocos_creator_2x_constraints": [
+      "Editor.Panel.extend() pattern required",
+      "Inline CSS strings (no external stylesheets)",
+      "ui-input, ui-button elements (Cocos custom elements)",
+      "IPC async with callback pattern",
+      "CommonJS modules (require/module.exports)"
+    ]
+  },
+  "assets": {
+    "documentation": [
+      {
+        "path": "tests/TESTING_GUIDE.md",
+        "scope": "testing-patterns",
+        "contains": ["UI Component Strategy", "Pure Logic Strategy", "Mock patterns", "Describe organization", "Quality assurance"],
+        "relevance_score": 1.0
+      },
+      {
+        "path": "README.md",
+        "scope": "project-overview",
+        "contains": ["Project features", "Usage guide", "API documentation", "Examples"],
+        "relevance_score": 0.70
+      },
+      {
+        "path": ".ccw/specs/coding-conventions.md",
+        "scope": "coding-standards",
+        "contains": ["TypeScript conventions", "Naming conventions", "Cocos Creator specific patterns"],
+        "relevance_score": 0.75
+      },
+      {
+        "path": ".ccw/specs/project-structure.md",
+        "scope": "architecture",
+        "contains": ["Directory layout", "Key files", "Package structure"],
+        "relevance_score": 0.70
+      },
+      {
+        "path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+        "scope": "ui-design",
+        "contains": ["67 styles", "96 palettes", "UX guidelines", "Pre-Delivery Checklist", "Design system workflow"],
+        "relevance_score": 0.72
+      }
+    ],
+    "source_code": [
+      {
+        "path": "packages/ccc-state-controller/panel/index.js",
+        "role": "modify_target",
+        "dependencies": ["Editor.Panel", "Editor.Ipc", "installer module"],
+        "exports": ["Editor.Panel.extend result"],
+        "relevance_score": 0.95
+      },
+      {
+        "path": "packages/ccc-state-controller/src/installer/index.js",
+        "role": "test_target",
+        "dependencies": ["version-manager", "file-copier", "validator"],
+        "exports": ["install", "update", "checkUpdate", "validate", "rollback", "getStatus", "uninstall"],
+        "relevance_score": 0.92
+      },
+      {
+        "path": "packages/ccc-state-controller/main.js",
+        "role": "integration_point",
+        "dependencies": ["installer module", "Editor.Panel", "Editor.Ipc", "Editor.Dialog"],
+        "exports": ["load", "unload", "messages object"],
+        "relevance_score": 0.90
+      },
+      {
+        "path": "packages/ccc-state-controller/src/installer/version-manager.js",
+        "role": "test_target",
+        "exports": ["getCorePackageVersion", "getInstalledVersion", "setInstalledVersion", "checkForUpdate"],
+        "relevance_score": 0.65
+      },
+      {
+        "path": "packages/ccc-state-controller/src/installer/file-copier.js",
+        "role": "test_target",
+        "exports": ["installCorePackage", "restoreBackup"],
+        "relevance_score": 0.65
+      },
+      {
+        "path": "packages/ccc-state-controller/src/installer/validator.js",
+        "role": "test_target",
+        "exports": ["validateFullInstallation", "getInstalledFiles"],
+        "relevance_score": 0.65
+      }
+    ],
+    "tests": [
+      {
+        "path": "packages/ccc-state-controller/tests/installer.test.js",
+        "role": "pattern_reference",
+        "contains": ["Fresh Installation", "Version Update", "Validation", "Rollback", "Edge Cases"],
+        "relevance_score": 0.88
+      },
+      {
+        "path": "packages/ccc-state-controller/tests/utils/test-helper.js",
+        "role": "dependency",
+        "contains": ["createMockCore", "createMockInstallation", "assertSuccess", "assertFileExists"],
+        "relevance_score": 0.85
+      },
+      {
+        "path": "packages/ccc-state-controller-core/tests/StateController.test.ts",
+        "role": "pattern_reference",
+        "contains": ["Mock environment setup", "describe organization", "BFS Cache Mechanism tests"],
+        "relevance_score": 0.75
+      }
+    ],
+    "config": [
+      {
+        "path": "tests/jest.config.local.js",
+        "role": "config",
+        "contains": ["moduleNameMapper", "setupFiles", "testMatch"],
+        "relevance_score": 0.80
+      },
+      {
+        "path": "packages/ccc-state-controller/package.json",
+        "role": "config",
+        "contains": ["Extension manifest", "Panel definition"],
+        "relevance_score": 0.70
+      }
+    ],
+    "reference_implementations": [
+      {
+        "path": "packages/ccc-smart-component-manager/panel/logic.js",
+        "role": "pattern_reference",
+        "contains": ["i18n integration", "data manager", "logger", "SVG icons", "modular imports"],
+        "relevance_score": 0.82
+      }
+    ]
+  },
+  "dependencies": {
+    "internal": [
+      {
+        "from": "packages/ccc-state-controller/main.js",
+        "to": "packages/ccc-state-controller/src/installer/index.js",
+        "type": "module-import"
+      },
+      {
+        "from": "packages/ccc-state-controller/panel/index.js",
+        "to": "packages/ccc-state-controller/main.js",
+        "type": "ipc-communication"
+      },
+      {
+        "from": "packages/ccc-state-controller/src/installer/index.js",
+        "to": "packages/ccc-state-controller/src/installer/version-manager.js",
+        "type": "module-import"
+      },
+      {
+        "from": "packages/ccc-state-controller/src/installer/index.js",
+        "to": "packages/ccc-state-controller/src/installer/file-copier.js",
+        "type": "module-import"
+      },
+      {
+        "from": "packages/ccc-state-controller/src/installer/index.js",
+        "to": "packages/ccc-state-controller/src/installer/validator.js",
+        "type": "module-import"
+      },
+      {
+        "from": "packages/ccc-state-controller/tests/installer.test.js",
+        "to": "packages/ccc-state-controller/tests/utils/test-helper.js",
+        "type": "test-utility"
+      }
+    ],
+    "external": [
+      {
+        "package": "Cocos Creator 2.x Editor API",
+        "version": "2.x",
+        "usage": "Editor.Panel, Editor.Ipc, Editor.Dialog, Editor.Project"
+      },
+      {
+        "package": "jest",
+        "version": "30.2.0",
+        "usage": "Test framework with mocks and assertions"
+      },
+      {
+        "package": "ts-jest",
+        "version": "29.4.6",
+        "usage": "TypeScript Jest transformer"
+      },
+      {
+        "package": "jest-canvas-mock",
+        "version": "2.5.2",
+        "usage": "Canvas API mocking for tests"
+      }
+    ]
+  },
+  "conflict_detection": {
+    "risk_level": "medium",
+    "risk_factors": {
+      "existing_implementations": [
+        "packages/ccc-state-controller/panel/index.js (780 lines, monolithic)",
+        "packages/ccc-state-controller/tests/installer.test.js (existing integration tests)"
+      ],
+      "api_changes": false,
+      "architecture_changes": false,
+      "data_model_changes": false,
+      "breaking_changes": []
+    },
+    "affected_modules": [
+      "packages/ccc-state-controller/panel (UI refactoring)",
+      "packages/ccc-state-controller/tests (new unit tests)",
+      "packages/ccc-state-controller/src/installer (test coverage expansion)"
+    ],
+    "mitigation_strategy": "Incremental refactoring with backward compatibility: (1) Add unit tests for installer modules without modifying existing integration tests; (2) Refactor panel UI preserving Editor.Panel.extend pattern; (3) Extract utilities into separate modules while keeping main API stable",
+    "historical_conflicts": []
+  },
+  "exploration_results": {
+    "manifest_path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/explorations-manifest.json",
+    "exploration_count": 3,
+    "complexity": "Medium",
+    "angles": ["patterns", "integration-points", "testing"],
+    "explorations": [
+      {
+        "angle": "patterns",
+        "file": "exploration-patterns.json",
+        "path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/exploration-patterns.json",
+        "index": 1,
+        "summary": {
+          "relevant_files_count": 8,
+          "key_patterns": "UI Component Test Pattern, Pure Logic Test Pattern, Cocos Creator Panel Pattern, UI Refactoring Pattern",
+          "integration_points": "tests/TESTING_GUIDE.md defines test patterns; panel/index.js uses Editor.Panel.extend; ui-ux-pro-max provides design system"
+        }
+      },
+      {
+        "angle": "integration-points",
+        "file": "exploration-integration-points.json",
+        "path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/exploration-integration-points.json",
+        "index": 2,
+        "summary": {
+          "relevant_files_count": 9,
+          "key_patterns": "Extension IPC Pattern, Panel Extension Pattern, Test Isolation Pattern, Mock Creation Pattern",
+          "integration_points": "Editor.Ipc for main-to-panel communication, Editor.Panel.open for panel display, moduleNameMapper for test path resolution"
+        }
+      },
+      {
+        "angle": "testing",
+        "file": "exploration-testing.json",
+        "path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/exploration-testing.json",
+        "index": 3,
+        "summary": {
+          "relevant_files_count": 8,
+          "key_patterns": "Jest with ts-jest for core tests, Custom Node.js runner for installer tests, Mock-cc pattern with beforeAll setup",
+          "integration_points": "jest.config.local.js moduleNameMapper, setup-cocos.ts proto bootstrap, test-helper.js mock creation utilities"
+        }
+      }
+    ],
+    "aggregated_insights": {
+      "critical_files": [
+        {
+          "path": "tests/TESTING_GUIDE.md",
+          "relevance": 1.0,
+          "rationale": "Canonical test patterns reference mentioned in all 3 exploration angles; defines mock setup, describe organization, quality assurance",
+          "role": "pattern_reference",
+          "mentioned_by_angles": ["patterns", "integration-points", "testing"],
+          "key_symbols": ["UI Component Test Strategy", "Pure Logic Strategy", "Mock before import", "describe organization"]
+        },
+        {
+          "path": "packages/ccc-state-controller/panel/index.js",
+          "relevance": 0.95,
+          "rationale": "UI refactoring target using Editor.Panel.extend pattern; 780 lines monolithic; contains state management, IPC handlers, button handlers",
+          "role": "modify_target",
+          "mentioned_by_angles": ["patterns", "integration-points"],
+          "key_symbols": ["Editor.Panel.extend", "_state management", "_bindEvents", "messages"]
+        },
+        {
+          "path": "packages/ccc-state-controller/src/installer/index.js",
+          "relevance": 0.92,
+          "rationale": "Core installer business logic with install/update/validate/rollback APIs; target for unit test coverage expansion",
+          "role": "test_target",
+          "mentioned_by_angles": ["patterns", "integration-points", "testing"],
+          "key_symbols": ["install", "update", "validate", "rollback", "getStatus", "uninstall"]
+        },
+        {
+          "path": "packages/ccc-state-controller/tests/installer.test.js",
+          "relevance": 0.88,
+          "rationale": "Existing integration test suite with scenario organization; provides pattern for test structure and test context creation",
+          "role": "pattern_reference",
+          "mentioned_by_angles": ["patterns", "integration-points", "testing"],
+          "key_symbols": ["createTestContext", "test() wrapper", "Scenario-based describe blocks"]
+        }
+      ],
+      "conflict_indicators": [
+        {
+          "type": "pattern_mismatch",
+          "description": "Panel UI uses inline CSS/template strings while ui-ux-pro-max provides modern design system guidelines - need to apply design system within Cocos constraints",
+          "source_angle": "patterns",
+          "severity": "medium"
+        },
+        {
+          "type": "test_framework_difference",
+          "description": "Core library uses Jest with TypeScript while installer uses custom Node.js test runner - new panel tests need framework decision",
+          "source_angle": "testing",
+          "severity": "low"
+        }
+      ],
+      "clarification_needs": [
+        {
+          "question": "What is the scope of unit test coverage expansion for ccc-state-controller?",
+          "context": "The ccc-state-controller package currently has installer.test.js but may need additional unit tests for panel UI logic and installer modules.",
+          "options": [
+            "Full coverage: Test all installer modules (file-copier, validator, version-manager) + panel logic",
+            "Critical path only: Test installer/index.js main functions + panel IPC handlers",
+            "Incremental: Add tests for untested modules as bugs are found"
+          ],
+          "recommended": 0,
+          "source_angle": "patterns"
+        },
+        {
+          "question": "Should the panel UI refactoring preserve the existing Editor.Panel.extend pattern or consider alternative approaches?",
+          "context": "The current panel uses Cocos Creator 2.x native pattern with inline CSS and template strings. ui-ux-pro-max provides modern design guidelines but the technical constraints require Cocos compatibility.",
+          "options": [
+            "Preserve Editor.Panel.extend pattern, apply ui-ux-pro-max only to CSS styling and layout improvements",
+            "Refactor to use a build step (like ccc-smart-component-manager/panel/build.js) to separate logic from template",
+            "Minimal changes - only fix accessibility and contrast issues without structural refactoring"
+          ],
+          "recommended": 0,
+          "source_angle": "integration-points"
+        },
+        {
+          "question": "Should panel UI tests use Jest with jsdom (like core tests) or a custom test runner (like installer tests)?",
+          "context": "The ccc-state-controller panel is a Cocos Creator extension panel with HTML/CSS UI. Core library tests use Jest+jsdom with mock-cc, while installer tests use a custom Node.js runner.",
+          "options": [
+            "Jest with jsdom - reuse existing test infrastructure and patterns from core library tests",
+            "Custom Node.js runner - follow installer test pattern with custom assertions",
+            "Hybrid approach - Jest for unit logic, custom runner for integration tests"
+          ],
+          "recommended": 0,
+          "source_angle": "testing"
+        }
+      ],
+      "constraints": [
+        {
+          "constraint": "Must follow TESTING_GUIDE.md patterns for all new tests",
+          "source_angle": "testing"
+        },
+        {
+          "constraint": "Panel must use Editor.Panel.extend() pattern for Cocos Creator 2.x compatibility",
+          "source_angle": "integration-points"
+        },
+        {
+          "constraint": "UI refactoring must not break existing panel functionality",
+          "source_angle": "patterns"
+        },
+        {
+          "constraint": "No emoji icons - use SVG only per ui-ux-pro-max guidelines",
+          "source_angle": "patterns"
+        }
+      ],
+      "all_patterns": [
+        {
+          "patterns": "UI Component Test Pattern: Mock before import, create scene in beforeEach, node.active=false, addComponent instantiation, 4-block describe structure",
+          "source_angle": "patterns"
+        },
+        {
+          "patterns": "Extension IPC Pattern: main.js exports messages object; panel communicates via Editor.Ipc.sendToMain/sendToPanel",
+          "source_angle": "integration-points"
+        },
+        {
+          "patterns": "Jest with mock-cc pattern: Global cc namespace mock in beforeAll, jest.clearAllMocks() in beforeEach, instance['privateMember'] access",
+          "source_angle": "testing"
+        }
+      ],
+      "all_integration_points": [
+        {
+          "points": "Editor.Ipc.sendToMain('ccc-state-controller:init-panel') for panel initialization",
+          "source_angle": "integration-points"
+        },
+        {
+          "points": "moduleNameMapper in jest.config.local.js maps assets/* to ../assets/$1",
+          "source_angle": "testing"
+        },
+        {
+          "points": "ui-ux-pro-max/scripts/search.py --design-system for design system generation",
+          "source_angle": "patterns"
+        }
+      ]
+    }
+  },
+  "brainstorm_artifacts": {
+    "guidance_specification": null,
+    "role_analyses": [],
+    "synthesis_output": null,
+    "feature_index": null,
+    "feature_index_path": null,
+    "feature_specs": null,
+    "cross_cutting_specs": []
+  }
+}

@@ -4,7 +4,7 @@
   "priority": "P1",
   "effort": "2-3天",
   "risk": "低",
-  "status": "pending",
+  "status": "completed",
   "phase": 3,
   "milestone": "M3: 编辑器集成",
   "goal": "使用 /ui-ux-pro-max 设计并实现安装面板",
@@ -14,35 +14,35 @@
       "title": "调用UI设计工具",
       "description": "调用 /ui-ux-pro-max 生成安装面板UI设计方案",
       "file": "N/A (设计阶段)",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-009.2",
       "title": "实现面板HTML模板",
       "description": "根据设计方案实现面板 HTML 模板",
       "file": "packages/ccc-state-controller/panel/index.js",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-009.3",
       "title": "实现面板CSS样式",
       "description": "实现面板 CSS 样式，符合Cocos编辑器风格",
       "file": "packages/ccc-state-controller/panel/index.js",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-009.4",
       "title": "实现面板交互逻辑",
       "description": "实现按钮点击、路径选择等交互逻辑",
       "file": "packages/ccc-state-controller/panel/index.js",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-009.5",
       "title": "集成安装器IPC",
       "description": "集成安装器 IPC 调用，连接面板与后端",
       "file": "packages/ccc-state-controller/main.js",
-      "status": "pending"
+      "status": "completed"
     }
   ],
   "acceptanceCriteria": [
@@ -51,5 +51,7 @@
     "安装按钮触发安装流程",
     "进度显示正确"
   ],
-  "dependencies": ["IMPL-008"]
+  "dependencies": [
+    "IMPL-008"
+  ]
 }

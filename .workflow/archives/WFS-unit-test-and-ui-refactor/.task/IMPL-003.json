@@ -1,0 +1,286 @@
+{
+  "id": "IMPL-003",
+  "title": "Add Panel Logic Unit Tests with Jest+jsdom",
+  "description": "Create Jest+jsdom unit tests for panel UI logic following TESTING_GUIDE.md patterns. Mock Editor.Panel, Editor.Ipc, and Editor.Dialog APIs. Test user interactions, state management, button handlers, and IPC communication. Reference ccc-smart-component-manager patterns for modern test structure.",
+  "status": "completed",
+  "type": "test-gen",
+  "scope": "packages/ccc-state-controller/panel",
+  "action": "Create",
+  "depends_on": [
+    "IMPL-002"
+  ],
+  "focus_paths": [
+    "packages/ccc-state-controller/panel/index.js",
+    "packages/ccc-state-controller/tests/"
+  ],
+  "convergence": {
+    "criteria": [
+      "1 new test file created: panel.test.js",
+      "20+ test cases covering: state management, button handlers, IPC communication, error handling",
+      "All tests pass: npm test -- panel (exit code 0)",
+      "Editor.Panel and Editor.Ipc mocks implemented correctly"
+    ],
+    "verification": "ls packages/ccc-state-controller/tests/panel.test.js && npm test -- panel 2>&1 | grep 'passed'",
+    "definition_of_done": "Panel logic has comprehensive unit test coverage with proper Editor API mocks"
+  },
+  "files": [
+    {
+      "path": "packages/ccc-state-controller/tests/panel.test.js",
+      "action": "create",
+      "change": "New test file for panel UI logic (20+ test cases)"
+    },
+    {
+      "path": "packages/ccc-state-controller/tests/__mocks__/Editor.js",
+      "action": "create",
+      "change": "Mock module for Editor.Panel, Editor.Ipc, Editor.Dialog APIs"
+    }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Create Editor API mocks",
+      "description": "Create mock module for Cocos Creator Editor APIs: Editor.Panel, Editor.Ipc, Editor.Dialog",
+      "modification_points": [
+        "Create 1 mock file: tests/__mocks__/Editor.js",
+        "Mock Editor.Panel.extend() to capture panel definition",
+        "Mock Editor.Ipc.sendToMain() and sendToPanel() with jest.fn()",
+        "Mock Editor.Dialog.show() for dialog interactions"
+      ],
+      "logic_flow": [
+        "Create __mocks__ directory",
+        "Define Editor global mock object",
+        "Add Panel.extend mock that stores config",
+        "Add Ipc mocks with call tracking",
+        "Add Dialog mock with result simulation",
+        "Export mock for use in tests"
+      ],
+      "depends_on": [],
+      "output": "editor_mocks"
+    },
+    {
+      "step": 2,
+      "title": "Create panel test file structure",
+      "description": "Set up panel.test.js with Jest+jsdom environment and describe blocks for panel logic",
+      "modification_points": [
+        "Create 1 test file: tests/panel.test.js",
+        "Set up jsdom environment for DOM testing",
+        "Create describe blocks: State Management, Button Handlers, IPC Communication, Error Handling",
+        "Add beforeEach for mock reset and panel initialization"
+      ],
+      "logic_flow": [
+        "Import jest and @jest/globals",
+        "Set up Editor global mock before panel import",
+        "Create panel instance in beforeEach",
+        "Add helper functions for simulating button clicks",
+        "Structure tests in 4-block pattern from TESTING_GUIDE.md"
+      ],
+      "depends_on": [
+        1
+      ],
+      "output": "panel_test_structure"
+    },
+    {
+      "step": 3,
+      "title": "Implement state management tests",
+      "description": "Test panel state management: initialization, status updates, version display",
+      "modification_points": [
+        "Implement 5+ test cases for state management",
+        "Test _state object initialization",
+        "Test status card updates based on installation state",
+        "Test version info display logic",
+        "Test loading state during operations"
+      ],
+      "logic_flow": [
+        "Test initial state is 'unknown'",
+        "Test state transitions: unknown -> installed -> updating",
+        "Test status card CSS class changes",
+        "Test version display with mock getStatus response",
+        "Test progress container visibility"
+      ],
+      "depends_on": [
+        2
+      ],
+      "output": "state_tests"
+    },
+    {
+      "step": 4,
+      "title": "Implement button handler tests",
+      "description": "Test button click handlers: install, update, validate, uninstall",
+      "modification_points": [
+        "Implement 8+ test cases for button handlers",
+        "Test Install button triggers install IPC",
+        "Test Update button visibility and handler",
+        "Test Validate button handler",
+        "Test Uninstall button with confirmation"
+      ],
+      "logic_flow": [
+        "Mock button elements in jsdom",
+        "Simulate click events",
+        "Verify Editor.Ipc.sendToMain called with correct message",
+        "Test button disabled state during operations",
+        "Test error handling in handlers"
+      ],
+      "depends_on": [
+        2
+      ],
+      "output": "button_tests"
+    },
+    {
+      "step": 5,
+      "title": "Implement IPC communication tests",
+      "description": "Test IPC message handling: init-panel, install-result, update-result, status-update",
+      "modification_points": [
+        "Implement 5+ test cases for IPC handling",
+        "Test messages object structure",
+        "Test 'init-panel' message handler",
+        "Test 'install-result' message handler",
+        "Test 'status-update' message handler"
+      ],
+      "logic_flow": [
+        "Access panel messages object from extend config",
+        "Simulate incoming IPC messages",
+        "Verify state updates on message receipt",
+        "Test error message display",
+        "Test success/failure UI updates"
+      ],
+      "depends_on": [
+        2
+      ],
+      "output": "ipc_tests"
+    },
+    {
+      "step": 6,
+      "title": "Verify all panel tests pass",
+      "description": "Run all panel tests and verify mock behavior",
+      "modification_points": [
+        "Run npm test -- panel",
+        "Verify 20+ test cases pass",
+        "Check mock call counts and arguments",
+        "Fix any failing tests"
+      ],
+      "logic_flow": [
+        "Execute test suite",
+        "Review test output",
+        "Debug any mock issues",
+        "Ensure all handlers tested"
+      ],
+      "depends_on": [
+        3,
+        4,
+        5
+      ],
+      "output": "test_verification"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package for artifact paths",
+      "commands": [
+        "Read(.workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json)"
+      ],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_testing_guide",
+      "action": "Load TESTING_GUIDE.md for UI Component Strategy patterns",
+      "commands": [
+        "Read(tests/TESTING_GUIDE.md)"
+      ],
+      "output_to": "testing_patterns",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_panel_source",
+      "action": "Load refactored panel source for test design",
+      "commands": [
+        "Read(packages/ccc-state-controller/panel/index.js)"
+      ],
+      "output_to": "panel_source",
+      "on_error": "fail"
+    },
+    {
+      "step": "load_main_ipc",
+      "action": "Load main.js for IPC message structure reference",
+      "commands": [
+        "Read(packages/ccc-state-controller/main.js)"
+      ],
+      "output_to": "ipc_structure",
+      "on_error": "skip_optional"
+    }
+  ],
+  "artifacts": [
+    {
+      "type": "synthesis_specification",
+      "source": "context_package",
+      "path": "tests/TESTING_GUIDE.md",
+      "priority": "highest",
+      "usage": "UI Component Strategy for panel testing with mocks"
+    }
+  ],
+  "inherited": {
+    "from": "IMPL-002",
+    "context": [
+      "Panel refactored with ui-ux-pro-max guidelines",
+      "Editor.Panel.extend pattern preserved"
+    ]
+  },
+  "context_package_path": ".workflow/active/WFS-unit-test-and-ui-refactor/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-unit-test-and-ui-refactor-IMPL-003",
+    "strategy": "fork",
+    "resume_from": "WFS-unit-test-and-ui-refactor-IMPL-002"
+  },
+  "meta": {
+    "type": "test-gen",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    },
+    "test_framework": "jest",
+    "coverage_target": "70%"
+  },
+  "test": {
+    "reusable_tools": [
+      "packages/ccc-state-controller/tests/utils/test-helper.js"
+    ],
+    "commands": {
+      "run_tests": "npm test -- panel",
+      "run_coverage": "npm test -- --coverage --testPathPattern=panel",
+      "run_specific": "npm test -- {test_file}"
+    }
+  },
+  "reference": {
+    "testing_guide": "tests/TESTING_GUIDE.md",
+    "main_ipc": "packages/ccc-state-controller/main.js"
+  },
+  "rationale": {
+    "jest_jsdom": "Chosen per conflict resolution decision - Jest+jsdom for panel tests",
+    "mock_strategy": "Global Editor mock before import follows TESTING_GUIDE.md pattern"
+  },
+  "risks": [
+    "Panel uses Editor.Panel.extend() which is hard to test - mitigate by capturing extend config and testing handlers directly"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "in_progress",
+      "changed_at": "2026-03-03T13:33:53+08:00"
+    },
+    {
+      "from": "in_progress",
+      "to": "completed",
+      "changed_at": "2026-03-03T13:41:58+08:00"
+    },
+    {
+      "from": "pending",
+      "to": "completed",
+      "changed_at": "2026-03-03T13:50:19+08:00"
+    }
+  ]
+}

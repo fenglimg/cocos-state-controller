@@ -1,0 +1,128 @@
+{
+  "id": "IMPL-002",
+  "title": "Host and Layout Color Migration",
+  "description": "Migrate :host and layout-related selectors from hardcoded hex values to CSS variables. Update background-color, color, border-color, and related properties to use design tokens. Replace #333 background with --bg-primary, #e0e0e0 text with --text-primary.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-001"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      ":host background-color uses var(--bg-primary)",
+      ":host color uses var(--text-primary)",
+      ".panel-header border-bottom uses var(--border-default)",
+      ".section-title color uses var(--text-secondary)",
+      "5 hardcoded hex values (#333, #444, #e0e0e0, #bbb, #ccc) replaced: verify by grep -c '#[0-9a-f]{3,6}' file decrease"
+    ],
+    "verification": "grep -E 'var\\(--' packages/ccc-state-controller/panel/index.js | wc -l >= 10",
+    "definition_of_done": "All host and layout colors migrated to CSS variables"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Replace hardcoded colors in :host, .panel-header, .section, .section-title selectors (lines 11-57)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate :host selector colors",
+      "description": "Replace hardcoded hex colors in :host with CSS variables",
+      "modification_points": [
+        "Replace background-color: #333 with background: var(--bg-primary)",
+        "Replace color: #e0e0e0 with color: var(--text-primary)",
+        "Update font-family to use var(--font-ui)",
+        "Update font-size to use var(--font-size-base)"
+      ],
+      "logic_flow": [
+        "Locate :host selector",
+        "Replace each hardcoded color with corresponding variable",
+        "Verify variable is defined in IMPL-001"
+      ],
+      "depends_on": [],
+      "output": "host_colors_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate panel header colors",
+      "description": "Update .panel-header and h2 colors to use design tokens",
+      "modification_points": [
+        "Replace .panel-header border-bottom: 1px solid #444 with var(--border-default)",
+        "Replace h2 color: #f90 with var(--primary-color) (CTA green)",
+        "Replace .version color: #999 with var(--text-muted)"
+      ],
+      "logic_flow": [
+        "Locate .panel-header selector",
+        "Replace border color with --border-default",
+        "Replace h2 color with --primary-color (green CTA instead of orange)",
+        "Replace version text color with --text-muted"
+      ],
+      "depends_on": [1],
+      "output": "header_colors_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Migrate section and form colors",
+      "description": "Update .section, .section-title, and .form-group colors",
+      "modification_points": [
+        "Replace .section-title color: #bbb with var(--text-secondary)",
+        "Replace .form-group label color: #ccc with var(--text-primary)",
+        "Replace .status-detail color: #aaa with var(--text-secondary)"
+      ],
+      "logic_flow": [
+        "Update section title colors",
+        "Update form group label colors",
+        "Update status detail colors"
+      ],
+      "depends_on": [2],
+      "output": "section_colors_migrated"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "identify_hardcoded_colors",
+      "action": "Find all hardcoded hex colors in target selectors",
+      "commands": ["bash(grep -n '#[0-9a-fA-F]\\{3,6\\}' packages/ccc-state-controller/panel/index.js | head -20)"],
+      "output_to": "hardcoded_colors"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-001", "context": ["CSS variable system with 25+ design tokens"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-002",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-001"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "color_mapping": {
+      "#333": "--bg-primary (#0F172A)",
+      "#e0e0e0": "--text-primary (#F8FAFC)",
+      "#f90": "--primary-color (#22C55E)",
+      "#444": "--border-default (#334155)",
+      "#999": "--text-muted (#64748B)"
+    }
+  },
+  "rationale": {
+    "primary_color_change": "Orange (#f90) replaced with Green (#22C55E) per ui-ux-pro-max CTA specification"
+  },
+  "risks": ["Must preserve all existing element IDs and event listeners"],
+  "test": {}
+}

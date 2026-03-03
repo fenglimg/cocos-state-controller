@@ -1,0 +1,151 @@
+{
+  "id": "IMPL-004",
+  "title": "Button System Styling",
+  "description": "Refactor all ui-button styles including base, primary, danger, and hover/focus states. Replace hardcoded colors with CSS variables. Update transitions to use design tokens. Change primary button from orange (#f90) to green CTA (#22C55E) per ui-ux-pro-max specification.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-003"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      "ui-button base uses var(--bg-elevated), var(--border-default), var(--text-secondary)",
+      "ui-button:hover uses var(--bg-hover), var(--border-strong)",
+      "ui-button:focus outline uses var(--primary-color)",
+      "ui-button.primary background uses var(--primary-color)",
+      "ui-button.danger background uses var(--error-color)",
+      "Transitions use var(--transition-fast)",
+      "cursor: pointer present on all buttons"
+    ],
+    "verification": "grep -A15 '^    ui-button' packages/ccc-state-controller/panel/index.js | grep -c 'var(--' >= 6",
+    "definition_of_done": "Complete button system migrated to CSS variables with consistent hover/focus states"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Update all ui-button selectors including .primary, .danger, .button-group (lines 93-149)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate base button styles",
+      "description": "Update ui-button base selector with CSS variables",
+      "modification_points": [
+        "Replace background-color: #3c3c3c with background: var(--bg-elevated)",
+        "Replace border: 1px solid #555 with border: 1px solid var(--border-default)",
+        "Replace color: #e0e0e0 with color: var(--text-secondary)",
+        "Replace padding 6px 12px with var(--spacing-1-5) var(--spacing-3)",
+        "Replace border-radius: 3px with var(--radius-sm)",
+        "Update transition to use var(--transition-fast)"
+      ],
+      "logic_flow": [
+        "Locate ui-button selector",
+        "Replace all hardcoded values with variables",
+        "Ensure cursor: pointer is present"
+      ],
+      "depends_on": [],
+      "output": "button_base_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate hover and focus states",
+      "description": "Update ui-button:hover and ui-button:focus with design tokens",
+      "modification_points": [
+        "ui-button:hover: background: var(--bg-hover), border-color: var(--border-strong)",
+        "ui-button:focus: outline-color: var(--primary-color), outline-offset: 2px",
+        "Ensure visible focus ring for accessibility (4.5:1 contrast)"
+      ],
+      "logic_flow": [
+        "Update hover state colors",
+        "Update focus state with green accent",
+        "Verify focus visibility"
+      ],
+      "depends_on": [1],
+      "output": "button_hover_focus_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Migrate primary button",
+      "description": "Update ui-button.primary with CTA green color",
+      "modification_points": [
+        "Replace background-color: #f90 with background: var(--primary-color)",
+        "Replace border-color: #e80 with transparent",
+        "ui-button.primary:hover: background: var(--primary-hover) or lighter green",
+        "ui-button.primary:disabled: use var(--disabled-bg), var(--disabled-text)"
+      ],
+      "logic_flow": [
+        "Change primary from orange to green",
+        "Update hover to slightly lighter green",
+        "Update disabled state with muted colors"
+      ],
+      "depends_on": [2],
+      "output": "primary_button_migrated"
+    },
+    {
+      "step": 4,
+      "title": "Migrate danger button and button group",
+      "description": "Update ui-button.danger and .button-group",
+      "modification_points": [
+        "ui-button.danger: background: var(--error-color)",
+        "ui-button.danger:hover: slightly lighter error color",
+        ".button-group gap: var(--spacing-2)"
+      ],
+      "logic_flow": [
+        "Update danger button colors",
+        "Update button group spacing",
+        "Verify visual consistency"
+      ],
+      "depends_on": [3],
+      "output": "danger_button_migrated"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "analyze_button_styles",
+      "action": "Review current button styling structure",
+      "commands": ["bash(grep -n -A20 '^    ui-button' packages/ccc-state-controller/panel/index.js | head -50)"],
+      "output_to": "button_styles"
+    },
+    {
+      "step": "reference_button_patterns",
+      "action": "Reference button patterns from styles.css",
+      "commands": ["bash(grep -A10 'ui-button' packages/ccc-smart-component-manager/panel/styles.css | head -30)"],
+      "output_to": "button_patterns"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-003", "context": ["Input components styled with CSS variables"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-004",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-003"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "native_component": "Cocos Creator 2.x ui-button",
+    "events": ["confirm event listener"],
+    "color_change": "Primary button: #f90 (orange) -> #22C55E (green CTA)"
+  },
+  "rationale": {
+    "cta_color": "Green CTA (#22C55E) aligns with ui-ux-pro-max design system for action buttons"
+  },
+  "risks": ["Must preserve all button event listeners (confirm events)"],
+  "test": {}
+}

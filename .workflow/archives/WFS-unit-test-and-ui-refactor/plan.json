@@ -1,0 +1,59 @@
+{
+  "summary": "Optimize ccc-state-controller project with comprehensive unit test coverage and UI/UX refactoring following ui-ux-pro-max guidelines",
+  "approach": "Phased implementation: (1) Expand installer module unit tests for version-manager, file-copier, validator; (2) Refactor panel UI preserving Cocos Creator 2.x compatibility; (3) Add Jest+jsdom tests for panel logic; (4) Add edge case and error handling tests",
+  "task_ids": ["IMPL-001", "IMPL-002", "IMPL-003", "IMPL-004"],
+  "task_count": 4,
+  "complexity": "Medium",
+  "estimated_time": "3-4 hours",
+  "recommended_execution": "Phased - IMPL-001 and IMPL-002 can run in parallel; IMPL-003 depends on IMPL-002; IMPL-004 depends on IMPL-001",
+  "shared_context": {
+    "tech_stack": ["TypeScript", "JavaScript", "Cocos Creator 2.x", "Jest", "ts-jest", "jest-canvas-mock"],
+    "conventions": ["Mock before import", "Pure Logic Strategy for installer tests", "UI Component Strategy for panel tests", "Editor.Panel.extend() pattern required"],
+    "constraints": [
+      "Cocos Creator 2.x compatibility required",
+      "Follow tests/TESTING_GUIDE.md patterns",
+      "No emoji icons - use SVG only",
+      "4.5:1 contrast ratio minimum",
+      "cursor-pointer on all interactive elements"
+    ]
+  },
+  "phases": [
+    {
+      "name": "Phase 1: Unit Test Enhancement",
+      "tasks": ["IMPL-001"],
+      "description": "Expand installer module tests for version-manager, file-copier, validator"
+    },
+    {
+      "name": "Phase 2: UI Refactoring",
+      "tasks": ["IMPL-002"],
+      "description": "Refactor panel UI with ui-ux-pro-max guidelines"
+    },
+    {
+      "name": "Phase 3: Panel Test Coverage",
+      "tasks": ["IMPL-003"],
+      "description": "Add Jest+jsdom tests for panel logic"
+    },
+    {
+      "name": "Phase 4: Edge Case Coverage",
+      "tasks": ["IMPL-004"],
+      "description": "Add edge case and error handling tests"
+    }
+  ],
+  "dependencies": {
+    "IMPL-001": [],
+    "IMPL-002": [],
+    "IMPL-003": ["IMPL-002"],
+    "IMPL-004": ["IMPL-001"]
+  },
+  "parallel_groups": [
+    ["IMPL-001", "IMPL-002"]
+  ],
+  "_metadata": {
+    "timestamp": "2026-03-03T16:00:00Z",
+    "source": "action-planning-agent",
+    "planning_mode": "agent-based",
+    "plan_type": "test-and-refactor",
+    "schema_version": "2.0",
+    "session_id": "WFS-unit-test-and-ui-refactor"
+  }
+}

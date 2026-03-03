@@ -1,0 +1,132 @@
+{
+  "id": "IMPL-001",
+  "title": "CSS Variable System Setup",
+  "description": "Implement CSS variable system in :host selector with ui-ux-pro-max design tokens. Create 25+ CSS variables covering colors, spacing, typography, transitions, and radii following the pattern from ccc-smart-component-manager/panel/styles.css. Variables must support Slate palette (#0F172A background, #22C55E CTA) with 4.5:1 contrast ratios.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": [],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      "25+ CSS variables defined in :host selector: verify by grep -c '^\\s*--' file >= 25",
+      "All 6 semantic color variables exist: --primary-color, --success-color, --warning-color, --error-color, --info-color, --bg-primary",
+      "5 spacing variables exist: --spacing-0 to --spacing-4",
+      "5 typography variables exist: --font-size-xs to --font-size-xl"
+    ],
+    "verification": "grep -E '^\\s*--(primary|success|warning|error|info|bg-primary|spacing|font-size)' packages/ccc-state-controller/panel/index.js | wc -l >= 16",
+    "definition_of_done": "CSS variable system foundation established with all design tokens defined"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Add CSS variable definitions to :host selector in style property (lines 11-22)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Define color variables",
+      "description": "Add color design tokens following Slate palette and ui-ux-pro-max specifications",
+      "modification_points": [
+        "Add 6 semantic colors: --primary-color (#22C55E), --success-color (#50e3a4), --warning-color (#e8b83d), --error-color (#f45b6b), --info-color (#5cc4ff)",
+        "Add 4 background colors: --bg-primary (#0F172A), --bg-secondary (#1E293B), --bg-tertiary (#334155), --bg-elevated (#475569)",
+        "Add 3 text colors: --text-primary (#F8FAFC), --text-secondary (#94A3B8), --text-muted (#64748B)",
+        "Add 2 border colors: --border-default (#334155), --border-focus (#22C55E)"
+      ],
+      "logic_flow": [
+        "Open style property in panel/index.js",
+        "Locate :host selector (line 11)",
+        "Add color variables after existing :host properties",
+        "Verify 4.5:1 contrast ratio for text on backgrounds"
+      ],
+      "depends_on": [],
+      "output": "color_variables"
+    },
+    {
+      "step": 2,
+      "title": "Define spacing and typography variables",
+      "description": "Add spacing scale and typography design tokens",
+      "modification_points": [
+        "Add 5 spacing variables: --spacing-0 (0px), --spacing-1 (4px), --spacing-2 (8px), --spacing-3 (12px), --spacing-4 (16px)",
+        "Add 5 font-size variables: --font-size-xs (10px), --font-size-sm (11px), --font-size-base (12px), --font-size-md (13px), --font-size-lg (14px)",
+        "Add font-family variable: --font-ui with system fallbacks"
+      ],
+      "logic_flow": [
+        "Add spacing variables after color variables",
+        "Add typography variables after spacing",
+        "Use values from pattern reference styles.css"
+      ],
+      "depends_on": [1],
+      "output": "spacing_typography_variables"
+    },
+    {
+      "step": 3,
+      "title": "Define transition and radius variables",
+      "description": "Add transition timing and border radius design tokens",
+      "modification_points": [
+        "Add 3 transition variables: --transition-fast (100ms), --transition-normal (150ms), --transition-slow (250ms)",
+        "Add 4 radius variables: --radius-sm (3px), --radius-md (5px), --radius-lg (8px), --radius-full (9999px)",
+        "Add easing variable: --easing-default (cubic-bezier(0.4, 0, 0.2, 1))"
+      ],
+      "logic_flow": [
+        "Add transition variables with cubic-bezier easing",
+        "Add radius variables",
+        "Verify timing is within 150-300ms range for micro-interactions"
+      ],
+      "depends_on": [2],
+      "output": "transition_radius_variables"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package for artifact paths and smart context",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "analyze_current_host_selector",
+      "action": "Analyze current :host selector structure to understand insertion point",
+      "commands": ["bash(grep -n ':host' packages/ccc-state-controller/panel/index.js | head -5)"],
+      "output_to": "host_selector_analysis"
+    },
+    {
+      "step": "reference_pattern_variables",
+      "action": "Reference CSS variable patterns from styles.css",
+      "commands": ["bash(grep -E '^\\s*--' packages/ccc-smart-component-manager/panel/styles.css | head -30)"],
+      "output_to": "variable_patterns"
+    }
+  ],
+  "artifacts": [],
+  "inherited": {},
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-001",
+    "strategy": "new"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "design_system": "ui-ux-pro-max Vibrant & Block-based",
+    "color_palette": {
+      "primary": "#22C55E (Green-500 CTA)",
+      "background": "#0F172A (Slate-900)",
+      "text": "#F8FAFC (Slate-50)",
+      "muted": "#94A3B8 (Slate-400)"
+    }
+  },
+  "rationale": {
+    "css_variables": "Adopt CSS variable system for maintainability while keeping single theme (no theme switching complexity)"
+  },
+  "risks": ["Variable naming must follow kebab-case convention"],
+  "test": {}
+}

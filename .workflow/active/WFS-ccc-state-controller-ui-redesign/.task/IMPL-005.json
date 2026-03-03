@@ -1,0 +1,131 @@
+{
+  "id": "IMPL-005",
+  "title": "Status Card and Indicator Styling",
+  "description": "Refactor .status-card and status indicator styles with CSS variables. Update installed, not-installed, update-available, and error state colors. Replace border-left indicator colors with semantic design tokens. Update .status-title and .status-detail typography.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-004"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      ".status-card background uses var(--bg-secondary)",
+      ".status-card border uses var(--border-default)",
+      ".status-card.installed border-left uses var(--success-color)",
+      ".status-card.update-available border-left uses var(--warning-color)",
+      ".status-card.error border-left uses var(--error-color)",
+      ".status-title color uses var(--text-primary)",
+      ".status-detail color uses var(--text-secondary)"
+    ],
+    "verification": "grep -A20 '.status-card' packages/ccc-state-controller/panel/index.js | grep -c 'var(--' >= 6",
+    "definition_of_done": "Status card system uses semantic color variables for all states"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Update .status-card, .status-title, .status-detail selectors (lines 151-194)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate base status card styles",
+      "description": "Update .status-card base selector with CSS variables",
+      "modification_points": [
+        "Replace background-color: #3a3a3a with background: var(--bg-secondary)",
+        "Replace border: 1px solid #444 with border: 1px solid var(--border-default)",
+        "Replace border-radius: 4px with var(--radius-md)",
+        "Replace padding: 12px with var(--spacing-3)"
+      ],
+      "logic_flow": [
+        "Locate .status-card selector",
+        "Replace hardcoded colors with variables",
+        "Update spacing and radius"
+      ],
+      "depends_on": [],
+      "output": "status_card_base_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate status state indicators",
+      "description": "Update border-left colors for each status state",
+      "modification_points": [
+        ".status-card.installed: border-left-color: var(--success-color)",
+        ".status-card.not-installed: border-left-color: var(--text-muted)",
+        ".status-card.update-available: border-left-color: var(--warning-color)",
+        ".status-card.error: border-left-color: var(--error-color)"
+      ],
+      "logic_flow": [
+        "Update installed state to use --success-color (green)",
+        "Update not-installed to use --text-muted (gray)",
+        "Update update-available to use --warning-color (amber)",
+        "Update error to use --error-color (red)"
+      ],
+      "depends_on": [1],
+      "output": "status_indicators_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Migrate status text styles",
+      "description": "Update .status-title, .status-detail, .version-info colors",
+      "modification_points": [
+        ".status-title color: var(--text-primary)",
+        ".status-detail color: var(--text-secondary)",
+        ".version-label color: var(--text-muted)",
+        ".version-value color: var(--text-primary)"
+      ],
+      "logic_flow": [
+        "Update status title color",
+        "Update detail text color",
+        "Update version info colors"
+      ],
+      "depends_on": [2],
+      "output": "status_text_migrated"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "analyze_status_styles",
+      "action": "Review current status card styling",
+      "commands": ["bash(grep -n -A5 '.status-card' packages/ccc-state-controller/panel/index.js)"],
+      "output_to": "status_styles"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-004", "context": ["Button system styled with CSS variables"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-005",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-004"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {
+    "semantic_colors": {
+      "installed": "--success-color (#50e3a4)",
+      "not-installed": "--text-muted (#64748B)",
+      "update-available": "--warning-color (#e8b83d)",
+      "error": "--error-color (#f45b6b)"
+    }
+  },
+  "rationale": {
+    "semantic_indicators": "Border-left colors provide instant visual status recognition"
+  },
+  "risks": ["Icon text tokens ([OK], [!], [X]) remain unchanged per implementation decision"],
+  "test": {}
+}

@@ -1,0 +1,118 @@
+{
+  "id": "IMPL-007",
+  "title": "Footer, Divider, and Utility Styling",
+  "description": "Refactor remaining CSS selectors including .footer, .divider, and .hidden utility class. Update footer and divider colors with CSS variables. Ensure all remaining hardcoded hex values are migrated. This task completes the CSS variable migration.",
+  "status": "pending",
+  "type": "refactor",
+  "scope": "packages/ccc-state-controller/panel/index.js",
+  "action": "Refactor",
+  "depends_on": ["IMPL-006"],
+  "focus_paths": ["packages/ccc-state-controller/panel/index.js"],
+  "convergence": {
+    "criteria": [
+      ".footer border-top uses var(--border-default)",
+      ".footer color uses var(--text-muted)",
+      ".footer font-size uses var(--font-size-xs)",
+      ".divider background uses var(--border-default)",
+      "Zero remaining hardcoded hex color values in CSS (except inside comments)",
+      "All selectors use CSS variables consistently"
+    ],
+    "verification": "grep -c '#[0-9a-fA-F]\\{3,6\\}' packages/ccc-state-controller/panel/index.js | xargs -I {} sh -c 'test {} -le 2 && echo PASS || echo FAIL'",
+    "definition_of_done": "All CSS migrated to CSS variables, zero hardcoded hex values remaining"
+  },
+  "files": [
+    { "path": "packages/ccc-state-controller/panel/index.js", "action": "modify", "change": "Update .footer, .divider, .hidden selectors and verify complete migration (lines 280-298)" }
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "title": "Migrate footer styles",
+      "description": "Update .footer selector with CSS variables",
+      "modification_points": [
+        "Replace border-top: 1px solid #444 with border-top: 1px solid var(--border-default)",
+        "Replace color: #888 with color: var(--text-muted)",
+        "Replace font-size: 10px with font-size: var(--font-size-xs)",
+        "Update padding-top to var(--spacing-3)"
+      ],
+      "logic_flow": [
+        "Locate .footer selector",
+        "Replace hardcoded values with variables",
+        "Ensure consistent spacing"
+      ],
+      "depends_on": [],
+      "output": "footer_migrated"
+    },
+    {
+      "step": 2,
+      "title": "Migrate divider styles",
+      "description": "Update .divider selector with CSS variables",
+      "modification_points": [
+        "Replace background-color: #444 with background: var(--border-default)",
+        "Replace margin: 16px 0 with margin: var(--spacing-4) 0"
+      ],
+      "logic_flow": [
+        "Update divider background color",
+        "Update margin with spacing variable"
+      ],
+      "depends_on": [1],
+      "output": "divider_migrated"
+    },
+    {
+      "step": 3,
+      "title": "Final verification and cleanup",
+      "description": "Verify all hardcoded colors are migrated, add any missing variables",
+      "modification_points": [
+        "Scan for remaining hardcoded hex values: grep '#[0-9a-fA-F]{3,6}'",
+        "Replace any remaining hardcoded values with CSS variables",
+        "Verify .hidden utility class is intact"
+      ],
+      "logic_flow": [
+        "Run grep to find remaining hex values",
+        "Replace each found value with appropriate variable",
+        "Verify visual consistency"
+      ],
+      "depends_on": [2],
+      "output": "final_cleanup"
+    }
+  ],
+  "pre_analysis": [
+    {
+      "step": "load_context_package",
+      "action": "Load context package",
+      "commands": ["Read(.workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json)"],
+      "output_to": "context_package",
+      "on_error": "fail"
+    },
+    {
+      "step": "scan_remaining_hardcoded_colors",
+      "action": "Find all remaining hardcoded hex colors",
+      "commands": ["bash(grep -n '#[0-9a-fA-F]\\{3,6\\}' packages/ccc-state-controller/panel/index.js)"],
+      "output_to": "remaining_colors"
+    }
+  ],
+  "artifacts": [],
+  "inherited": { "from": "IMPL-006", "context": ["Progress and log components with semantic colors"] },
+  "context_package_path": ".workflow/active/WFS-ccc-state-controller-ui-redesign/.process/context-package.json",
+  "cli_execution": {
+    "id": "WFS-ccc-state-controller-ui-redesign-IMPL-007",
+    "strategy": "resume",
+    "resume_from": "WFS-ccc-state-controller-ui-redesign-IMPL-006"
+  },
+  "meta": {
+    "type": "refactor",
+    "agent": "@code-developer",
+    "execution_group": null,
+    "module": null,
+    "execution_config": {
+      "method": "agent",
+      "cli_tool": null,
+      "enable_resume": false
+    }
+  },
+  "reference": {},
+  "rationale": {
+    "complete_migration": "This task ensures 100% CSS variable adoption for maintainability"
+  },
+  "risks": [],
+  "test": {}
+}

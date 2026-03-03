@@ -4,7 +4,7 @@
   "priority": "P2",
   "effort": "2天",
   "risk": "低",
-  "status": "pending",
+  "status": "completed",
   "phase": 3,
   "milestone": "M3: 编辑器集成",
   "goal": "预留源码集成测试功能",
@@ -14,28 +14,28 @@
       "title": "创建测试目录",
       "description": "创建 packages/ccc-state-controller/tests/ 目录",
       "file": "packages/ccc-state-controller/tests/",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-010.2",
       "title": "实现安装器测试",
       "description": "实现 installer.test.js 安装器集成测试",
       "file": "packages/ccc-state-controller/tests/installer.test.js",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-010.3",
       "title": "创建测试fixtures",
       "description": "创建测试用 fixtures（模拟核心源码和目标目录）",
       "file": "packages/ccc-state-controller/tests/fixtures/",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "IMPL-010.4",
       "title": "实现测试辅助函数",
       "description": "实现 test-helper.js 测试辅助函数",
       "file": "packages/ccc-state-controller/tests/utils/test-helper.js",
-      "status": "pending"
+      "status": "completed"
     }
   ],
   "acceptanceCriteria": [
@@ -44,5 +44,20 @@
     "测试覆盖安装验证场景",
     "测试覆盖回滚场景"
   ],
-  "dependencies": ["IMPL-008", "IMPL-009"]
+  "dependencies": [
+    "IMPL-008",
+    "IMPL-009"
+  ],
+  "status_history": [
+    {
+      "from": "pending",
+      "to": "in_progress",
+      "changed_at": "2026-03-03T11:26:19+08:00"
+    },
+    {
+      "from": "in_progress",
+      "to": "completed",
+      "changed_at": "2026-03-03T11:39:33+08:00"
+    }
+  ]
 }

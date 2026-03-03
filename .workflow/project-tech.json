@@ -1,0 +1,145 @@
+{
+  "project_name": "cocos-state-controller",
+  "initialized_at": "2026-03-03T12:45:00.000Z",
+  "overview": {
+    "description": "Cocos Creator UI状态控制器系统 - A state management system for Cocos Creator game engine inspired by FairyGUI controller, providing powerful UI state switching and component management capabilities",
+    "technology_stack": {
+      "languages": [
+        {
+          "name": "TypeScript",
+          "file_count": 41,
+          "primary": true
+        },
+        {
+          "name": "JavaScript",
+          "file_count": 65,
+          "primary": false
+        },
+        {
+          "name": "Python",
+          "file_count": 6,
+          "primary": false
+        }
+      ],
+      "frameworks": [
+        "Cocos Creator 2.x",
+        "Cocos Creator 3.x",
+        "Cocos Creator Editor Extension API"
+      ],
+      "build_tools": [
+        "npm",
+        "Cocos Creator Build System"
+      ],
+      "test_frameworks": [
+        "Jest",
+        "ts-jest"
+      ]
+    },
+    "architecture": {
+      "style": "Monorepo with Component-Based Architecture - Multi-package structure with core library, installer extensions, and utility tools",
+      "layers": [
+        "core-library",
+        "editor-extensions",
+        "runtime-components",
+        "testing-infrastructure"
+      ],
+      "patterns": [
+        "Component Pattern",
+        "Observer Pattern",
+        "Strategy Pattern (Property Handlers)",
+        "Factory Pattern (PropHandlerManager)",
+        "Singleton Pattern (Error Manager)",
+        "Cache Pattern (StateSelect Cache)"
+      ]
+    },
+    "key_components": [
+      {
+        "name": "StateController",
+        "path": "packages/ccc-state-controller-core/src/StateController.ts",
+        "description": "Core state controller component that manages state groups, handles state switching, maintains StateSelect cache for performance, and provides intelligent inspector refresh mechanisms",
+        "importance": "high"
+      },
+      {
+        "name": "StateSelect",
+        "path": "packages/ccc-state-controller-core/src/StateSelect.ts",
+        "description": "State selector component attached to child nodes, responsible for executing property changes when controller state changes, supports multiple property types and sync modes",
+        "importance": "high"
+      },
+      {
+        "name": "StatePropHandler",
+        "path": "packages/ccc-state-controller-core/src/StatePropHandler.ts",
+        "description": "Property handler system implementing Strategy pattern, provides unified interface for getting/setting different property types (Position, Color, Scale, SpriteFrame, etc.)",
+        "importance": "high"
+      },
+      {
+        "name": "StateErrorManager",
+        "path": "packages/ccc-state-controller-core/src/StateErrorManager.ts",
+        "description": "Centralized error handling and logging system with graceful fallback support, node validation, and user-friendly error messages",
+        "importance": "high"
+      },
+      {
+        "name": "StateEnum",
+        "path": "packages/ccc-state-controller-core/src/StateEnum.ts",
+        "description": "Enumeration definitions for state names, update types, property types, sync modes, and inspector refresh modes",
+        "importance": "medium"
+      },
+      {
+        "name": "Property Handlers",
+        "path": "packages/ccc-state-controller-core/src/Props/",
+        "description": "Modular property handler implementations for Node properties (Position, Scale, Color, etc.), Component properties (Label, Sprite, etc.), and Widget properties",
+        "importance": "medium"
+      },
+      {
+        "name": "ccc-state-controller-installer",
+        "path": "packages/ccc-state-controller/",
+        "description": "Cocos Creator editor extension package for installing and managing state controller in game projects, provides panel UI and quick install/update features",
+        "importance": "medium"
+      },
+      {
+        "name": "ccc-smart-component-manager",
+        "path": "packages/ccc-smart-component-manager/",
+        "description": "Smart component manager extension providing advanced component search, auto-mounting, favorites management, and quick component addition features",
+        "importance": "medium"
+      },
+      {
+        "name": "Test Infrastructure",
+        "path": "tests/",
+        "description": "Isolated Jest testing environment with Cocos Creator mocks, supporting TypeScript tests with ts-jest, includes unit tests for StateController, StateSelect, and StatePropHandler",
+        "importance": "medium"
+      },
+      {
+        "name": "Runtime Assets",
+        "path": "assets/script/Controller/",
+        "description": "Production runtime version of state controller components used in actual game projects, mirrors the core library structure",
+        "importance": "high"
+      }
+    ]
+  },
+  "features": [],
+  "development_index": {
+    "feature": [],
+    "enhancement": [
+      {
+        "title": "优化 ccc-state-controller: 单元测试完善 + UI/UX 重构",
+        "sub_feature": "tests",
+        "date": "2026-03-03",
+        "description": "单元测试完善: 227+ 测试用例, 95.37% 覆盖率; UI/UX重构: 4.5:1对比度, cursor-pointer, focus-visible",
+        "status": "completed",
+        "session_id": "WFS-unit-test-and-ui-refactor"
+      }
+    ],
+    "bugfix": [],
+    "refactor": [],
+    "docs": []
+  },
+  "statistics": {
+    "total_features": 0,
+    "total_sessions": 2,
+    "last_updated": "2026-03-03T17:30:00.000Z"
+  },
+  "_metadata": {
+    "initialized_by": "cli-explore-agent",
+    "analysis_timestamp": "2026-03-03T12:45:00.000Z",
+    "analysis_mode": "deep-scan"
+  }
+}

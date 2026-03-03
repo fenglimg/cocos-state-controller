@@ -1,0 +1,160 @@
+{
+  "project_structure": "The project consists of a Cocos Creator 2.x extension package (ccc-state-controller) with a panel-based UI. The extension follows Cocos Creator's Editor.Panel.extend() API pattern with inline CSS styles and HTML template. The UI structure uses Shadow DOM (:host selector) with Cocos Creator's native ui-button and ui-input web components. A related package (ccc-smart-component-manager) demonstrates a more advanced design system with CSS variables and extracted styles.css/template.html files.",
+  "relevant_files": [
+    {
+      "path": "packages/ccc-state-controller/panel/index.js",
+      "relevance": 1.0,
+      "rationale": "Primary target file containing the entire panel UI including inline CSS styles (style property), HTML template (template property), and UI logic. All UI redesign work will be concentrated here.",
+      "role": "modify_target",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "Editor.Panel.extend({ style: `...` })",
+          "location": "L11-L350",
+          "description": "Inline CSS containing all styling: colors (#333, #f90, #4a4), typography (12px base), spacing (12px padding), button styles, status cards, progress indicators, and log container styles"
+        },
+        {
+          "symbol": "template: `<div>...</div>`",
+          "location": "L350-L450",
+          "description": "HTML template with panel header, status card, form groups for path selection, button groups for actions (Install/Update/Uninstall), progress bar, and log container"
+        },
+        {
+          "symbol": "ready() { this._bindEvents(); }",
+          "location": "L402-L420",
+          "description": "Panel initialization and event binding for ui-button elements using 'confirm' event listeners"
+        }
+      ],
+      "topic_relation": "Patterns exploration focuses on this file as the primary UI styling target. Current inline styles use hardcoded hex values and basic component patterns that need modernization with CSS variables and design tokens."
+    },
+    {
+      "path": "packages/ccc-smart-component-manager/panel/styles.css",
+      "relevance": 0.95,
+      "rationale": "Reference design system demonstrating modern CSS variable patterns, theming support (vibrant-dark, warm-dark), and comprehensive component styles. Provides the pattern template for the UI redesign.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": ":host { --primary-color: #5ba8ff; ... }",
+          "location": "L6-L150",
+          "description": "Design token CSS variables defining colors, spacing, typography, shadows, radii, and transitions. Includes semantic tokens for success/warning/error states."
+        },
+        {
+          "symbol": ":host([data-theme=\"warm-dark\"]) { ... }",
+          "location": "L155-L220",
+          "description": "Theme override pattern demonstrating how to implement multiple themes using CSS variable overrides"
+        },
+        {
+          "symbol": "#coms ui-button { ... }",
+          "location": "L526-L560",
+          "description": "Button component patterns with hover/active states, keyboard accessibility, and animation keyframes"
+        }
+      ],
+      "topic_relation": "Patterns exploration identifies this file as the gold standard for UI styling patterns. Contains the complete design token system that should be adopted for the ccc-state-controller panel redesign."
+    },
+    {
+      "path": "packages/ccc-smart-component-manager/panel/template.html",
+      "relevance": 0.75,
+      "rationale": "Reference HTML template showing SVG icon usage, page-view structure, and semantic class naming conventions that can be applied to the installer panel.",
+      "role": "pattern_reference",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "<svg class=\"icon\" viewBox=\"0 0 16 16\">...</svg>",
+          "location": "L8-L10",
+          "description": "SVG icon pattern for buttons using currentColor fill, replacing text/emoji icons with vector graphics"
+        },
+        {
+          "symbol": "<div id=\"main\" class=\"container page-view page-active\">",
+          "location": "L2",
+          "description": "Page view pattern for multi-page panels with page-active/page-hidden state classes"
+        }
+      ],
+      "topic_relation": "Patterns exploration highlights this file for HTML structure patterns including SVG icon implementation and semantic class naming that should be adopted."
+    },
+    {
+      "path": "packages/ccc-state-controller/package.json",
+      "relevance": 0.6,
+      "rationale": "Package configuration defining panel dimensions (420x520), type (dockable), and menu entries. May need adjustment if redesign requires different panel sizing.",
+      "role": "config",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "\"panel\": { \"width\": 420, \"height\": 520 }",
+          "location": "L25-L28",
+          "description": "Panel dimension configuration that may need adjustment for redesigned UI components"
+        }
+      ],
+      "topic_relation": "Patterns exploration notes panel dimension constraints that may affect responsive design decisions in the UI redesign."
+    },
+    {
+      "path": "packages/ccc-state-controller/main.js",
+      "relevance": 0.5,
+      "rationale": "Main extension entry point handling IPC communication between panel and installer. Understanding IPC patterns helps ensure UI redesign maintains proper event handling.",
+      "role": "integration_point",
+      "discovery_source": "bash-scan",
+      "key_code": [
+        {
+          "symbol": "messages: { 'ccc-state-controller:open'() { ... } }",
+          "location": "L45-L95",
+          "description": "IPC message handlers for panel open, install, update, and check-update operations"
+        }
+      ],
+      "topic_relation": "Patterns exploration identifies IPC message patterns that the redesigned UI buttons must continue to trigger correctly."
+    }
+  ],
+  "patterns": "## Current UI Patterns (ccc-state-controller)\n\n### Color System (Hardcoded)\n- Background: #333 (panel), #3a3a3a (cards), #2a2a2a (log)\n- Primary accent: #f90 (orange, used for header, primary buttons)\n- Status colors: #4a4 (success/installed), #888 (neutral), #c42 (error/danger)\n- Text: #e0e0e0 (primary), #ccc (labels), #999 (muted), #fff (emphasis)\n\n### Typography\n- Font: 'Segoe UI', Arial, sans-serif\n- Base size: 12px\n- Headers: 16px (h2), 11px (section titles, uppercase)\n\n### Spacing\n- Panel padding: 12px\n- Section margin: 16px\n- Form group margin: 12px\n- Border radius: 3-4px\n\n### Button Styles\n- Default: #3c3c3c bg, #555 border, #e0e0e0 text\n- Primary: #f90 bg, #e80 border, #fff text\n- Danger: #c42 bg, #a31 border, #fff text\n- Disabled: #666 bg, #555 border, #888 text\n- Padding: 6px 12px\n\n### Status Cards\n- Left border indicator (3px) for status: installed (green), not-installed (gray), update-available (orange), error (red)\n- Background: #3a3a3a with #444 border\n\n## Reference Design System (ccc-smart-component-manager)\n\n### CSS Variable Architecture\n- Design tokens defined in :host selector\n- Semantic naming: --primary-color, --success-color, --bg-primary, --text-muted\n- Component-specific tokens: --favorite-text, --frequent-bg\n- Spacing scale: --spacing-0 to --spacing-8\n- Typography scale: --font-size-xs (10px) to --font-size-xl (16px)\n- Shadow system: --shadow-sm, --shadow-md, --shadow-lg\n- Border radius scale: --radius-sm (3px) to --radius-full (9999px)\n- Transition timing: --transition-fast (100ms), --transition-normal (150ms)\n\n### Theme Support\n- Data attribute selector: :host([data-theme=\"warm-dark\"])\n- Complete variable override per theme\n- Default theme: vibrant-dark (blue-tinted)\n- Alternative: warm-dark (orange-tinted)\n\n### Component Patterns\n- ui-button with hover/active/focus states\n- Keyboard accessibility indicators\n- Animation keyframes (activePulse, moveLeft, moveRight)\n- SVG icons with currentColor for dynamic coloring",
+  "dependencies": "## Cocos Creator 2.x UI Components\n- ui-button: Native Cocos Creator button web component, supports 'confirm' event\n- ui-input: Native Cocos Creator input web component\n\n## External Dependencies\n- None (pure CSS/HTML/JS implementation)\n\n## Internal Dependencies\n- src/installer: Installation logic triggered by UI actions\n- main.js: IPC communication for panel-main process interaction",
+  "integration_points": "## UI Event Bindings (panel/index.js)\n- this.$browseBtn.addEventListener('confirm', ...) - Directory selection\n- this.$installBtn.addEventListener('confirm', ...) - Install action\n- this.$updateBtn.addEventListener('confirm', ...) - Update action\n- this.$reinstallBtn.addEventListener('confirm', ...) - Reinstall action\n- this.$uninstallBtn.addEventListener('confirm', ...) - Uninstall action\n\n## IPC Messages (main.js)\n- 'ccc-state-controller:init-panel' - Initialize panel data\n- 'ccc-state-controller:select-directory' - Open directory dialog\n- 'ccc-state-controller:get-status' - Check installation status\n- 'ccc-state-controller:install' - Execute installation\n- 'ccc-state-controller:update' - Execute update\n- 'ccc-state-controller:uninstall' - Execute uninstall\n\n## UI State Updates\n- _updateStatusUI(status, title, detail) - Update status card\n- _updateButtons() - Enable/disable buttons based on state\n- _startOperation(message) / _finishOperation() - Progress indicator\n- _log(message, type) - Log entry display",
+  "constraints": "## Cocos Creator 2.x Technical Constraints\n\n### Panel Architecture\n- Must use Editor.Panel.extend() API\n- CSS must be in 'style' property as inline string (cannot reference external CSS file)\n- HTML must be in 'template' property as inline string\n- Shadow DOM (:host) is automatically applied\n\n### Component Limitations\n- Only Cocos Creator native web components (ui-button, ui-input) are available\n- No external CSS framework support (no Tailwind, Bootstrap)\n- No CSS preprocessors (no SASS, LESS)\n- No modern JavaScript framework (no React, Vue)\n\n### Browser Environment\n- Chromium-based (Electron)\n- CSS Grid and Flexbox supported\n- CSS Custom Properties (variables) supported\n- Modern CSS features (transitions, animations, shadows) supported\n\n### Panel Dimensions\n- Current: 420x520px (width x height)\n- Min: 380x400px\n- Type: dockable (can be resized by user)\n\n### ui-ux-pro-max Guidelines\n- 4.5:1 contrast ratio minimum\n- cursor-pointer on interactive elements\n- No emoji icons (use SVG or text)\n- Monospace icons allowed (font-family: monospace)",
+  "clarification_needs": [
+    {
+      "question": "Should the redesigned panel use CSS variables (design tokens) or keep hardcoded values?",
+      "context": "The reference package uses a comprehensive CSS variable system with theming support, while the current panel uses hardcoded hex values. CSS variables enable theming but add complexity.",
+      "options": [
+        "Adopt full CSS variable system with theme support (matching ccc-smart-component-manager)",
+        "Use CSS variables for basic tokens only (colors, spacing) without theme switching",
+        "Keep hardcoded values with improved organization (comments, grouping)"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "Should the panel HTML template be extracted to a separate file?",
+      "context": "The reference package has extracted template.html and styles.css files, but Cocos Creator 2.x requires inline strings in the panel/index.js. Extracted files would need a build step to inline them.",
+      "options": [
+        "Keep styles and template inline in panel/index.js (no build step needed)",
+        "Extract to separate files with a build script to inline them (better DX, requires build)",
+        "Extract CSS only, keep HTML inline (partial improvement)"
+      ],
+      "recommended": 0
+    },
+    {
+      "question": "What icon system should be used for buttons and status indicators?",
+      "context": "Current panel uses monospace text characters as icons. The reference package uses inline SVG icons with currentColor for dynamic coloring.",
+      "options": [
+        "Keep monospace text icons (simplest, consistent with current)",
+        "Adopt SVG icons (more professional, requires icon set selection)",
+        "Use Unicode symbols only (no external dependencies, limited icon options)"
+      ],
+      "recommended": 1
+    },
+    {
+      "question": "Should the redesigned panel support multiple themes?",
+      "context": "The reference package supports vibrant-dark (blue-tinted) and warm-dark (orange-tinted) themes via data-theme attribute. This adds flexibility but increases complexity.",
+      "options": [
+        "Single theme only matching Cocos Creator default dark theme",
+        "Two themes: dark (default) and light (optional)",
+        "Multiple themes with user preference persistence (matching reference package)"
+      ],
+      "recommended": 0
+    }
+  ],
+  "_metadata": {
+    "timestamp": "2026-03-03T12:30:00Z",
+    "task_description": "Redesign ccc-state-controller extension panel UI using modern design system",
+    "source": "cli-explore-agent",
+    "exploration_angle": "patterns",
+    "exploration_index": 1,
+    "total_explorations": 1,
+    "duration_seconds": 45
+  }
+}
