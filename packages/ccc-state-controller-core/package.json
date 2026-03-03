@@ -1,0 +1,28 @@
+{
+  "name": "ccc-state-controller-core",
+  "version": "1.0.0",
+  "description": "Cocos Creator State Controller Core Library",
+  "author": "fenglimg",
+  "license": "MIT",
+  "main": "src/StateController.ts",
+  "types": "src/StateController.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fenglimg/cocos-state-controller"
+  },
+  "keywords": [
+    "cocos-creator",
+    "state-controller",
+    "game-development"
+  ],
+  "scripts": {
+    "test": "echo \"Run tests from parent project\"",
+    "build": "echo \"No build step required for source package\""
+  },
+  "peerDependencies": {},
+  "files": [
+    "src/**/*",
+    "tests/**/*",
+    "README.md"
+  ]
+}
