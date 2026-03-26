@@ -22,6 +22,7 @@ module.exports = {
     '../assets/**/*.ts',
     '../packages/ccc-state-controller/**/*.ts',
     '../packages/ccc-state-controller-core/**/*.ts',
+    '../packages/ccc-state-controller-workbench/**/*.js',
     '!../assets/**/*.d.ts',
     '!../assets/**/*.test.ts',
     '!../assets/**/*.spec.ts',
