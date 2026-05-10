@@ -4,16 +4,18 @@
  * 关键点：
  * - rootDir 保持为 tests/，确保可以解析到 tests/node_modules 中的 jest/ts-jest
  * - 通过 moduleNameMapper 将 `assets/*` 映射到项目根目录的 assets/
- * - 支持扫描 tests/core/ 和 tests/packages/ 下的测试文件
- * - 支持扫描 assets/, packages/ccc-state-controller/, packages/ccc-state-controller-core/ 源码
+ * - 支持扫描 tests/core/ 下的测试文件 (tests/packages/ 在 M1 已清空，将在 M4 重建)
+ * - 支持扫描 assets/script/controller/, packages/ccc-state-controller/ 源码
+ * - phantom 子包 ccc-state-controller-core/src/* 通过 moduleNameMapper 重定向至 assets/script/controller/
  */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
 
   // 以 tests/ 为 rootDir（隔离依赖所在位置）
-  // 扫描 tests/core/ 和 tests/packages/ 下的测试文件
-  roots: ['<rootDir>/core', '<rootDir>/packages'],
+  // 扫描 tests/core/ 下的测试文件
+  // 注：tests/packages/ 在 M1 已清空 (孤儿测试已删除)，将在 M4 重建
+  roots: ['<rootDir>/core'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
@@ -21,7 +23,6 @@ module.exports = {
   collectCoverageFrom: [
     '../assets/**/*.ts',
     '../packages/ccc-state-controller/**/*.ts',
-    '../packages/ccc-state-controller-core/**/*.ts',
     '../packages/ccc-state-controller-workbench/**/*.js',
     '!../assets/**/*.d.ts',
     '!../assets/**/*.test.ts',
@@ -33,8 +34,13 @@ module.exports = {
 
   // 模块路径映射
   moduleNameMapper: {
+    // Phantom package redirect: ccc-state-controller-core/src/* → assets/script/controller/*
+    // 该子包并不存在于物理文件系统中，遗留测试 import 路径通过此映射解析到真实源码
+    '^.*ccc-state-controller-core/src/(.*)$': '<rootDir>/../assets/script/controller/$1',
     // 绝对路径映射 - 从 tests/ 目录访问项目源码
     '^\\.\\./\\.\\./\\.\\./packages/(.*)$': '<rootDir>/../packages/$1',
+    // 旧式 ../../../assets/... 写法兼容（测试文件实际深度只需 ../../ ，但保留三段以兼容现有约定）
+    '^\\.\\./\\.\\./\\.\\./assets/(.*)$': '<rootDir>/../assets/$1',
     // assets/* 映射到项目根目录
     '^assets/(.*)$': '<rootDir>/../assets/$1',
     // packages/* 映射到项目根目录
