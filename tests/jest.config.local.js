@@ -13,10 +13,9 @@ module.exports = {
   testEnvironment: 'jsdom',
 
   // 以 tests/ 为 rootDir（隔离依赖所在位置）
-  // 扫描 tests/core/ 下的测试文件
-  // 注：tests/packages/ 在 M1 已清空 (孤儿测试已删除)，将在 M4 重建
-  roots: ['<rootDir>/core'],
-  testMatch: ['**/*.test.ts'],
+  // 扫描 tests/core/ (TS) 与 tests/packages/ (JS) 下的测试文件
+  roots: ['<rootDir>/core', '<rootDir>/packages'],
+  testMatch: ['**/*.test.ts', '**/*.test.js'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
   // 覆盖率收集范围（项目根 assets + packages）

@@ -4,9 +4,11 @@
   "description": "Cocos Creator State Controller - 状态控制器组件",
   "private": true,
   "scripts": {
-    "lint": "eslint assets/ packages/ccc-state-controller/ --ext .ts,.js",
-    "lint:fix": "eslint assets/ packages/ccc-state-controller/ --ext .ts,.js --fix",
-    "lint:state": "eslint assets/script/controller/ packages/ccc-state-controller/ --ext .ts,.js",
+    "lint": "eslint assets/ packages/ccc-state-controller-workbench/ --ext .ts,.js",
+    "lint:fix": "eslint assets/ packages/ccc-state-controller-workbench/ --ext .ts,.js --fix",
+    "lint:state": "eslint assets/script/controller/ packages/ccc-state-controller-workbench/ --ext .ts,.js",
+    "panel:build:workbench": "node packages/ccc-state-controller-workbench/panel/build.js",
+    "sync-runtime": "node scripts/sync-runtime.js",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -20,7 +22,7 @@
     "assets/**/*.ts": [
       "eslint --fix"
     ],
-    "packages/ccc-state-controller/**/*.ts": [
+    "packages/ccc-state-controller-workbench/**/*.{ts,js}": [
       "eslint --fix"
     ]
   }

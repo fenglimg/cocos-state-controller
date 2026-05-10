@@ -1,0 +1,33 @@
+<!--
+    M4 placeholder template for the State Controller Workbench panel.
+    Replaced by Gemini in the M5 iteration based on docs/gemini-ui-brief-workbench-panel.md.
+-->
+
+<div class="panel-root">
+    <div class="panel-tabs">
+        <div class="panel-tab-btn active" data-tab="dashboard">Dashboard</div>
+        <div class="panel-tab-btn" data-tab="installer">Installer</div>
+        <div class="panel-tab-btn" data-tab="config">Config</div>
+        <div class="panel-tab-btn" data-tab="health">Health</div>
+    </div>
+
+    <div id="tab-dashboard" class="panel-tab-content active">
+        <div id="dashboard-summary" class="empty-state">Loading…</div>
+        <div id="dashboard-list"></div>
+    </div>
+
+    <div id="tab-installer" class="panel-tab-content">
+        <div id="installer-status" class="empty-state">Click below to inspect runtime status.</div>
+        <button id="installer-refresh-btn">Refresh status</button>
+        <button id="installer-install-btn">Install runtime</button>
+        <pre id="installer-log" style="margin-top:8px;color:#aaa;"></pre>
+    </div>
+
+    <div id="tab-config" class="panel-tab-content">
+        <div class="empty-state">M4 placeholder. Filled by Gemini in M5 iteration.</div>
+    </div>
+
+    <div id="tab-health" class="panel-tab-content">
+        <div class="empty-state">M4 placeholder. Filled by Gemini in M5 iteration.</div>
+    </div>
+</div>
