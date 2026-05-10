@@ -99,8 +99,11 @@ type FlatStateData = {
 /**
  * 🔧 M2: StateSelect 序列化 schema 版本号常量
  * 与 StateController 的 CURRENT_VERSION 同步演进; 当本组件 @property 字段结构变更时递增。
+ *
+ * - 1: M2 初始版本
+ * - 2: M3 引入 _ctrlData dead stateId 清扫迁移 (孤儿残留扫除 — Bug B3 历史数据修复)
  */
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 @ccclass("StateSelect")
 @menu("State/StateSelect")
@@ -650,9 +653,9 @@ export class StateSelect extends cc.Component {
 
     protected onLoad() {
         // 🔧 M2: schema 版本检查 + 触发 _migrate (无论运行时还是编辑器都需迁移)
+        // 🔧 M3 (Gemini review WARNING): 由 _migrate 自管理 _serializedVersion (可能因 _ctrlsMap 未建立而保留旧版本待重试)
         if (this._serializedVersion < CURRENT_VERSION) {
             this._migrate(this._serializedVersion);
-            this._serializedVersion = CURRENT_VERSION;
         }
 
         if (!CC_EDITOR) {
@@ -707,16 +710,79 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 🔧 M2: 数据迁移钩子 (空骨架, M3 实现 v1 -> v2 实际逻辑)
+     * 🔧 M3 v1 → v2: 数据迁移钩子
      *
-     * 子类或后续版本可在此方法中根据 fromVersion 做对应迁移:
-     * - if (fromVersion < 2) { ...M3 把 componentProps 残留数据迁到 textProps/spriteProps/behaviorProps... }
-     * - if (fromVersion < 3) { ... }
+     * v1 → v2: 扫除 _ctrlData[ctrlId][stateId] 中的孤儿条目 (历史 Bug B3 残留)
+     *   - 遍历 _ctrlData 所有 ctrlId+stateId
+     *   - 通过 _ctrlsMap[ctrlId] 反查 controller; 若 stateId 不在其 states 列表 → 删除该条目
+     *   - 同步从 _flatData 中删除对应 'ctrlId|stateId|propType' 键
+     *
+     * 注: 若 _ctrlsMap 此时尚未初始化 (onLoad 调用顺序), 跳过该 ctrlId 的清扫,
+     * 等待后续 updateCtrlName 建立映射时再做 (M5 计划补充健康检查时定期清理).
      *
      * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
      */
     protected _migrate(fromVersion: number): void {
-        // M2 阶段空骨架, M3 实现 v1 -> v2
+        if (fromVersion < 2) {
+            const allMigrated = this.migrateDeadStateIds();
+            // 🔧 M3 (Gemini review WARNING): 仅当所有 ctrlId 都成功迁移时才 bump 版本号
+            // 否则保持 _serializedVersion=1, 等 _ctrlsMap 建立后由 retry 机制下次再次触发 _migrate
+            if (allMigrated) {
+                this._serializedVersion = 2;
+            }
+            // else: 保持 fromVersion (默认 1), 不写入新版本
+        }
+    }
+
+    /**
+     * 🔧 M3-B3 历史数据清扫: 扫除 _ctrlData 中不在 controller.states 中的 dead stateId 条目
+     *
+     * - 仅清理 _ctrlsMap[ctrlId] 已存在的 controller (未初始化时跳过, 不破坏未知数据)
+     * - 同步 _flatData Map 删除对应 propType 键
+     * @returns true = 全部 ctrlId 都已成功迁移 (含无 _ctrlData 的空场景); false = 至少一个 ctrlId 因 _ctrlsMap 未建立而跳过
+     */
+    private migrateDeadStateIds(): boolean {
+        let allMigrated = true;
+        for (const ctrlIdStr in this._ctrlData) {
+            const ctrlId = Number(ctrlIdStr);
+            if (Number.isNaN(ctrlId)) continue;
+
+            const controller = this._ctrlsMap[ctrlId];
+            // controller 未建立映射 → 跳过, 等后续 updateCtrlName 重建时再处理
+            if (!controller || !controller.states) {
+                allMigrated = false;
+                continue;
+            }
+
+            // 构建合法 stateId 集合 (来自 controller.states)
+            const validStateIds = new Set<number>();
+            for (const st of controller.states) {
+                if (st && st.stateId !== undefined) {
+                    validStateIds.add(st.stateId);
+                }
+            }
+
+            const ctrlPage = this._ctrlData[ctrlId];
+            for (const stateIdStr in ctrlPage) {
+                const stateId = Number(stateIdStr);
+                if (Number.isNaN(stateId)) continue;
+
+                if (!validStateIds.has(stateId)) {
+                    // 同步从 _flatData 删除该 stateId 下的所有 propType
+                    const removedData = ctrlPage[stateId];
+                    if (removedData) {
+                        for (const propName in removedData) {
+                            if (propName.startsWith("$$")) continue;
+                            this._flatData.delete(`${ctrlId}_${stateId}_${propName}`);
+                            // 兼容历史 keymark | 分隔符 (若存在)
+                            this._flatData.delete(`${ctrlId}|${stateId}|${propName}`);
+                        }
+                    }
+                    delete ctrlPage[stateId];
+                }
+            }
+        }
+        return allMigrated;
     }
 
     // ================== 🔧 IMPL-001.6: 缓存失效通知 ==================
@@ -724,15 +790,17 @@ export class StateSelect extends cc.Component {
     /**
      * 🔧 通知当前控制器缓存失效
      * 当StateSelect组件创建/销毁/移动时调用
+     *
+     * M3-B1: 仅失效当前 ctrlId 对应的缓存桶，避免父子嵌套时跨 controller 串扰
      */
     private notifyControllerCacheDirty(): void {
         const ctrl = this.getCurrCtrl();
         if (ctrl && ctrl.node && ctrl.node.isValid) {
-            ctrl.markCacheDirty();
-            StateErrorManager.debug("已通知控制器缓存失效", {
+            ctrl.markCacheDirty(ctrl.ctrlId);
+            StateErrorManager.debug("已通知控制器缓存失效 (单 ctrlId)", {
                 component: "StateSelect",
                 method: "notifyControllerCacheDirty",
-                params: { ctrlName: ctrl.ctrlName },
+                params: { ctrlName: ctrl.ctrlName, ctrlId: ctrl.ctrlId },
             });
         }
     }
@@ -1642,10 +1710,58 @@ export class StateSelect extends cc.Component {
         }
     }
 
-    /** 控制器被删除 */
-    public updateDelete(ctrl: StateController) {
+    /**
+     * 🔧 M3-B3: 控制器删除事件 (重载: 支持 stateId 级别精确清理)
+     *
+     * - stateId 提供 → 仅删除 _ctrlData[ctrlId][stateId] 单条记录 + 同步 _flatData (孤儿数据清扫)
+     * - stateId 未提供 → 整 controller 销毁场景, 走 fallback 删除 _ctrlData[ctrlId] 全部数据 + 重定向 currCtrlId
+     *
+     * 注: 此方法为 public, 由 StateController.updateState(EnumUpdataType.Delete, [value]) 触发.
+     */
+    public updateDelete(ctrl: StateController, stateId?: number) {
         if (!CC_EDITOR) {
             return;
+        }
+
+        // ──── M3-B3: stateId 级精确清理 ────
+        if (stateId !== undefined && stateId !== null) {
+            const ctrlPage = this._ctrlData[ctrl.ctrlId];
+            if (ctrlPage && ctrlPage[stateId]) {
+                const removedData = ctrlPage[stateId];
+                // 同步从 _flatData Map 删除对应所有 propType 键
+                for (const propName in removedData) {
+                    if (propName.startsWith("$$")) continue;
+                    // makeKey 当前格式: "ctrlId_stateId_propType"; 兼容历史 | 分隔符
+                    this._flatData.delete(`${ctrl.ctrlId}_${stateId}_${propName}`);
+                    this._flatData.delete(`${ctrl.ctrlId}|${stateId}|${propName}`);
+                }
+                delete ctrlPage[stateId];
+
+                StateErrorManager.debug("已清理 _ctrlData[ctrlId][stateId] 孤儿条目", {
+                    component: "StateSelect",
+                    method: "updateDelete",
+                    params: { ctrlId: ctrl.ctrlId, stateId: stateId },
+                });
+            }
+            // 单 stateId 删除不重建 currCtrlId / 不触发 onPreDestroy
+            return;
+        }
+
+        // ──── 旧逻辑 (整 controller 销毁) fallback ────
+        // 🔧 M3-B3 (Gemini review CRITICAL): 整 controller 销毁时同步清理 _flatData 中所有该 ctrlId 的扁平键
+        const fullPage = this._ctrlData[ctrl.ctrlId];
+        if (fullPage) {
+            for (const stateIdStr in fullPage) {
+                const sid = Number(stateIdStr);
+                if (Number.isNaN(sid)) continue;
+                const stateData = fullPage[sid];
+                if (!stateData) continue;
+                for (const propName in stateData) {
+                    if (propName.startsWith("$$")) continue;
+                    this._flatData.delete(`${ctrl.ctrlId}_${sid}_${propName}`);
+                    this._flatData.delete(`${ctrl.ctrlId}|${sid}|${propName}`);
+                }
+            }
         }
         delete this._ctrlData[ctrl.ctrlId];
         if (this.currCtrlId == ctrl.ctrlId) {

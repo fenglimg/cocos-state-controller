@@ -49,7 +49,8 @@ class ActivePropHandler implements IPropHandler {
 
 class PositionPropHandler implements IPropHandler {
     public getValue(node: cc.Node) {
-        return cc.v3(node.position);
+        const p = node.position as cc.Vec3;
+        return cc.v3(p.x, p.y, p.z);
     }
 
     public setValue(node: cc.Node, value: TPropValue) {
@@ -57,13 +58,15 @@ class PositionPropHandler implements IPropHandler {
     }
 
     public getDefaultValue(node: cc.Node) {
-        return cc.v3(node.position);
+        const p = node.position as cc.Vec3;
+        return cc.v3(p.x, p.y, p.z);
     }
 }
 
 class EulerPropHandler implements IPropHandler {
     public getValue(node: cc.Node) {
-        return cc.v3(node.eulerAngles);
+        const e = node.eulerAngles as cc.Vec3;
+        return cc.v3(e.x, e.y, e.z);
     }
 
     public setValue(node: cc.Node, value: TPropValue) {
@@ -71,7 +74,8 @@ class EulerPropHandler implements IPropHandler {
     }
 
     public getDefaultValue(node: cc.Node) {
-        return cc.v3(node.eulerAngles);
+        const e = node.eulerAngles as cc.Vec3;
+        return cc.v3(e.x, e.y, e.z);
     }
 }
 

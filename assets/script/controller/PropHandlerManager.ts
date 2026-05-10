@@ -34,12 +34,14 @@ export class PropHandlerManager {
 
     /** 获取属性值 */
     public static getValue(propType: EnumPropName, node: cc.Node): TPropValue | undefined {
+        if (!node) return undefined;
         const handler = this.getHandler(propType);
         return handler ? handler.getValue(node) : undefined;
     }
 
     /** 设置属性值 */
     public static setValue(propType: EnumPropName, node: cc.Node, value: TPropValue): void {
+        if (!node) return;
         const handler = this.getHandler(propType);
         if (handler) {
             handler.setValue(node, value);
@@ -48,6 +50,7 @@ export class PropHandlerManager {
 
     /** 获取默认值 */
     public static getDefaultValue(propType: EnumPropName, node: cc.Node): TPropValue | undefined {
+        if (!node) return undefined;
         const handler = this.getHandler(propType);
         return handler ? handler.getDefaultValue(node) : undefined;
     }
