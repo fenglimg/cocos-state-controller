@@ -1,33 +1,82 @@
 <!--
-    M4 placeholder template for the State Controller Workbench panel.
-    Replaced by Gemini in the M5 iteration based on docs/gemini-ui-brief-workbench-panel.md.
+    M5 template for the State Controller Workbench panel.
 -->
-
 <div class="panel-root">
     <div class="panel-tabs">
         <div class="panel-tab-btn active" data-tab="dashboard">Dashboard</div>
         <div class="panel-tab-btn" data-tab="installer">Installer</div>
         <div class="panel-tab-btn" data-tab="config">Config</div>
         <div class="panel-tab-btn" data-tab="health">Health</div>
+        <button id="global-refresh-btn" class="refresh-btn" title="Refresh Data">↻ Refresh</button>
     </div>
 
+    <!-- Dashboard -->
     <div id="tab-dashboard" class="panel-tab-content active">
-        <div id="dashboard-summary" class="empty-state">Loading…</div>
-        <div id="dashboard-list"></div>
+        <div id="dashboard-summary" class="summary-card">Loading…</div>
+        <div id="dashboard-list" class="list-container"></div>
     </div>
 
+    <!-- Installer -->
     <div id="tab-installer" class="panel-tab-content">
-        <div id="installer-status" class="empty-state">Click below to inspect runtime status.</div>
-        <button id="installer-refresh-btn">Refresh status</button>
-        <button id="installer-install-btn">Install runtime</button>
-        <pre id="installer-log" style="margin-top:8px;color:#aaa;"></pre>
+        <div class="form-group">
+            <label>Source:</label>
+            <input type="text" id="installer-source" readonly value="packages/ccc-state-controller-workbench/lib/runtime" />
+        </div>
+        <div class="form-group">
+            <label>Target:</label>
+            <input type="text" id="installer-target" readonly value="assets/script/controller" />
+        </div>
+        <div class="actions">
+            <button id="installer-refresh-btn">Refresh Status</button>
+            <button id="installer-install-btn" class="primary">Install Runtime</button>
+        </div>
+        <div id="installer-error-banner" class="error-banner" style="display:none">
+            <div id="installer-error-msg"></div>
+            <div id="installer-backup-path" class="backup-path"></div>
+            <button id="installer-retry-btn">Retry Install</button>
+        </div>
+        <div id="installer-status" class="status-box empty-state">Click Refresh to inspect runtime status.</div>
     </div>
 
+    <!-- Config -->
     <div id="tab-config" class="panel-tab-content">
-        <div class="empty-state">M4 placeholder. Filled by Gemini in M5 iteration.</div>
+        <div class="config-header">
+            <label>Controller:</label>
+            <select id="config-ctrl-select">
+                <option value="">-- Select Controller --</option>
+            </select>
+        </div>
+        
+        <div id="config-workspace" style="display:none;">
+            <div class="states-header">
+                <strong>States</strong>
+                <div class="add-state-box">
+                    <input type="text" id="new-state-name" placeholder="New state name" />
+                    <button id="add-state-btn">Add</button>
+                </div>
+            </div>
+            
+            <div class="copy-props-box">
+                <label>Copy Props:</label>
+                <select id="copy-src-state"></select>
+                <span>&rarr;</span>
+                <select id="copy-dst-state"></select>
+                <button id="copy-props-btn">Copy</button>
+            </div>
+
+            <div id="config-states-list" class="states-list"></div>
+            
+            <div id="config-state-details" class="state-details">
+                <div class="state-details-header">Prop Overrides for State: <span id="current-details-state"></span></div>
+                <div id="config-props-list" class="props-list"></div>
+            </div>
+        </div>
+        <div id="config-empty" class="empty-state">Select a controller to configure states.</div>
     </div>
 
+    <!-- Health -->
     <div id="tab-health" class="panel-tab-content">
-        <div class="empty-state">M4 placeholder. Filled by Gemini in M5 iteration.</div>
+        <div id="health-summary" class="summary-card">Checking health...</div>
+        <div id="health-issues-list" class="list-container"></div>
     </div>
 </div>

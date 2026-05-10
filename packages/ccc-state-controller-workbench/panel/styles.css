@@ -1,6 +1,5 @@
 /*
- * M4 placeholder styles for the State Controller Workbench panel.
- * Replaced by Gemini in the M5 iteration based on docs/gemini-ui-brief-workbench-panel.md.
+ * M5 UI styles for the State Controller Workbench panel.
  */
 
 .panel-root {
@@ -12,13 +11,82 @@
     color: #ddd;
     font-size: 12px;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.panel-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.panel-tab-btn { padding: 4px 12px; background: #3c3c3c; border: 1px solid #555; cursor: pointer; }
-.panel-tab-btn.active { background: #5a5a5a; }
-.panel-tab-content { display: none; }
+.panel-tabs { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.panel-tab-btn { padding: 4px 12px; background: #3c3c3c; border: 1px solid #555; cursor: pointer; border-radius: 4px; }
+.panel-tab-btn:hover { background: #5a5a5a; }
+.panel-tab-btn.active { background: #5a5a5a; border-color: #777; font-weight: bold; }
+.panel-tab-content { display: none; flex: 1; overflow-y: auto; }
 .panel-tab-content.active { display: block; }
-.anomaly-badge { display: inline-block; padding: 2px 6px; margin-right: 4px; font-size: 10px; background: #b94a48; color: #fff; border-radius: 2px; }
-.controller-row { padding: 6px 0; border-bottom: 1px solid #444; }
-.empty-state { color: #888; font-style: italic; }
+
+.refresh-btn { margin-left: auto; background: #444; color: #fff; border: 1px solid #555; padding: 4px 8px; cursor: pointer; border-radius: 4px; }
+.refresh-btn:hover { background: #555; }
+
+.summary-card { padding: 8px; background: #333; border: 1px solid #444; margin-bottom: 8px; border-radius: 4px; }
+.list-container { display: flex; flex-direction: column; gap: 4px; }
+
+.anomaly-badge { display: inline-block; padding: 2px 6px; margin-right: 4px; font-size: 10px; color: #fff; border-radius: 2px; }
+.anomaly-badge.error { background: #b94a48; }
+.anomaly-badge.warning { background: #d9822b; }
+.anomaly-badge.info { background: #3a87ad; }
+
+.controller-row { padding: 8px; border: 1px solid #444; background: #333; border-radius: 4px; cursor: pointer; }
+.controller-row:hover { background: #3c3c3c; }
+
+.empty-state { color: #888; font-style: italic; padding: 8px; text-align: center; }
+
+/* Installer */
+.form-group { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.form-group label { width: 80px; text-align: right; }
+.form-group input { flex: 1; background: #3c3c3c; border: 1px solid #555; color: #ddd; padding: 4px; border-radius: 4px; }
+.actions { display: flex; gap: 8px; margin-bottom: 8px; justify-content: flex-end; }
+button { background: #3c3c3c; border: 1px solid #555; color: #ddd; padding: 4px 12px; border-radius: 4px; cursor: pointer; }
+button:hover { background: #5a5a5a; }
+button.primary { background: #3a87ad; color: #fff; border-color: #2b6a8a; }
+button.primary:hover { background: #4b98be; }
+.status-box { padding: 8px; background: #222; border: 1px solid #444; font-family: monospace; white-space: pre-wrap; margin-bottom: 8px; border-radius: 4px; }
+.error-banner { background: #4a2323; border: 1px solid #b94a48; padding: 8px; border-radius: 4px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+.backup-path { font-family: monospace; color: #d9822b; font-size: 11px; }
+
+/* Config */
+.config-header { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #444; }
+.config-header select { flex: 1; background: #3c3c3c; border: 1px solid #555; color: #ddd; padding: 4px; border-radius: 4px; }
+
+.states-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.add-state-box { display: flex; gap: 4px; }
+.add-state-box input { background: #3c3c3c; border: 1px solid #555; color: #ddd; padding: 4px; width: 120px; border-radius: 4px; }
+
+.copy-props-box { display: flex; gap: 4px; align-items: center; background: #333; padding: 6px; border-radius: 4px; margin-bottom: 8px; }
+.copy-props-box select { background: #3c3c3c; border: 1px solid #555; color: #ddd; padding: 2px; border-radius: 4px; max-width: 100px;}
+
+.states-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; max-height: 120px; overflow-y: auto; border: 1px solid #444; padding: 4px; border-radius: 4px; }
+.state-item { display: flex; gap: 8px; align-items: center; padding: 4px; background: #3c3c3c; border-radius: 4px; cursor: pointer; border: 1px solid transparent; }
+.state-item:hover { background: #444; }
+.state-item.selected { border-color: #3a87ad; background: #2b3a42; }
+.state-item input { flex: 1; background: transparent; border: none; color: #ddd; padding: 2px; }
+.state-item input:focus { background: #222; outline: 1px solid #555; }
+.state-btn-del { color: #b94a48; cursor: pointer; border: none; background: transparent; padding: 0 4px; }
+.state-btn-del:hover { color: #ff6b68; }
+
+.state-details { border-top: 1px solid #444; padding-top: 8px; }
+.state-details-header { font-weight: bold; margin-bottom: 8px; color: #3a87ad; }
+.props-list { display: flex; flex-direction: column; gap: 4px; }
+.prop-item { display: flex; gap: 8px; padding: 4px; background: #333; border-radius: 4px; align-items: center; }
+.prop-node { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.prop-type { width: 60px; color: #888; font-size: 11px; }
+.prop-val { width: 100px; }
+.prop-val input { width: 100%; background: #222; border: 1px solid #555; color: #ddd; padding: 4px; box-sizing: border-box; border-radius: 4px; }
+
+/* Health */
+.issue-row { padding: 8px; border: 1px solid #444; background: #333; margin-bottom: 4px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; border-left: 4px solid #555; }
+.issue-row.error { border-left-color: #b94a48; }
+.issue-row.warning { border-left-color: #d9822b; }
+.issue-row.info { border-left-color: #3a87ad; }
+.issue-info { flex: 1; overflow: hidden; }
+.issue-desc { margin-bottom: 4px; font-weight: bold; }
+.issue-detail { font-size: 11px; color: #aaa; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.issue-fix-btn { margin-left: 8px; flex-shrink: 0; }
