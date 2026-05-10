@@ -1,4 +1,4 @@
-import { StateController } from "./Controller/StateController";
+import { StateController } from "./controller/StateController";
 
 const { ccclass, property } = cc._decorator;
 

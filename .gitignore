@@ -52,3 +52,8 @@ Thumbs.db
 .ace-tool/
 .workflow
 .codex
+
+
+# State Controller Workbench: runtime/ is auto-synced from assets/script/controller/ via scripts/sync-runtime.js
+packages/ccc-state-controller-workbench/runtime/
+

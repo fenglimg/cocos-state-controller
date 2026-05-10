@@ -6,12 +6,24 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "../Controller/StateEnum";
-import { StateErrorManager } from "../Controller/StateErrorManager";
-import { StateSelect } from "../Controller/StateSelect";
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
+import { StateErrorManager } from "./StateErrorManager";
+import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
 cc.Enum(InspectorRefreshMode);
+
+/**
+ * 🔧 M2 序列化版本号常量
+ *
+ * 当 schema (StateController @property 字段结构) 演进时, 同步递增此版本号:
+ * - 1: M2 初始版本 (引入 _serializedVersion + _migrate 框架, schema 未变更)
+ * - 2 (M3): _stateSelectCache 按 ctrlId 分桶 + deleteState 触发清理事件 + StateSelect._ctrlData 历史 dead stateId 清扫
+ *
+ * 旧场景反序列化后若 instance._serializedVersion < CURRENT_VERSION,
+ * onLoad 会触发 _migrate(fromVersion) 完成数据迁移。
+ */
+const CURRENT_VERSION = 2;
 
 @ccclass("stateValue")
 export class StateValue {
@@ -31,6 +43,13 @@ export class StateValue {
 @menu("State/StateController")
 @executeInEditMode()
 export class StateController extends cc.Component {
+    /**
+     * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
+     * 默认值 = 1 (M2 阶段当前版本); 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
+     */
+    @property({ visible: false })
+    private _serializedVersion: number = 1;
+
     /** 状态id自增 */
     @property({ visible: false })
     private stateIdAuto = 0;
@@ -48,18 +67,25 @@ export class StateController extends cc.Component {
     /** 是否初始 ,假设编辑器默认状态是2，代码里面正好第一次状态也是2，会导致selecteindex那里不刷新状态。 */
     private isInit: boolean = true;
 
-    // ================== 🔧 IMPL-001: BFS缓存优化 ==================
+    // ================== 🔧 IMPL-001 / M3-B1: BFS缓存优化 (按 ctrlId 分桶) ==================
     /**
      * 🎯 缓存优化说明：
-     * - _stateSelectCache: 缓存当前控制器直接控制的所有StateSelect组件
-     * - _cacheDirty: 缓存脏标记，当节点结构变化时设为true
-     * - 使用缓存后，状态切换从O(n)遍历优化为O(1)查找
+     * - _stateSelectCache: Map<ctrlId, StateSelect[]> 按 ctrlId 分桶缓存当前控制器直接控制的 StateSelect
+     * - _cacheDirty: Map<ctrlId, boolean> 每个 ctrlId 的脏标记
+     * - 使用缓存后，状态切换从 O(n) BFS 遍历优化为 O(1) 字典查找
+     *
+     * M3-B1 修复: 嵌套场景下 (父 + 子 controller) 不同 ctrlId 的缓存独立失效，
+     * 避免父控制器 markCacheDirty 错误清掉子控制器缓存导致跨 controller 串扰。
+     *
+     * 注: _stateSelectCache 不加 @property — 它是 runtime cache，重建即可。
      */
-    /** 🔧 缓存：存储直接控制的StateSelect组件 */
-    private _stateSelectCache: StateSelect[] = null;
-
-    /** 🔧 缓存脏标记：true表示需要重建缓存 */
-    private _cacheDirty: boolean = true;
+    /**
+     * 🔧 缓存：存储 ctrlId -> 直接控制的 StateSelect 组件列表
+     *
+     * 失效语义: Map 中无 entry = 需重建; 重建后 set 入 Map.
+     * (M3 Gemini review WARNING: 删除冗余 _cacheDirty 字段, Map 自身就是脏标记)
+     */
+    private _stateSelectCache: Map<number, StateSelect[]> = new Map();
 
     /** 控制器名字 */
     @property(cc.String)
@@ -305,6 +331,14 @@ export class StateController extends cc.Component {
                 let newIndex = Math.max(0, applyIndex - adjustment);
                 newIndex = Math.min(newIndex, newLen - 1);
                 applyIndex = newIndex;
+            }
+
+            // 🔧 M3-B3: 对每个被删除的 stateId 分发清理事件 (避免 _ctrlData 残留)
+            for (const deletedIndex of deletedIndices) {
+                const deletedState = this._states[deletedIndex];
+                if (deletedState && deletedState.stateId !== undefined) {
+                    this.deleteState(deletedState.stateId);
+                }
             }
         }
 
@@ -555,6 +589,11 @@ export class StateController extends cc.Component {
         const newStates = [...this._states];
         newStates.splice(index, 1);
 
+        // 🔧 M3-B3: 通知 StateSelect 清理 _ctrlData[ctrlId][stateId] 孤儿残留
+        if (removed && removed.stateId !== undefined) {
+            this.deleteState(removed.stateId);
+        }
+
         // 🔧 同步历史命名，保持索引与状态对齐
         if (this._historyStateName) {
             const newHistory: { [key: number]: string } = {};
@@ -646,10 +685,33 @@ export class StateController extends cc.Component {
     }
 
     protected onLoad() {
+        // 🔧 M2: schema 版本检查 + 触发 _migrate (无论运行时还是编辑器都需迁移)
+        if (this._serializedVersion < CURRENT_VERSION) {
+            this._migrate(this._serializedVersion);
+            this._serializedVersion = CURRENT_VERSION;
+        }
+
         if (!CC_EDITOR) {
             return;
         }
         this.updateState(EnumUpdataType.State);
+    }
+
+    /**
+     * 🔧 M2: 数据迁移钩子
+     *
+     * 子类或后续版本可在此方法中根据 fromVersion 做对应迁移:
+     * - if (fromVersion < 2) { ... }   // M3: StateController 端无 schema 变更, 仅版本号同步
+     * - if (fromVersion < 3) { ... }
+     *
+     * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
+     */
+    protected _migrate(fromVersion: number): void {
+        // M3 v1 → v2: StateController 端目前无 schema 变更, 仅版本号同步
+        // (StateSelect 端会做 _ctrlData dead stateId 清扫)
+        if (fromVersion < 2) {
+            this._serializedVersion = 2;
+        }
     }
 
     protected onDestroy() {
@@ -811,40 +873,52 @@ export class StateController extends cc.Component {
         return defaultName;
     }
 
-    // ================== 🔧 IMPL-001: BFS缓存优化方法 ==================
+    // ================== 🔧 IMPL-001 / M3-B1: BFS缓存优化方法 (按 ctrlId 分桶) ==================
 
     /**
-     * 🔧 重建StateSelect缓存
-     * 使用getComponentsInChildren一次性获取所有StateSelect，然后过滤出直接控制的组件
+     * 🔧 M3-B1: 按 ctrlId 重建 StateSelect 缓存
+     * 使用 getComponentsInChildren 一次性获取所有 StateSelect，然后过滤出指定 ctrlId 直接控制的组件
+     *
+     * @param ctrlId 要重建缓存的目标 controller ctrlId; 默认 this.ctrlId
+     * @returns 重建后的 StateSelect 列表 (同时已写入 this._stateSelectCache)
      */
-    private rebuildStateSelectCache(): void {
-        if (!this._cacheDirty && this._stateSelectCache !== null) {
-            return; // 缓存有效，无需重建
-        }
-
-        StateErrorManager.debug("开始重建StateSelect缓存", {
+    private rebuildStateSelectCacheForCtrl(ctrlId: number): StateSelect[] {
+        StateErrorManager.debug("开始重建 StateSelect 缓存 (按 ctrlId)", {
             component: "StateController",
-            method: "rebuildStateSelectCache",
-            params: { ctrlName: this._ctrlName },
+            method: "rebuildStateSelectCacheForCtrl",
+            params: { ctrlName: this._ctrlName, ctrlId: ctrlId },
         });
 
         const allStateSelects = this.node.getComponentsInChildren(StateSelect);
-        this._stateSelectCache = allStateSelects.filter(ss => this.isDirectlyControlled(ss.node));
-
-        this._cacheDirty = false;
-
-        StateErrorManager.info("StateSelect缓存重建完成", {
-            component: "StateController",
-            method: "rebuildStateSelectCache",
-            params: { cachedCount: this._stateSelectCache.length },
+        const filtered = allStateSelects.filter((ss) => {
+            // 仅筛选: (a) ss._ctrlsMap 已记录此 controller; (b) 节点路径上无其他中间 controller (相对当前 controller)
+            // 注: _ctrlsMap 是 private, 用 (ss as any) 突破访问限制
+            const ctrlsMap = (ss as any)._ctrlsMap as { [ctrlId: string]: StateController };
+            if (!ctrlsMap || ctrlsMap[ctrlId] !== this) {
+                return false;
+            }
+            return this.isDirectlyControlled(ss.node, ctrlId);
         });
+
+        this._stateSelectCache.set(ctrlId, filtered);
+
+        StateErrorManager.info("StateSelect 缓存重建完成 (按 ctrlId)", {
+            component: "StateController",
+            method: "rebuildStateSelectCacheForCtrl",
+            params: { ctrlId: ctrlId, cachedCount: filtered.length },
+        });
+
+        return filtered;
     }
 
     /**
-     * 🔧 检查节点是否被当前控制器直接控制
-     * 直接控制 = 节点与控制器之间没有其他StateController
+     * 🔧 M3-B1: 检查节点是否被指定 ctrlId 的当前控制器直接控制
+     * 直接控制 = 节点与控制器之间没有其他 StateController (具有 ctrlId 区分能力)
+     *
+     * @param targetNode 目标节点
+     * @param _ctrlId 目标 ctrlId (当前简化实现: 仅用 'this' 引用判定; 多 ctrlId 实例同节点不分裂判定)
      */
-    private isDirectlyControlled(targetNode: cc.Node): boolean {
+    private isDirectlyControlled(targetNode: cc.Node, _ctrlId?: number): boolean {
         let current: cc.Node = targetNode;
 
         while (current && current !== this.node) {
@@ -867,25 +941,40 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 🔧 公共方法：标记缓存为脏，需要重建
-     * 当节点增删或StateSelect组件增删时调用
+     * 🔧 M3-B1: 标记缓存为脏，需要重建 (按 ctrlId 分桶)
+     *
+     * - 不传参数 → 清除所有 ctrlId 的缓存 (兼容旧调用语义, 也用于 onDestroy 全清)
+     * - 传 ctrlId → 仅清除指定 ctrlId 的缓存 (避免父子嵌套时跨 controller 串扰)
+     *
+     * @param ctrlId 可选, 指定要失效的 ctrlId; 不传则全清
      */
-    public markCacheDirty(): void {
-        this._cacheDirty = true;
-        StateErrorManager.debug("缓存已标记为脏", {
-            component: "StateController",
-            method: "markCacheDirty",
-            params: { ctrlName: this._ctrlName },
-        });
+    public markCacheDirty(ctrlId?: number): void {
+        if (ctrlId === undefined || ctrlId === null) {
+            this._stateSelectCache.clear();
+            StateErrorManager.debug("缓存已全部标记为脏", {
+                component: "StateController",
+                method: "markCacheDirty",
+                params: { ctrlName: this._ctrlName, scope: "all" },
+            });
+        }
+        else {
+            this._stateSelectCache.delete(ctrlId);
+            StateErrorManager.debug("缓存已标记为脏 (单 ctrlId)", {
+                component: "StateController",
+                method: "markCacheDirty",
+                params: { ctrlName: this._ctrlName, ctrlId: ctrlId },
+            });
+        }
     }
 
-    /** 🔧 核心方法：状态更新通知机制 - 使用缓存优化 (IMPL-001) */
+    /** 🔧 核心方法：状态更新通知机制 - 使用缓存优化 (IMPL-001 / M3-B1: 按 ctrlId 分桶) */
     private updateState(type: EnumUpdataType, value?: unknown) {
-        // 🔧 IMPL-001: 使用缓存替代BFS遍历
-        this.rebuildStateSelectCache();
+        // 🔧 M3-B1: 按 ctrlId 取/重建缓存 — 避免父子嵌套场景的串扰
+        const ctrlId = this.ctrlId;
+        const cached = this._stateSelectCache.get(ctrlId) ?? this.rebuildStateSelectCacheForCtrl(ctrlId);
 
         // 🔧 直接遍历缓存的StateSelect组件
-        for (const stateSelect of this._stateSelectCache) {
+        for (const stateSelect of cached) {
             if (!stateSelect || !stateSelect.node || !stateSelect.node.active) {
                 continue;
             }
@@ -903,8 +992,9 @@ export class StateController extends cc.Component {
                 stateSelect.updateCtrlPage(this, value as number);
             }
             else if (type == EnumUpdataType.Delete) {
-                // 🔧 删除通知：通知StateSelect组件控制器即将被删除
-                stateSelect.updateDelete(this);
+                // 🔧 M3-B3: 删除通知 — 若 value 提供 stateId, 则定向清理 _ctrlData[ctrlId][stateId];
+                //         否则 (整 controller 销毁时) 走 fallback 清整个 _ctrlData[ctrlId]
+                stateSelect.updateDelete(this, value as number | undefined);
             }
             else if (type == EnumUpdataType.Init) {
                 // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
@@ -920,6 +1010,26 @@ export class StateController extends cc.Component {
                 stateSelect.updateStateMove(this, value);
             }
         }
+    }
+
+    // ================== 🔧 M3-B3: deleteState 显式清理事件 ==================
+    /**
+     * 🔧 M3-B3: 公共方法 - 删除指定 stateId 时分发 EnumUpdataType.Delete 事件
+     *
+     * 用于触发所有受控 StateSelect 清理 _ctrlData[ctrlId][stateId] 残留 (避免孤儿数据).
+     *
+     * 用例: editor 内删除某 state 时调用; M3 之前 removeSelectedState 不分发 Delete (导致 _ctrlData 孤儿膨胀).
+     * 注: removeSelectedState 走 states setter 路径已通过 SelPage 通知; 此方法补足 stateId 级清理。
+     *
+     * @param stateId 要删除的状态 stateId
+     */
+    public deleteState(stateId: number): void {
+        StateErrorManager.debug("分发 stateId 删除事件", {
+            component: "StateController",
+            method: "deleteState",
+            params: { ctrlId: this.ctrlId, stateId: stateId },
+        });
+        this.updateState(EnumUpdataType.Delete, stateId);
     }
 
     // ================== 🔧 刷新优化功能使用说明 ==================

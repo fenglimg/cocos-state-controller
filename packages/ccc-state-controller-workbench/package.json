@@ -1,0 +1,27 @@
+{
+  "name": "ccc-state-controller-workbench",
+  "version": "0.1.0",
+  "description": "State Controller Workbench - Editor plugin providing dashboard, installer, config editor, and health-check for the State Controller runtime.",
+  "author": "fenglimg",
+  "main": "main.js",
+  "main-menu": {
+    "i18n:ccc-state-controller-workbench.MAIN_MENU.open": {
+      "message": "ccc-state-controller-workbench:open"
+    },
+    "i18n:ccc-state-controller-workbench.MAIN_MENU.close": {
+      "message": "ccc-state-controller-workbench:close"
+    }
+  },
+  "panel": {
+    "main": "panel/index.js",
+    "type": "dockable",
+    "title": "i18n:ccc-state-controller-workbench.PANEL.title",
+    "width": 420,
+    "height": 360,
+    "min-width": 320,
+    "min-height": 240
+  },
+  "scene-script": "scene-accessor.js",
+  "i18n": "i18n",
+  "_storeId": "ccc-state-controller-workbench"
+}
