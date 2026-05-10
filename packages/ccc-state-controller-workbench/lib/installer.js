@@ -141,15 +141,30 @@ function installRuntime(opts) {
         backupPath = backupTarget(targetDir, toBackup, backupRoot);
     }
 
+    // M5: try/catch each copyFile + roll back on first failure
     const written = [];
     for (const rel of candidates) {
         const srcPath = path.join(sourceDir, rel);
         const tgtPath = path.join(targetDir, rel);
         const exists = fs.existsSync(tgtPath);
         if (exists && !overwrite) continue;
-        ensureDirSync(path.dirname(tgtPath));
-        fs.copyFileSync(srcPath, tgtPath);
-        written.push(rel);
+        try {
+            ensureDirSync(path.dirname(tgtPath));
+            fs.copyFileSync(srcPath, tgtPath);
+            written.push(rel);
+        }
+        catch (err) {
+            // Partial failure → restore from backup, abort install
+            const rolledBack = backupPath ? rollback(backupPath, targetDir, written) : false;
+            return {
+                action: 'failed',
+                filesAffected: written.slice(),
+                backupPath,
+                rolledBack,
+                partiallyWrittenFiles: written.slice(),
+                error: err && err.message ? err.message : String(err),
+            };
+        }
     }
 
     if (written.length === 0) {
@@ -162,10 +177,46 @@ function installRuntime(opts) {
     };
 }
 
+/**
+ * Restore files from a backup directory, replacing whatever currently sits at the
+ * matching path under `targetDir`. Returns true on a clean restore, false on any
+ * filesystem error (best-effort — never throws).
+ */
+function rollback(backupPath, targetDir, partialFiles) {
+    if (!backupPath || !fs.existsSync(backupPath)) return false;
+    try {
+        const files = listRuntimeFiles(backupPath);
+        for (const rel of files) {
+            const src = path.join(backupPath, rel);
+            const tgt = path.join(targetDir, rel);
+            ensureDirSync(path.dirname(tgt));
+            fs.copyFileSync(src, tgt);
+        }
+        // Remove any partially-written files that did NOT exist before backup
+        // (i.e. they show up in partialFiles but not in the backup directory)
+        if (Array.isArray(partialFiles)) {
+            for (const rel of partialFiles) {
+                const backupVersion = path.join(backupPath, rel);
+                if (!fs.existsSync(backupVersion)) {
+                    const tgtPath = path.join(targetDir, rel);
+                    if (fs.existsSync(tgtPath)) {
+                        try { fs.unlinkSync(tgtPath); } catch (_) { /* best-effort */ }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+    catch (_) {
+        return false;
+    }
+}
+
 module.exports = {
     RUNTIME_EXTS,
     listRuntimeFiles,
     getDefaultSourceDir,
     getRuntimeStatus,
     installRuntime,
+    rollback,
 };

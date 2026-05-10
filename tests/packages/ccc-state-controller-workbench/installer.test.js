@@ -100,6 +100,52 @@ describe('lib/installer', () => {
         expect(result.error).toMatch(/sourceDir not found/);
     });
 
+    test('installRuntime rolls back partial writes when copyFile fails (M5)', () => {
+        const src = path.join(scratch, 'src');
+        const tgt = path.join(scratch, 'tgt');
+        fs.mkdirSync(src, { recursive: true });
+        fs.mkdirSync(tgt, { recursive: true });
+        // 3 source files; pre-existing target counterparts
+        fs.writeFileSync(path.join(src, 'a.ts'), 'NEW-A');
+        fs.writeFileSync(path.join(src, 'b.ts'), 'NEW-B');
+        fs.writeFileSync(path.join(src, 'c.ts'), 'NEW-C');
+        fs.writeFileSync(path.join(tgt, 'a.ts'), 'OLD-A');
+        fs.writeFileSync(path.join(tgt, 'b.ts'), 'OLD-B');
+        fs.writeFileSync(path.join(tgt, 'c.ts'), 'OLD-C');
+
+        // Monkey-patch fs.copyFileSync to fail on the 2nd call
+        const realCopy = fs.copyFileSync;
+        let callCount = 0;
+        fs.copyFileSync = function (s, t) {
+            callCount++;
+            // 1st call = backup of a.ts; let backups pass.
+            // We want the failure on the WRITE of b.ts. Detect by target dir.
+            if (callCount > 3 && callCount === 5) { // backups (3) + write a.ts (1) + write b.ts → fail
+                throw new Error('simulated EIO');
+            }
+            return realCopy(s, t);
+        };
+
+        let result;
+        try {
+            result = installer.installRuntime({
+                sourceDir: src,
+                targetDir: tgt,
+                backupRoot: scratch,
+            });
+        }
+        finally {
+            fs.copyFileSync = realCopy;
+        }
+
+        expect(result.action).toBe('failed');
+        expect(result.rolledBack).toBe(true);
+        expect(result.error).toMatch(/simulated EIO/);
+        // After rollback, target files should be back to OLD-* content
+        expect(fs.readFileSync(path.join(tgt, 'a.ts'), 'utf8')).toBe('OLD-A');
+        expect(fs.readFileSync(path.join(tgt, 'b.ts'), 'utf8')).toBe('OLD-B');
+    });
+
     test('getRuntimeStatus reports missing and modified', () => {
         const src = path.join(scratch, 'src');
         const tgt = path.join(scratch, 'tgt');

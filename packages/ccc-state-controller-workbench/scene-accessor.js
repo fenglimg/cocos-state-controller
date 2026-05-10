@@ -19,6 +19,7 @@
 const inspector = require('./lib/inspector');
 const stateGraph = require('./lib/state-graph');
 const installer = require('./lib/installer');
+const healthCheck = require('./lib/health-check');
 const logger = require('./logger');
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -128,6 +129,26 @@ function withSetProperty(payload) {
     return true;
 }
 
+/**
+ * Reflect the runtime controller instance for a given ctrlId. Used by M5 mutation
+ * handlers to derive node uuid + path for the scene:set-property payload.
+ *
+ * Walks the cached scene graph (collectAllComponents) — pricier than caching, but
+ * keeps the handler stateless across panel/scene IPC.
+ */
+function findControllerByCtrlId(ctrlId) {
+    const { controllers } = collectAllComponents();
+    for (const c of controllers) {
+        if (c && c.ctrlId === ctrlId) return c;
+    }
+    return null;
+}
+
+function findSelectsByCtrlId(ctrlId) {
+    const { selects } = collectAllComponents();
+    return selects.filter((s) => s && s.currCtrlId === ctrlId);
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // RPC handlers (exported messages map)
 // ──────────────────────────────────────────────────────────────────────────────
@@ -224,6 +245,222 @@ module.exports = {
         }
     },
 
+    // ────────────────────────────────────────────────────────────────────────
+    // M5 — Config tab: state CRUD + property mutation (all Undo-aware)
+    // ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Update the selectedIndex of a controller via scene:set-property (single write, Undo-aware).
+     * payload: { ctrlId, newIndex }
+     */
+    'set-selected-index'(event, payload) {
+        try {
+            const { ctrlId, newIndex } = payload || {};
+            const ctrl = findControllerByCtrlId(ctrlId);
+            if (!ctrl) throw new Error(`controller ctrlId=${ctrlId} not found`);
+            withSetProperty({
+                id: ctrl.node.uuid,
+                path: 'selectedIndex',
+                type: 'Number',
+                value: newIndex,
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`set-selected-index failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Rename a state on a controller via scene:set-property nested path.
+     * payload: { ctrlId, stateId, newName }
+     */
+    'set-state-name'(event, payload) {
+        try {
+            const { ctrlId, stateId, newName } = payload || {};
+            const ctrl = findControllerByCtrlId(ctrlId);
+            if (!ctrl) throw new Error(`controller ctrlId=${ctrlId} not found`);
+            const states = (ctrl.states || ctrl._states || []);
+            const idx = states.findIndex((s) => s && s.stateId === stateId);
+            if (idx < 0) throw new Error(`stateId=${stateId} not found`);
+            withSetProperty({
+                id: ctrl.node.uuid,
+                path: `_states.${idx}.name`,
+                type: 'String',
+                value: String(newName),
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`set-state-name failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Set a single controlled prop value on a StateSelect for a given (ctrlId, stateId).
+     * payload: { nodeUuid, ctrlId, stateId, propType, value }
+     */
+    'set-prop-value'(event, payload) {
+        try {
+            const { nodeUuid, ctrlId, stateId, propType, value } = payload || {};
+            if (!nodeUuid || ctrlId === undefined || stateId === undefined || propType === undefined) {
+                throw new Error('payload requires {nodeUuid, ctrlId, stateId, propType, value}');
+            }
+            withSetProperty({
+                id: nodeUuid,
+                path: `_ctrlData.${ctrlId}.${stateId}.${propType}`,
+                type: 'Object',
+                value: value,
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`set-prop-value failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Add a new state. Wrapped in scene:snapshot so the multi-step mutation
+     * (state row insert + auto-id increment) is one Undo step.
+     * payload: { ctrlId, stateName }
+     */
+    'add-state'(event, payload) {
+        try {
+            const { ctrlId, stateName } = payload || {};
+            const ctrl = findControllerByCtrlId(ctrlId);
+            if (!ctrl) throw new Error(`controller ctrlId=${ctrlId} not found`);
+            withSnapshot('add-state', () => {
+                if (typeof ctrl.addState === 'function') ctrl.addState(stateName);
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`add-state failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Delete a state. Wrapped in scene:snapshot for group Undo.
+     * Relies on M3-fixed deleteState() cascading EnumUpdataType.Delete to all
+     * StateSelect instances so _ctrlData and _flatData are cleaned atomically.
+     * payload: { ctrlId, stateId }
+     */
+    'delete-state'(event, payload) {
+        try {
+            const { ctrlId, stateId } = payload || {};
+            const ctrl = findControllerByCtrlId(ctrlId);
+            if (!ctrl) throw new Error(`controller ctrlId=${ctrlId} not found`);
+            withSnapshot('delete-state', () => {
+                if (typeof ctrl.deleteState === 'function') ctrl.deleteState(stateId);
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`delete-state failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Copy all controlled-prop values from srcStateId to dstStateId on every
+     * StateSelect that targets ctrlId. Wrapped in snapshot for group Undo.
+     * payload: { srcCtrlId, srcStateId, dstStateId }
+     */
+    'copy-state-props'(event, payload) {
+        try {
+            const { srcCtrlId, srcStateId, dstStateId } = payload || {};
+            if (srcCtrlId === undefined || srcStateId === undefined || dstStateId === undefined) {
+                throw new Error('payload requires {srcCtrlId, srcStateId, dstStateId}');
+            }
+            const selects = findSelectsByCtrlId(srcCtrlId);
+            withSnapshot('copy-state-props', () => {
+                for (const sel of selects) {
+                    const data = sel && sel._ctrlData && sel._ctrlData[srcCtrlId];
+                    const srcState = data && data[srcStateId];
+                    if (!srcState) continue;
+                    for (const propType in srcState) {
+                        if (Object.prototype.hasOwnProperty.call(srcState, propType)) {
+                            withSetProperty({
+                                id: sel.node.uuid,
+                                path: `_ctrlData.${srcCtrlId}.${dstStateId}.${propType}`,
+                                type: 'Object',
+                                value: srcState[propType],
+                            });
+                        }
+                    }
+                }
+            });
+            event.reply(null, { ok: true });
+        }
+        catch (err) {
+            logger.error(`copy-state-props failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Run health-check.detect across the scene and auto-fix every issue with
+     * autofix=true. Wrapped in a single snapshot.
+     * payload: {}
+     */
+    'cleanup-orphans'(event) {
+        try {
+            const { controllers, selects } = collectAllComponents();
+            const raw = {
+                controllers: controllers.map(inspector.inspectController).filter(Boolean),
+                selects: selects.map(inspector.inspectSelect).filter(Boolean),
+            };
+            const graph = stateGraph.buildControllerGraph(raw);
+            const { issues } = healthCheck.detect(graph);
+            const autofixable = issues.filter((i) => i.autofix);
+            const fixed = [];
+            withSnapshot('cleanup-orphans', () => {
+                for (const issue of autofixable) {
+                    if (issue.type === 'orphan-controller' && issue.nodeUuid) {
+                        // Reset orphan currCtrlId to 0 (means "no controller")
+                        withSetProperty({
+                            id: issue.nodeUuid,
+                            path: 'currCtrlId',
+                            type: 'Number',
+                            value: 0,
+                        });
+                        fixed.push(issue);
+                    }
+                }
+            });
+            event.reply(null, { totalIssues: issues.length, autofixCount: fixed.length, fixed });
+        }
+        catch (err) {
+            logger.error(`cleanup-orphans failed: ${err && err.message}`);
+            event.reply(err, null);
+        }
+    },
+
+    /**
+     * Run health-check.detect and return the issue list (panel renders the
+     * Health tab from this).
+     * payload: {}
+     */
+    'health-detect'(event) {
+        try {
+            const { controllers, selects } = collectAllComponents();
+            const raw = {
+                controllers: controllers.map(inspector.inspectController).filter(Boolean),
+                selects: selects.map(inspector.inspectSelect).filter(Boolean),
+            };
+            const graph = stateGraph.buildControllerGraph(raw);
+            const result = healthCheck.detect(graph);
+            event.reply(null, result);
+        }
+        catch (err) {
+            event.reply(err, null);
+        }
+    },
+
     // Internals exposed for unit tests
-    __internals: { getNodeByUuid, collectAllComponents, withSnapshot, withSetProperty },
+    __internals: { getNodeByUuid, collectAllComponents, withSnapshot, withSetProperty, findControllerByCtrlId, findSelectsByCtrlId },
 };

@@ -130,16 +130,120 @@ describe('scene-accessor IPC contracts', () => {
         expect(ipcCalls[1].payload).toBe('add-state:end');
     });
 
-    test('exposes 6 RPC handlers + __internals', () => {
+    test('exposes M4 + M5 RPC handlers + __internals', () => {
         const handlers = Object.keys(accessor).filter((k) => typeof accessor[k] === 'function');
         expect(handlers).toEqual(expect.arrayContaining([
+            // M4
             'list-controllers',
             'install-runtime',
             'get-runtime-status',
             'set-property-undo-aware',
             'snapshot-begin',
             'snapshot-end',
+            // M5
+            'set-selected-index',
+            'set-state-name',
+            'set-prop-value',
+            'add-state',
+            'delete-state',
+            'copy-state-props',
+            'cleanup-orphans',
+            'health-detect',
         ]));
         expect(accessor.__internals).toBeDefined();
+    });
+
+    // ─── M5 mutation handlers ───────────────────────────────────────────────
+
+    test('set-selected-index issues scene:set-property with Number type', () => {
+        setScene([makeController(1, 'A', [{ stateId: 1, name: 's1' }, { stateId: 2, name: 's2' }], 0)], []);
+        const event = fakeEvent();
+        accessor['set-selected-index'](event, { ctrlId: 1, newIndex: 1 });
+        expect(event._err).toBeNull();
+        expect(event._result.ok).toBe(true);
+        expect(ipcCalls).toHaveLength(1);
+        expect(ipcCalls[0].message).toBe('scene:set-property');
+        expect(ipcCalls[0].payload).toMatchObject({ path: 'selectedIndex', type: 'Number', value: 1 });
+    });
+
+    test('set-state-name targets _states.<idx>.name path', () => {
+        const ctrl = makeController(1, 'A', [{ stateId: 100, name: 'old' }, { stateId: 200, name: 'b' }], 0);
+        setScene([ctrl], []);
+        const event = fakeEvent();
+        accessor['set-state-name'](event, { ctrlId: 1, stateId: 100, newName: 'new' });
+        expect(event._err).toBeNull();
+        expect(ipcCalls[0].payload.path).toBe('_states.0.name');
+        expect(ipcCalls[0].payload.type).toBe('String');
+        expect(ipcCalls[0].payload.value).toBe('new');
+    });
+
+    test('add-state wraps controller.addState in scene:snapshot begin/end', () => {
+        const ctrl = makeController(1, 'A', [], 0);
+        let added = null;
+        ctrl.addState = (name) => { added = name; };
+        setScene([ctrl], []);
+        const event = fakeEvent();
+        accessor['add-state'](event, { ctrlId: 1, stateName: 'idle' });
+        expect(event._err).toBeNull();
+        expect(added).toBe('idle');
+        const snapshotMessages = ipcCalls.filter((c) => c.message === 'scene:snapshot');
+        expect(snapshotMessages).toHaveLength(2);
+        expect(snapshotMessages[0].payload).toBe('add-state');
+        expect(snapshotMessages[1].payload).toMatch(/add-state:end/);
+    });
+
+    test('delete-state wraps controller.deleteState in scene:snapshot begin/end (M3 cascade verified separately)', () => {
+        const ctrl = makeController(1, 'A', [{ stateId: 100, name: 'idle' }], 0);
+        let deleted = null;
+        ctrl.deleteState = (sid) => { deleted = sid; };
+        setScene([ctrl], []);
+        const event = fakeEvent();
+        accessor['delete-state'](event, { ctrlId: 1, stateId: 100 });
+        expect(event._err).toBeNull();
+        expect(deleted).toBe(100);
+        const snapshotMessages = ipcCalls.filter((c) => c.message === 'scene:snapshot');
+        expect(snapshotMessages).toHaveLength(2);
+    });
+
+    test('copy-state-props writes nested _ctrlData path via scene:set-property and is wrapped in snapshot', () => {
+        const ctrl = makeController(1, 'A', [{ stateId: 1, name: 'a' }, { stateId: 2, name: 'b' }], 0);
+        const sel = makeSelect(1, [1]);
+        sel._ctrlData = { 1: { 1: { '5': 'value-from-a' } } };
+        setScene([ctrl], [sel]);
+        const event = fakeEvent();
+        accessor['copy-state-props'](event, { srcCtrlId: 1, srcStateId: 1, dstStateId: 2 });
+        expect(event._err).toBeNull();
+        const setPropertyCalls = ipcCalls.filter((c) => c.message === 'scene:set-property');
+        expect(setPropertyCalls).toHaveLength(1);
+        expect(setPropertyCalls[0].payload.path).toBe('_ctrlData.1.2.5');
+    });
+
+    test('set-prop-value validates required fields', () => {
+        const event = fakeEvent();
+        accessor['set-prop-value'](event, { nodeUuid: 'x' });
+        expect(event._err).toBeInstanceOf(Error);
+    });
+
+    test('cleanup-orphans returns autofixCount and reset orphan currCtrlId via set-property', () => {
+        const ctrl = makeController(1, 'A', [{ stateId: 1, name: 's1' }], 0);
+        const orphan = makeSelect(999, [1]);
+        setScene([ctrl], [orphan]);
+        const event = fakeEvent();
+        accessor['cleanup-orphans'](event);
+        expect(event._err).toBeNull();
+        expect(event._result.autofixCount).toBeGreaterThan(0);
+        const propCalls = ipcCalls.filter((c) => c.message === 'scene:set-property');
+        const orphanCall = propCalls.find((c) => c.payload && c.payload.path === 'currCtrlId');
+        expect(orphanCall).toBeDefined();
+        expect(orphanCall.payload.value).toBe(0);
+    });
+
+    test('health-detect returns issue list', () => {
+        const ctrl = makeController(1, '', [], 0);
+        setScene([ctrl], []);
+        const event = fakeEvent();
+        accessor['health-detect'](event);
+        expect(event._err).toBeNull();
+        expect(Array.isArray(event._result.issues)).toBe(true);
     });
 });

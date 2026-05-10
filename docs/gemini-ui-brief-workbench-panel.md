@@ -71,34 +71,59 @@ All IPC goes through `Editor.Scene.callSceneScript('ccc-state-controller-workben
 
 `install-runtime` actions: `'install'` (only adds), `'updated'` (modifies), `'noop'` (source==target or no-op needed), `'failed'` (fs error → `{ error, rolledBack? }`).
 
-### M5 (extension — coming after this brief)
+### M5 (now implemented in scene-accessor.js + lib/health-check.js)
 
-The M5 sprint will add **7 new RPC handlers** for the Config + Health tabs. Plan your tab structure to accept these:
+The 7 mutation handlers below are wired and Undo-aware:
 
-| message | payload | semantics |
-|---|---|---|
-| `set-state-name` | `{ ctrlId, stateId, newName }` | scene:set-property single write |
-| `add-state` | `{ ctrlId, stateName }` | wrapped in scene:snapshot |
-| `delete-state` | `{ ctrlId, stateId }` | wrapped in scene:snapshot, cascades to StateSelect via M3 fix |
-| `cleanup-orphans` | `{}` | bulk autofix, scene:snapshot |
-| `copy-state-props` | `{ srcCtrlId, srcStateId, dstStateId }` | scene:snapshot |
-| `set-selected-index` | `{ ctrlId, newIndex }` | scene:set-property single write |
-| `set-prop-value` | `{ nodeUuid, ctrlId, stateId, propType, value }` | scene:set-property nested path |
+| message | payload | reply | semantics |
+|---|---|---|---|
+| `set-state-name` | `{ ctrlId, stateId, newName }` | `(err, {ok})` | scene:set-property to `_states.<idx>.name` (String) |
+| `add-state` | `{ ctrlId, stateName }` | `(err, {ok})` | scene:snapshot wrapping `controller.addState(name)` |
+| `delete-state` | `{ ctrlId, stateId }` | `(err, {ok})` | scene:snapshot wrapping `controller.deleteState(stateId)`. Cascades to all StateSelect via M3 fix — **single Ctrl+Z restores everything** including `_ctrlData` and `_flatData` |
+| `cleanup-orphans` | `{}` | `(err, {totalIssues, autofixCount, fixed[]})` | scene:snapshot wrapping bulk autofix (resets orphan `currCtrlId` to 0) |
+| `copy-state-props` | `{ srcCtrlId, srcStateId, dstStateId }` | `(err, {ok})` | scene:snapshot wrapping per-prop scene:set-property to `_ctrlData.<ctrlId>.<dstStateId>.<propType>` |
+| `set-selected-index` | `{ ctrlId, newIndex }` | `(err, {ok})` | scene:set-property `selectedIndex` (Number) |
+| `set-prop-value` | `{ nodeUuid, ctrlId, stateId, propType, value }` | `(err, {ok})` | scene:set-property nested path `_ctrlData.<ctrlId>.<stateId>.<propType>` (Object) |
+| `health-detect` | `{}` | `(err, {issues})` | calls `lib/health-check.detect(graph)`; returns the issue list |
 
-The M5 brief will also expose `lib/health-check.js`:
+`lib/health-check.js` (use only `detect()` from the panel; `fix()` is a thin wrapper around RPC):
 
 ```ts
 type Issue = {
     type: AnomalyTag | 'dead-ctrl-data-refs' | 'state-name-collision';
     controllerCtrlId?: number;
     nodeUuid?: string;
+    stateId?: number;
     severity: 'info' | 'warning' | 'error';
     autofix: boolean;
     suggestedAction: string;
 };
 function detect(graph: ControllerGraph): { issues: Issue[] };
-function fix(issue: Issue, accessorRPC): Promise<void>;  // calls cleanup-orphans / specific handler
+function fix(issue: Issue, rpc): Promise<{ok: boolean, reason?: string}>;
 ```
+
+#### Installer rollback (M5)
+
+`install-runtime` reply now includes failure handling:
+
+```ts
+type InstallResult =
+  | { action: 'install' | 'updated', filesAffected: string[], backupPath: string }
+  | { action: 'noop',   filesAffected: [],      backupPath: string|null }
+  | {
+      action: 'failed',
+      error: string,
+      partiallyWrittenFiles: string[],
+      filesAffected: string[],
+      backupPath: string|null,
+      rolledBack: boolean,
+    };
+```
+
+When `action === 'failed'` AND `rolledBack === true`, the target directory has been restored from the backup. UI should:
+- show an error banner (red) with `error` text
+- show the backup path so the user can investigate manually
+- offer a "Retry" button
 
 ---
 
