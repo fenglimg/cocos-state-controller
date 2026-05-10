@@ -31,21 +31,27 @@
 const {
     ccclass, property, menu, executeInEditMode, disallowMultiple,
 } = cc._decorator;
-import { StateComponentProps } from "./Props/StateComponentProps";
-import { StateNodeProps } from "./Props/StateNodeProps";
-import { StateToolsProps } from "./Props/StateToolsProps";
-import { StateWidgetProps } from "./Props/StateWidgetProps";
+import { StateBehaviorProps } from "./props/StateBehaviorProps";
+import { StateComponentProps } from "./props/StateComponentProps";
+import { StateNodeProps } from "./props/StateNodeProps";
+import { StateSpriteProps } from "./props/StateSpriteProps";
+import { StateTextProps } from "./props/StateTextProps";
+import { StateToolsProps } from "./props/StateToolsProps";
+import { StateWidgetProps } from "./props/StateWidgetProps";
 import { StateController } from "./StateController";
 import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
-import { PropHandlerManager } from "./StatePropHandler";
+import { PropHandlerManager } from "./PropHandlerManager";
+// 副作用 import: 触发 41 个内置 PropHandler 注册到 PropHandlerManager
+import "./BuiltinPropHandlers";
 
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
 cc.Enum(EnumPropName);
 
-/** 属性类型 */
-export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font | undefined;
+// 类型从 ./types 集中导出（M2 重构: 解耦 BuiltinPropHandlers 与 StateSelect 的循环类型引用）
+export { TPropValue, IPropHandler } from "./types";
+import { TPropValue } from "./types";
 
 type TPropDictionary = {
     [propType: number]: TPropValue
@@ -90,11 +96,23 @@ type FlatStateData = {
     propType: EnumPropName;
 };
 
+/**
+ * 🔧 M2: StateSelect 序列化 schema 版本号常量
+ * 与 StateController 的 CURRENT_VERSION 同步演进; 当本组件 @property 字段结构变更时递增。
+ */
+const CURRENT_VERSION = 1;
+
 @ccclass("StateSelect")
 @menu("State/StateSelect")
 @executeInEditMode()
 @disallowMultiple()
 export class StateSelect extends cc.Component {
+    /**
+     * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
+     */
+    @property({ visible: false })
+    private _serializedVersion: number = 1;
+
     /** root节点所有的ctrl */
     @property({ visible: false })
     private _ctrlsMap: { [ctrlId: string]: StateController } = {};
@@ -180,15 +198,47 @@ export class StateSelect extends cc.Component {
     })
     public nodeProps = new StateNodeProps();
 
-    /** 组件属性 - inspector 中显示为可折叠分组 */
+    /**
+     * @deprecated M2 起原 16 项混杂组件属性已拆分到 textProps / spriteProps / behaviorProps 三个分组,
+     * 本字段保留仅为兼容旧场景反序列化, 不再展示于 inspector。
+     */
     @property({
         type: StateComponentProps,
-        displayName: "组件属性",
-        tooltip: "组件相关属性（Label, Sprite, Button, Toggle 等）",
+        editorOnly: true,
+        serializable: false,
+        visible: false,
+    })
+    public componentProps = new StateComponentProps();
+
+    /** 文本相关属性 - inspector 中显示为可折叠分组 (M2 拆自 StateComponentProps) */
+    @property({
+        type: StateTextProps,
+        displayName: "文本属性",
+        tooltip: "Label / RichText / Font / LabelOutline 等 8 个文本相关属性",
         editorOnly: true,
         serializable: false,
     })
-    public componentProps = new StateComponentProps();
+    public textProps = new StateTextProps();
+
+    /** 图片相关属性 - inspector 中显示为可折叠分组 (M2 拆自 StateComponentProps) */
+    @property({
+        type: StateSpriteProps,
+        displayName: "图片属性",
+        tooltip: "SpriteFrame / SpriteFillRange / GrayScale 等 3 个图片相关属性",
+        editorOnly: true,
+        serializable: false,
+    })
+    public spriteProps = new StateSpriteProps();
+
+    /** 行为/交互组件属性 - inspector 中显示为可折叠分组 (M2 拆自 StateComponentProps) */
+    @property({
+        type: StateBehaviorProps,
+        displayName: "行为属性",
+        tooltip: "Slider / EditBox / Button / Toggle / ProgressBar / ScrollView / Mask 等 7 个交互组件属性",
+        editorOnly: true,
+        serializable: false,
+    })
+    public behaviorProps = new StateBehaviorProps();
 
     /** Widget属性 - inspector 中显示为可折叠分组 */
     @property({
@@ -534,6 +584,10 @@ export class StateSelect extends cc.Component {
         this.componentProps.owner = this;
         this.widgetProps.owner = this;
         this.toolsProps.owner = this;
+        // M2 新增 3 个分组类的 owner 引用
+        this.textProps.owner = this;
+        this.spriteProps.owner = this;
+        this.behaviorProps.owner = this;
 
         // IMPL-005: 触发数据迁移
         if (!this._migrationComplete) {
@@ -595,6 +649,12 @@ export class StateSelect extends cc.Component {
     }
 
     protected onLoad() {
+        // 🔧 M2: schema 版本检查 + 触发 _migrate (无论运行时还是编辑器都需迁移)
+        if (this._serializedVersion < CURRENT_VERSION) {
+            this._migrate(this._serializedVersion);
+            this._serializedVersion = CURRENT_VERSION;
+        }
+
         if (!CC_EDITOR) {
             return;
         }
@@ -644,6 +704,19 @@ export class StateSelect extends cc.Component {
             this.node.off("color-changed", this.colorChanged, this);
             this.node.off("spriteframe-changed", this.spriteFrameChanged, this);
         }
+    }
+
+    /**
+     * 🔧 M2: 数据迁移钩子 (空骨架, M3 实现 v1 -> v2 实际逻辑)
+     *
+     * 子类或后续版本可在此方法中根据 fromVersion 做对应迁移:
+     * - if (fromVersion < 2) { ...M3 把 componentProps 残留数据迁到 textProps/spriteProps/behaviorProps... }
+     * - if (fromVersion < 3) { ... }
+     *
+     * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
+     */
+    protected _migrate(fromVersion: number): void {
+        // M2 阶段空骨架, M3 实现 v1 -> v2
     }
 
     // ================== 🔧 IMPL-001.6: 缓存失效通知 ==================

@@ -5,9 +5,11 @@
  * - IMPL-006.8: Handler registration, retrieval, and invocation
  */
 
-import { PropHandlerManager } from "../../../assets/script/controller/StatePropHandler";
+import { PropHandlerManager } from "../../../assets/script/controller/PropHandlerManager";
 import { EnumPropName } from "../../../assets/script/controller/StateEnum";
-import { TPropValue } from "../../../assets/script/controller/StateSelect";
+import { TPropValue } from "../../../assets/script/controller/types";
+// 副作用 import: 触发 41 个内置 PropHandler 注册到 PropHandlerManager
+import "../../../assets/script/controller/BuiltinPropHandlers";
 
 // Mock Cocos Creator environment
 declare global {

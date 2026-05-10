@@ -6,12 +6,24 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "../Controller/StateEnum";
-import { StateErrorManager } from "../Controller/StateErrorManager";
-import { StateSelect } from "../Controller/StateSelect";
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
+import { StateErrorManager } from "./StateErrorManager";
+import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
 cc.Enum(InspectorRefreshMode);
+
+/**
+ * 🔧 M2 序列化版本号常量
+ *
+ * 当 schema (StateController @property 字段结构) 演进时, 同步递增此版本号:
+ * - 1: M2 初始版本 (引入 _serializedVersion + _migrate 框架, schema 未变更)
+ * - 2 (M3 计划): 重构 _ctrlData 为 ctrlId 分桶 / deleteState 清理残留 等
+ *
+ * 旧场景反序列化后若 instance._serializedVersion < CURRENT_VERSION,
+ * onLoad 会触发 _migrate(fromVersion) 完成数据迁移。
+ */
+const CURRENT_VERSION = 1;
 
 @ccclass("stateValue")
 export class StateValue {
@@ -31,6 +43,13 @@ export class StateValue {
 @menu("State/StateController")
 @executeInEditMode()
 export class StateController extends cc.Component {
+    /**
+     * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
+     * 默认值 = 1 (M2 阶段当前版本); 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
+     */
+    @property({ visible: false })
+    private _serializedVersion: number = 1;
+
     /** 状态id自增 */
     @property({ visible: false })
     private stateIdAuto = 0;
@@ -646,10 +665,29 @@ export class StateController extends cc.Component {
     }
 
     protected onLoad() {
+        // 🔧 M2: schema 版本检查 + 触发 _migrate (无论运行时还是编辑器都需迁移)
+        if (this._serializedVersion < CURRENT_VERSION) {
+            this._migrate(this._serializedVersion);
+            this._serializedVersion = CURRENT_VERSION;
+        }
+
         if (!CC_EDITOR) {
             return;
         }
         this.updateState(EnumUpdataType.State);
+    }
+
+    /**
+     * 🔧 M2: 数据迁移钩子 (空骨架, M3 实现 v1 -> v2 实际逻辑)
+     *
+     * 子类或后续版本可在此方法中根据 fromVersion 做对应迁移:
+     * - if (fromVersion < 2) { ...M3 实现... }
+     * - if (fromVersion < 3) { ... }
+     *
+     * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
+     */
+    protected _migrate(fromVersion: number): void {
+        // M2 阶段空骨架, M3 实现 v1 -> v2
     }
 
     protected onDestroy() {

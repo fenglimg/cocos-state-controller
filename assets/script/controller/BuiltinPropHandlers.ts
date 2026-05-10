@@ -1,14 +1,15 @@
 import { EnumPropName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
-import { TPropValue } from "./StateSelect";
+import { PropHandlerManager } from "./PropHandlerManager";
+import { IPropHandler, TPropValue } from "./types";
 
 // 🔧 扩展指南：添加新组件支持
 //
 // 添加新属性处理器只需3步：
 //
 // 1. 在StateEnum.ts中添加枚举值
-// 2. 创建对应的PropHandler类，实现IPropHandler接口
-// 3. 注册到PropHandlerManager
+// 2. 创建对应的PropHandler类，实现IPropHandler接口（接口定义在 ./types）
+// 3. 注册到PropHandlerManager（管理器定义在 ./PropHandlerManager）
 //
 // 示例 - 添加Button组件支持：
 //
@@ -30,77 +31,6 @@ import { TPropValue } from "./StateSelect";
 //
 // 这样设计极大地简化了扩展新组件的流程！
 //
-
-/**
- * 🔧 属性处理器接口 - 定义所有属性处理器必须实现的标准接口
- *
- * 这是属性处理器系统的核心抽象：
- * 1. 统一的属性访问方式
- * 2. 类型安全的属性操作
- * 3. 可扩展的属性处理机制
- *
- * 所有属性处理器都必须实现这三个方法，确保系统的一致性和可预测性
- */
-interface IPropHandler {
-    /** 获取属性值 */
-    getValue(node: cc.Node): TPropValue | undefined
-    /** 设置属性值 */
-    setValue(node: cc.Node, value: TPropValue): void
-    /** 获取默认值 */
-    getDefaultValue(node: cc.Node): TPropValue | undefined
-}
-
-/**
- * 🔧 属性处理器管理类 - 统一管理所有属性处理器的注册和访问
- *
- * 核心优势：
- * 1. 集中管理：所有属性处理器统一注册和管理
- * 2. 类型安全：基于枚举的类型检查
- * 3. 易于扩展：新增属性只需实现接口并注册
- * 4. 性能优化：使用Map提供O(1)的查找效率
- */
-export class PropHandlerManager {
-    // 🔧 使用Map存储处理器，提供高效的O(1)查找性能
-    private static handlers = new Map<EnumPropName, IPropHandler>();
-
-    /**
-     * 🔧 注册属性处理器 - 将属性处理器与对应的属性类型关联
-     * @param propType 属性类型枚举
-     * @param handler 属性处理器实例
-     */
-    public static register(propType: EnumPropName, handler: IPropHandler) {
-        this.handlers.set(propType, handler);
-    }
-
-    /**
-     * 🔧 获取属性处理器 - 根据属性类型获取对应的处理器
-     * @param propType 属性类型枚举
-     * @returns 对应的属性处理器，如果没有则返回undefined
-     */
-    public static getHandler(propType: EnumPropName): IPropHandler | undefined {
-        return this.handlers.get(propType);
-    }
-
-    /** 获取属性值 */
-    public static getValue(propType: EnumPropName, node: cc.Node): TPropValue | undefined {
-        const handler = this.getHandler(propType);
-        return handler ? handler.getValue(node) : undefined;
-    }
-
-    /** 设置属性值 */
-    public static setValue(propType: EnumPropName, node: cc.Node, value: TPropValue): void {
-        const handler = this.getHandler(propType);
-        if (handler) {
-            handler.setValue(node, value);
-        }
-    }
-
-    /** 获取默认值 */
-    public static getDefaultValue(propType: EnumPropName, node: cc.Node): TPropValue | undefined {
-        const handler = this.getHandler(propType);
-        return handler ? handler.getDefaultValue(node) : undefined;
-    }
-}
 
 /** 🔧 基础属性处理器实现 */
 class ActivePropHandler implements IPropHandler {
