@@ -5,17 +5,17 @@
   "author": "fenglimg",
   "main": "main.js",
   "main-menu": {
-    "i18n:ccc-state-controller-workbench.MAIN_MENU.open": {
+    "i18n:MAIN_MENU.package.title/状态控制器工作台/开启": {
       "message": "ccc-state-controller-workbench:open"
     },
-    "i18n:ccc-state-controller-workbench.MAIN_MENU.close": {
+    "i18n:MAIN_MENU.package.title/状态控制器工作台/关闭": {
       "message": "ccc-state-controller-workbench:close"
     }
   },
   "panel": {
     "main": "panel/index.js",
     "type": "dockable",
-    "title": "i18n:ccc-state-controller-workbench.PANEL.title",
+    "title": "状态控制器工作台",
     "width": 420,
     "height": 360,
     "min-width": 320,

@@ -1,6 +1,25 @@
 'use strict';
 
 module.exports = {
+    MAIN_MENU: {
+        package: {
+            title: {
+                'State Controller Workbench': {
+                    Open: 'Open State Controller Workbench',
+                    Close: 'Close State Controller Workbench',
+                },
+            },
+        },
+    },
+    PANEL: {
+        title: 'State Controller Workbench',
+        tab: {
+            dashboard: 'Dashboard',
+            installer: 'Installer',
+            config: 'Config',
+            health: 'Health',
+        },
+    },
     'MAIN_MENU.open': 'State Controller Workbench/Open',
     'MAIN_MENU.close': 'State Controller Workbench/Close',
     'PANEL.title': 'State Controller Workbench',
