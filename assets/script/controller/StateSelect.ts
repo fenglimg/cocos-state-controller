@@ -102,8 +102,9 @@ type FlatStateData = {
  *
  * - 1: M2 初始版本
  * - 2: M3 引入 _ctrlData dead stateId 清扫迁移 (孤儿残留扫除 — Bug B3 历史数据修复)
+ * - 3: M4 _ctrlData 状态层统一按 StateValue.stateId 存储，避免状态重排/删除后按 index 串数据
  */
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 @ccclass("StateSelect")
 @menu("State/StateSelect")
@@ -114,7 +115,7 @@ export class StateSelect extends cc.Component {
      * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
      */
     @property({ visible: false })
-    private _serializedVersion: number = 1;
+    private _serializedVersion: number = CURRENT_VERSION;
 
     /** root节点所有的ctrl */
     @property({ visible: false })
@@ -177,6 +178,9 @@ export class StateSelect extends cc.Component {
         this._propValue = value;
         const propData = this.getPropData();
         propData[this.propKey] = value;
+        if (propData.$$propertyData$$) {
+            propData.$$propertyData$$[this.propKey] = value;
+        }
         this.updateState(this.getCurrCtrl());
     }
 
@@ -348,17 +352,17 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * IMPL-005.6: 从旧结构迁移数据
-     * 将三层嵌套的_ctrlData迁移到扁平化Map
+     * IMPL-005.6: 从持久化 _ctrlData 重建运行时扁平缓存。
+     * _flatData 是 Map，不能作为 @property 持久化；因此加载场景时只静默重建缓存，不做用户可见迁移日志。
      */
-    private migrateFromLegacyData(): void {
+    private rebuildFlatDataFromCtrlData(): void {
         if (this._migrationComplete) {
             return;
         }
 
-        StateErrorManager.debug("开始数据迁移：从三层结构到扁平化Map", {
+        StateErrorManager.debug("开始重建扁平运行时缓存", {
             component: "StateSelect",
-            method: "migrateFromLegacyData",
+            method: "rebuildFlatDataFromCtrlData",
         });
 
         let migratedCount = 0;
@@ -371,23 +375,20 @@ export class StateSelect extends cc.Component {
 
             // 遍历所有状态
             for (const stateId in pageData) {
+                if (stateId.startsWith("$$")) continue;
+                const stateIdNum = parseInt(stateId);
+                if (isNaN(stateIdNum)) continue;
+
                 const propData = pageData[stateId];
                 if (!propData) continue;
 
-                // 遍历所有属性
-                for (const key in propData) {
-                    // 跳过元数据键
-                    if (key.startsWith("$$")) continue;
-
-                    const propType = parseInt(key);
-                    if (isNaN(propType)) continue;
-
-                    const value = propData[propType];
+                // 遍历所有属性（兼容直接数字键与 $$propertyData$$）
+                for (const propType of this.extractAppliedPropKeys(propData)) {
+                    const value = this.getStoredPropValue(propData, propType as EnumPropName);
                     if (value === undefined) continue;
 
                     // 添加到扁平化Map
                     const ctrlIdNum = parseInt(ctrlId);
-                    const stateIdNum = parseInt(stateId);
                     this.setPropValueFast(ctrlIdNum, stateIdNum, propType, value);
                     migratedCount++;
                 }
@@ -396,13 +397,9 @@ export class StateSelect extends cc.Component {
 
         this._migrationComplete = true;
 
-        if (migratedCount > 0) {
-            Editor.log(`[StateSelect] 数据迁移完成：${migratedCount} 个属性已迁移到扁平化结构`);
-        }
-
-        StateErrorManager.debug("数据迁移完成", {
+        StateErrorManager.debug("扁平运行时缓存重建完成", {
             component: "StateSelect",
-            method: "migrateFromLegacyData",
+            method: "rebuildFlatDataFromCtrlData",
             params: { migratedCount },
         });
     }
@@ -540,6 +537,8 @@ export class StateSelect extends cc.Component {
 
         // 🔧 设置属性值
         propData[propKey] = propValue;
+        propData.$$propertyData$$ = propData.$$propertyData$$ || {};
+        propData.$$propertyData$$[propKey] = propValue;
 
         // 🔧 记录上次选择的属性
         propData.$$lastProp$$ = propKey;
@@ -592,9 +591,9 @@ export class StateSelect extends cc.Component {
         this.spriteProps.owner = this;
         this.behaviorProps.owner = this;
 
-        // IMPL-005: 触发数据迁移
+        // IMPL-005: 重建运行时扁平缓存
         if (!this._migrationComplete) {
-            this.migrateFromLegacyData();
+            this.rebuildFlatDataFromCtrlData();
         }
 
         // IMPL-001.6: 通知控制器缓存失效
@@ -710,7 +709,7 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 🔧 M3 v1 → v2: 数据迁移钩子
+     * 🔧 M3/M4 数据迁移钩子
      *
      * v1 → v2: 扫除 _ctrlData[ctrlId][stateId] 中的孤儿条目 (历史 Bug B3 残留)
      *   - 遍历 _ctrlData 所有 ctrlId+stateId
@@ -723,14 +722,17 @@ export class StateSelect extends cc.Component {
      * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
      */
     protected _migrate(fromVersion: number): void {
-        if (fromVersion < 2) {
-            const allMigrated = this.migrateDeadStateIds();
-            // 🔧 M3 (Gemini review WARNING): 仅当所有 ctrlId 都成功迁移时才 bump 版本号
-            // 否则保持 _serializedVersion=1, 等 _ctrlsMap 建立后由 retry 机制下次再次触发 _migrate
-            if (allMigrated) {
-                this._serializedVersion = 2;
-            }
-            // else: 保持 fromVersion (默认 1), 不写入新版本
+        let allMigrated = true;
+
+        if (fromVersion < 3) {
+            allMigrated = this.migrateStateIndexKeysToStateIds() && allMigrated;
+            allMigrated = this.migrateDeadStateIds() && allMigrated;
+        }
+
+        // 仅当所有 ctrlId 都成功迁移时才 bump 版本号。
+        // 否则保持旧版本，等 _ctrlsMap 建立后由 updateCtrlName 重试。
+        if (allMigrated && fromVersion < CURRENT_VERSION) {
+            this._serializedVersion = CURRENT_VERSION;
         }
     }
 
@@ -765,7 +767,12 @@ export class StateSelect extends cc.Component {
             const ctrlPage = this._ctrlData[ctrlId];
             for (const stateIdStr in ctrlPage) {
                 const stateId = Number(stateIdStr);
-                if (Number.isNaN(stateId)) continue;
+                if (Number.isNaN(stateId)) {
+                    if (!stateIdStr.startsWith("$$")) {
+                        delete (ctrlPage as Record<string, TProp>)[stateIdStr];
+                    }
+                    continue;
+                }
 
                 if (!validStateIds.has(stateId)) {
                     // 同步从 _flatData 删除该 stateId 下的所有 propType
@@ -783,6 +790,79 @@ export class StateSelect extends cc.Component {
             }
         }
         return allMigrated;
+    }
+
+    /**
+     * M4 v2 → v3: 将历史按 selectedIndex 存储的状态数据迁移为按 stateId 存储。
+     *
+     * StateController.selectedIndex 只是 UI 顺序；删除、复制、重排状态后 index 会变，
+     * stateId 才是持久化身份。迁移依赖 controller.states，因此 _ctrlsMap 未建立时会保留旧版本待重试。
+     */
+    private migrateStateIndexKeysToStateIds(): boolean {
+        let allMigrated = true;
+
+        for (const ctrlIdStr in this._ctrlData) {
+            const ctrlId = Number(ctrlIdStr);
+            if (Number.isNaN(ctrlId)) continue;
+
+            const controller = this._ctrlsMap[ctrlId];
+            if (!controller || !controller.states) {
+                allMigrated = false;
+                continue;
+            }
+
+            const ctrlPage = this._ctrlData[ctrlId];
+            if (!ctrlPage) continue;
+
+            for (let stateIndex = 0; stateIndex < controller.states.length; stateIndex++) {
+                const state = controller.states[stateIndex];
+                if (!state || state.stateId === undefined || state.stateId === stateIndex) {
+                    continue;
+                }
+
+                const fromKey = String(stateIndex);
+                const toKey = String(state.stateId);
+                const indexedData = (ctrlPage as Record<string, TProp>)[fromKey];
+                if (!indexedData) {
+                    continue;
+                }
+
+                const existingStateData = (ctrlPage as Record<string, TProp>)[toKey];
+                if (existingStateData) {
+                    this.mergeMissingStateData(existingStateData, indexedData);
+                }
+                else {
+                    (ctrlPage as Record<string, TProp>)[toKey] = indexedData;
+                }
+
+                delete (ctrlPage as Record<string, TProp>)[fromKey];
+            }
+        }
+
+        return allMigrated;
+    }
+
+    private mergeMissingStateData(target: TProp, source: TProp): void {
+        for (const key in source) {
+            const sourceValue = (source as Record<string, TPropValue>)[key];
+
+            if (key === "$$changedProp$$" || key === "$$controlledProps$$" || key === "$$propertyData$$") {
+                const targetRecords = target as unknown as Record<string, Record<string, TPropValue>>;
+                const targetRecord = targetRecords[key] || {};
+                const sourceRecord = sourceValue as unknown as Record<string, TPropValue>;
+                for (const recordKey in sourceRecord) {
+                    if (targetRecord[recordKey] === undefined) {
+                        targetRecord[recordKey] = sourceRecord[recordKey];
+                    }
+                }
+                targetRecords[key] = targetRecord;
+                continue;
+            }
+
+            if ((target as Record<string, TPropValue>)[key] === undefined) {
+                (target as Record<string, TPropValue>)[key] = sourceValue;
+            }
+        }
     }
 
     // ================== 🔧 IMPL-001.6: 缓存失效通知 ==================
@@ -977,15 +1057,21 @@ export class StateSelect extends cc.Component {
 
         // 根据新控制器的状态数量适配状态数据
         for (let stateIndex = 0; stateIndex < newCtrl.states.length; stateIndex++) {
-            if (oldData[stateIndex]) {
+            const state = newCtrl.states[stateIndex];
+            const stateId = state && state.stateId !== undefined ? state.stateId : stateIndex;
+
+            if (oldData[stateId]) {
+                newData[stateId] = this.deepCloneStateData(oldData[stateId]);
+            }
+            else if (oldData[stateIndex]) {
                 // 如果旧数据有对应状态，直接复制
-                newData[stateIndex] = this.deepCloneStateData(oldData[stateIndex]);
+                newData[stateId] = this.deepCloneStateData(oldData[stateIndex]);
             }
             else if (newData.$$default$$) {
                 // 如果旧数据没有对应状态，使用默认数据创建新状态
-                newData[stateIndex] = this.deepCloneStateData(newData.$$default$$);
+                newData[stateId] = this.deepCloneStateData(newData.$$default$$);
                 // 清除新状态的lastProp，让用户重新选择
-                delete newData[stateIndex].$$lastProp$$;
+                delete newData[stateId].$$lastProp$$;
             }
         }
 
@@ -1472,6 +1558,11 @@ export class StateSelect extends cc.Component {
             }
             return { name: val.ctrlName, value: val.ctrlId };
         });
+
+        if (this._serializedVersion < CURRENT_VERSION) {
+            this._migrate(this._serializedVersion);
+        }
+
         // @ts-expect-error setClassAttr is unavailable in Cocos Creator d.ts
         cc.Class.Attr.setClassAttr(this, "currCtrlId", "enumList", arr);
 
@@ -1595,11 +1686,9 @@ export class StateSelect extends cc.Component {
             return;
         }
 
-        // 🔧 执行数据迁移：将后面的状态数据前移
-        this.migrateStateData(pageData, deleteIndex, ctrl.states.length);
-
-        // 🔧 同步处理属性清理
-        this.cleanupDeletedStateProps(pageData, ctrl, ctrl.states.length);
+        // 状态数据按 stateId 存储，删除/重排状态时不再按 index 前移数据。
+        // 精确清理由 StateController.deleteState(stateId) → updateDelete(ctrl, stateId) 负责。
+        this.cleanupDeletedStateProps(pageData, ctrl, deleteIndex);
 
         StateErrorManager.info("状态删除处理完成", {
             component: "StateSelect",
@@ -1628,6 +1717,11 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 新增：清理被删除状态的属性 */
     private cleanupDeletedStateProps(pageData: TPage, ctrl: StateController, deletedStateIndex: number) {
+        if (this._serializedVersion >= 3) {
+            this.updateChangedProp();
+            return;
+        }
+
         // 🔧 获取被删除状态的属性数据
         const deletedStateData = pageData[deletedStateIndex];
         if (!deletedStateData || typeof deletedStateData !== "object") {
@@ -1652,6 +1746,11 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 新增：重排状态数据，保持属性与状态顺序一致 */
     private reorderStateData(pageData: TPage, fromIndex: number, toIndex: number, statesLength: number) {
+        // M4 起 _ctrlData 按 stateId 存储；状态顺序变化只改变 selectedIndex UI 顺序，不移动持久化数据。
+        if (this._serializedVersion >= 3) {
+            return;
+        }
+
         // 将状态数据视为数组进行移动，保留 $$ 开头的元数据
         const dataArray: Array<TProp | undefined> = [];
         for (let i = 0; i < statesLength; i++) {
@@ -1796,6 +1895,34 @@ export class StateSelect extends cc.Component {
             .filter(key => !Number.isNaN(key));
     }
 
+    private extractPropertyDataKeys(data: TProp): number[] {
+        const propertyData = data && data.$$propertyData$$;
+        if (!propertyData) {
+            return [];
+        }
+        return Object.keys(propertyData)
+            .map(key => Number(key))
+            .filter(key => !Number.isNaN(key));
+    }
+
+    private extractAppliedPropKeys(data: TProp): number[] {
+        return Array.from(new Set([
+            ...this.extractNumericPropKeys(data),
+            ...this.extractPropertyDataKeys(data),
+        ]));
+    }
+
+    private getStoredPropValue(data: TProp, propType: EnumPropName): TPropValue {
+        if (!data) {
+            return undefined;
+        }
+        if (data[propType] != void 0) {
+            return data[propType];
+        }
+        const propertyData = data.$$propertyData$$;
+        return propertyData ? propertyData[propType] : undefined;
+    }
+
     /** 🔧 新增：检查节点是否有对应属性的组件 */
     private checkNodeHasComponentForProp(propType: EnumPropName): boolean {
         if (!this.node || !this.node.isValid) {
@@ -1908,10 +2035,11 @@ export class StateSelect extends cc.Component {
         const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
         const processedKeys = new Set<number>();
 
-        const defaultKeys = this.extractNumericPropKeys(defaultData);
+        const defaultKeys = this.extractAppliedPropKeys(defaultData);
         for (const key of defaultKeys) {
             const propType = key as EnumPropName;
-            const value = propData[propType] != void 0 ? propData[propType] : defaultData[propType];
+            const stateValue = this.getStoredPropValue(propData, propType);
+            const value = stateValue != void 0 ? stateValue : this.getStoredPropValue(defaultData, propType);
             if (value == void 0) {
                 continue;
             }
@@ -1919,13 +2047,13 @@ export class StateSelect extends cc.Component {
             processedKeys.add(propType);
         }
 
-        const stateKeys = this.extractNumericPropKeys(propData);
+        const stateKeys = this.extractAppliedPropKeys(propData);
         for (const key of stateKeys) {
             if (processedKeys.has(key)) {
                 continue;
             }
             const propType = key as EnumPropName;
-            const value = propData[propType];
+            const value = this.getStoredPropValue(propData, propType);
             if (value == void 0) {
                 continue;
             }
@@ -2016,6 +2144,20 @@ export class StateSelect extends cc.Component {
         return this._ctrlsMap[this.currCtrlId];
     }
 
+    private getCtrlById(ctrlId?: number): StateController {
+        const targetCtrlId = ctrlId != void 0 ? ctrlId : this.currCtrlId;
+        return this._ctrlsMap[targetCtrlId];
+    }
+
+    private getStateIdByIndex(stateIndex: number, ctrlId?: number): number {
+        const ctrl = this.getCtrlById(ctrlId);
+        const state = ctrl && ctrl.states ? ctrl.states[stateIndex] : null;
+        if (state && state.stateId !== undefined) {
+            return state.stateId;
+        }
+        return stateIndex;
+    }
+
     /**
      * 其他状态是否有存在这个属性
      * @param ctrl
@@ -2024,8 +2166,8 @@ export class StateSelect extends cc.Component {
     private isOtherHans(ctrl: StateController, prop: number) {
         const pageData = this.getPageData();
         for (let index = 0, len = ctrl.states.length; index < len; index++) {
-            const propData = pageData[index];
-            if (propData && propData[prop] != void 0) {
+            const propData = pageData[this.getStateIdByIndex(index, ctrl.ctrlId)];
+            if (propData && this.getStoredPropValue(propData, prop as EnumPropName) != void 0) {
                 return true;
             }
         }
@@ -2049,17 +2191,18 @@ export class StateSelect extends cc.Component {
      * 保持原有API，内部触发数据迁移
      */
     private getPropData(state?: number, ctrlId?: number): TProp {
-        // IMPL-005: 自动触发数据迁移
+        // IMPL-005: 自动重建运行时扁平缓存
         if (!this._migrationComplete && CC_EDITOR) {
-            this.migrateFromLegacyData();
+            this.rebuildFlatDataFromCtrlData();
         }
 
         const pageData = this.getPageData(ctrlId);
-        const targetState = state != void 0 ? state : this.ctrlState;
-        if (pageData[targetState] == void 0) {
-            pageData[targetState] = {} as TProp;
+        const targetStateIndex = state != void 0 ? state : this.ctrlState;
+        const targetStateId = this.getStateIdByIndex(targetStateIndex, ctrlId);
+        if (pageData[targetStateId] == void 0) {
+            pageData[targetStateId] = {} as TProp;
         }
-        return pageData[targetState];
+        return pageData[targetStateId];
     }
 
     /** 获取默认属性 */
@@ -2136,7 +2279,7 @@ export class StateSelect extends cc.Component {
         let propData = this.getPropData();
 
         // 🔧 新增：先尝试自动添加属性到changed_prop（如果未被控制）
-        if (propData[type] == void 0) {
+        if (this.getStoredPropValue(propData, type) == void 0) {
             // 属性未被控制，尝试自动添加
             // this.autoAddPropToChangedProp(type);
 
@@ -2144,7 +2287,7 @@ export class StateSelect extends cc.Component {
             propData = this.getPropData();
 
             // 如果仍然未被控制，则跳过更新
-            if (propData[type] == void 0) {
+            if (this.getStoredPropValue(propData, type) == void 0) {
                 StateErrorManager.debug("属性未被控制且无法自动添加，跳过更新", {
                     component: "StateSelect",
                     method: "setDefaultPorp",
@@ -2411,8 +2554,12 @@ export class StateSelect extends cc.Component {
             } break;
         }
 
+        if (propData.$$propertyData$$ && propData[type] !== undefined) {
+            propData.$$propertyData$$[type] = propData[type];
+        }
+
         if (type == this.propKey) {
-            this._propValue = propData[this.propKey];
+            this._propValue = this.getStoredPropValue(propData, this.propKey);
         }
     }
 
@@ -2508,14 +2655,17 @@ export class StateSelect extends cc.Component {
         // 遍历所有状态
         let syncedStates = 0;
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
-            if (pageData[stateIndex] == void 0) {
-                pageData[stateIndex] = {};
+            const stateId = this.getStateIdByIndex(stateIndex, ctrl.ctrlId);
+            if (pageData[stateId] == void 0) {
+                pageData[stateId] = {};
             }
-            const statePropData = pageData[stateIndex];
+            const statePropData = pageData[stateId];
 
             // 如果该状态还没有这个属性，则添加（使用当前节点的值）
             if (statePropData[propKey] == void 0) {
                 statePropData[propKey] = currentStateValue;
+                statePropData.$$propertyData$$ = statePropData.$$propertyData$$ || {};
+                statePropData.$$propertyData$$[propKey] = currentStateValue;
                 syncedStates++;
 
                 // 🔧 修复：同步属性时，只在该状态没有lastProp时才设置，避免覆盖用户的选择
@@ -2533,6 +2683,8 @@ export class StateSelect extends cc.Component {
         const defaultData = this.getDefaultData();
         if (defaultData[propKey] == void 0) {
             defaultData[propKey] = currentStateValue;
+            defaultData.$$propertyData$$ = defaultData.$$propertyData$$ || {};
+            defaultData.$$propertyData$$[propKey] = currentStateValue;
         }
 
         StateErrorManager.info("属性同步完成", {
@@ -2579,11 +2731,16 @@ export class StateSelect extends cc.Component {
 
         // 遍历所有状态，删除指定属性
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
-            const statePropData = pageData[stateIndex];
+            const stateId = this.getStateIdByIndex(stateIndex, ctrl.ctrlId);
+            const statePropData = pageData[stateId];
             if (statePropData) {
                 // 删除属性值
                 if (statePropData[propKey] !== undefined) {
                     delete statePropData[propKey];
+                    deletedFromStates++;
+                }
+                if (statePropData.$$propertyData$$ && statePropData.$$propertyData$$[propKey] !== undefined) {
+                    delete statePropData.$$propertyData$$[propKey];
                     deletedFromStates++;
                 }
 
@@ -2601,6 +2758,9 @@ export class StateSelect extends cc.Component {
         // 删除默认状态的属性
         const defaultData = this.getDefaultData();
         delete defaultData[propKey];
+        if (defaultData.$$propertyData$$) {
+            delete defaultData.$$propertyData$$[propKey];
+        }
 
         StateErrorManager.info("属性删除完成", {
             component: "StateSelect",
@@ -3183,7 +3343,7 @@ export class StateSelect extends cc.Component {
             const lastProp = propData.$$lastProp$$;
             if (lastProp) {
                 this._propKey = lastProp;
-                this._propValue = propData[lastProp];
+                this._propValue = this.getStoredPropValue(propData, lastProp);
 
                 // 🔧 关键：同时更新界面标识变量
                 this._currentDisplayProp = lastProp;

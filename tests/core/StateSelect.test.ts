@@ -23,7 +23,7 @@ beforeAll(() => {
     }
 });
 
-import { StateController } from "../../assets/script/controller/StateController";
+import { StateController, StateValue } from "../../assets/script/controller/StateController";
 import { StateSelect } from "../../assets/script/controller/StateSelect";
 
 function makeSelect(): StateSelect {
@@ -140,6 +140,55 @@ describe("StateSelect.updateDelete (M3-B3 孤儿 _ctrlData 清理)", () => {
         expect((select as any)._ctrlData[1][200]).toBeUndefined();
         expect((select as any)._ctrlData[1][100]).toBeDefined();
         expect(flatData.has("1_200_1")).toBe(false);
+    });
+});
+
+describe("StateSelect stateId storage and apply", () => {
+    test("StateValue is zero-arg constructible and create() fills serialized fields", () => {
+        const empty = new StateValue();
+        expect(empty.name).toBe("");
+        expect(empty.stateId).toBe(0);
+
+        const created = StateValue.create("ready", 42);
+        expect(created.name).toBe("ready");
+        expect(created.stateId).toBe(42);
+    });
+
+    test("updateState reads _ctrlData by StateValue.stateId, not selectedIndex", () => {
+        const select = makeSelect();
+        const ctrl = makeController(7, [10, 20]);
+        (ctrl as any)._selectedIndex = 1;
+
+        const node = {
+            active: true,
+            isValid: true,
+            getComponent: () => null,
+        };
+        Object.defineProperty(select, "node", {
+            value: node,
+            configurable: true,
+        });
+
+        (select as any)._currCtrlId = 7;
+        (select as any)._ctrlsMap = { 7: ctrl };
+        (select as any)._ctrlData = {
+            7: {
+                20: {
+                    1: false,
+                    "$$propertyData$$": { 1: false },
+                    "$$changedProp$$": { Active: 1 },
+                    "$$lastProp$$": 1,
+                },
+                "$$default$$": {
+                    1: true,
+                },
+            },
+        };
+
+        select.updateState(ctrl);
+
+        expect(node.active).toBe(false);
+        expect((select as any)._ctrlData[7][1]).toBeUndefined();
     });
 });
 

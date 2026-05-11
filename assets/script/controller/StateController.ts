@@ -19,11 +19,12 @@ cc.Enum(InspectorRefreshMode);
  * 当 schema (StateController @property 字段结构) 演进时, 同步递增此版本号:
  * - 1: M2 初始版本 (引入 _serializedVersion + _migrate 框架, schema 未变更)
  * - 2 (M3): _stateSelectCache 按 ctrlId 分桶 + deleteState 触发清理事件 + StateSelect._ctrlData 历史 dead stateId 清扫
+ * - 3 (M4): StateSelect._ctrlData 统一按 StateValue.stateId 存储
  *
  * 旧场景反序列化后若 instance._serializedVersion < CURRENT_VERSION,
  * onLoad 会触发 _migrate(fromVersion) 完成数据迁移。
  */
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 @ccclass("stateValue")
 export class StateValue {
@@ -33,9 +34,11 @@ export class StateValue {
     @property({ type: cc.Integer, readonly: true })
     public stateId: number = 0;
 
-    constructor(name: string, stateId: number) {
-        this.name = name;
-        this.stateId = stateId;
+    public static create(name: string, stateId: number): StateValue {
+        const value = new StateValue();
+        value.name = name;
+        value.stateId = stateId;
+        return value;
     }
 }
 
@@ -45,10 +48,10 @@ export class StateValue {
 export class StateController extends cc.Component {
     /**
      * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
-     * 默认值 = 1 (M2 阶段当前版本); 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
+     * 默认值 = CURRENT_VERSION; 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
      */
     @property({ visible: false })
-    private _serializedVersion: number = 1;
+    private _serializedVersion: number = CURRENT_VERSION;
 
     /** 状态id自增 */
     @property({ visible: false })
@@ -289,7 +292,7 @@ export class StateController extends cc.Component {
                 // 🔧 使用智能命名方法生成状态名字
                 const smartStateName = this.getSmartStateName(index);
                 const newStateId = this.stateIdAuto++;
-                value[index] = new StateValue(smartStateName, newStateId);
+                value[index] = StateValue.create(smartStateName, newStateId);
             }
             else {
                 // 🔧 检测现有状态的手动更改
@@ -531,7 +534,7 @@ export class StateController extends cc.Component {
         const origin = this._states[index];
         const baseName = origin && origin.name ? origin.name : this.getSmartStateName(this._states.length);
         const copyName = `${baseName}_copy`;
-        const newState = new StateValue(copyName, this.stateIdAuto++);
+        const newState = StateValue.create(copyName, this.stateIdAuto++);
 
         const newStates = [...this._states];
         const insertIndex = newStates.length;
@@ -642,7 +645,7 @@ export class StateController extends cc.Component {
 
         if (!this._states.length) {
             // 🔧 从1开始命名状态
-            this._states = [new StateValue("1", this.stateIdAuto++), new StateValue("2", this.stateIdAuto++)];
+            this._states = [StateValue.create("1", this.stateIdAuto++), StateValue.create("2", this.stateIdAuto++)];
             StateErrorManager.info("创建默认状态", {
                 component: "StateController",
                 method: "__preload",
@@ -707,10 +710,10 @@ export class StateController extends cc.Component {
      * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
      */
     protected _migrate(fromVersion: number): void {
-        // M3 v1 → v2: StateController 端目前无 schema 变更, 仅版本号同步
+        // M3/M4: StateController 端目前无 schema 变更, 仅版本号同步
         // (StateSelect 端会做 _ctrlData dead stateId 清扫)
-        if (fromVersion < 2) {
-            this._serializedVersion = 2;
+        if (fromVersion < CURRENT_VERSION) {
+            this._serializedVersion = CURRENT_VERSION;
         }
     }
 

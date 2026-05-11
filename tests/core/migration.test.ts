@@ -5,7 +5,7 @@
  *  - dead stateId (不在 controller.states 中) 在迁移后被清除
  *  - valid stateId 数据迁移后完整保留
  *  - _flatData Map 与 _ctrlData 保持同步
- *  - 完成后 _serializedVersion === 2
+ *  - 完成后 _serializedVersion === 3
  */
 
 declare global {
@@ -69,7 +69,7 @@ describe("StateSelect._migrate v1 → v2 (M3-B3 历史数据清扫)", () => {
         flatData.set("1_100_1", { value: true, ctrlId: 1, stateId: 100, propType: 1 });
         flatData.set("1_999_1", { value: false, ctrlId: 1, stateId: 999, propType: 1 });
 
-        // 设 version 为 1, 触发 v1→v2 迁移
+        // 设 version 为 1, 触发 v1→v3 迁移
         (select as any)._serializedVersion = 1;
 
         // 调用 _migrate (protected → cast any)
@@ -85,7 +85,7 @@ describe("StateSelect._migrate v1 → v2 (M3-B3 历史数据清扫)", () => {
         expect(flatData.has("1_100_1")).toBe(true);
 
         // _serializedVersion 已升级
-        expect((select as any)._serializedVersion).toBe(2);
+        expect((select as any)._serializedVersion).toBe(3);
     });
 
     test("_migrate 不破坏 valid 数据 (全部合法 stateId)", () => {
@@ -123,7 +123,7 @@ describe("StateSelect._migrate v1 → v2 (M3-B3 历史数据清扫)", () => {
         expect(flatData.has("1_300_1")).toBe(true);
         expect(flatData.has("1_300_2")).toBe(true);
 
-        expect((select as any)._serializedVersion).toBe(2);
+        expect((select as any)._serializedVersion).toBe(3);
     });
 
     test("_migrate 跳过未在 _ctrlsMap 中的 ctrlId (不破坏未知数据)", () => {
@@ -186,7 +186,7 @@ describe("StateSelect._migrate v1 → v2 (M3-B3 历史数据清扫)", () => {
         expect(flatData.has("1_100_1")).toBe(true);
         expect(flatData.has("2_50_1")).toBe(true);
 
-        expect((select as any)._serializedVersion).toBe(2);
+        expect((select as any)._serializedVersion).toBe(3);
     });
 
     test("_migrate 当 _ctrlsMap 不完整时保留旧版本号 (待重试) — Gemini WARNING fix", () => {
