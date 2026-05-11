@@ -150,16 +150,6 @@ export class StateSelect extends cc.Component {
 
     // #endregion
 
-    /** 工具按钮 - inspector 中显示为可折叠分组 */
-    @property({
-        type: StateToolsProps,
-        displayName: "工具",
-        tooltip: "工具按钮（刷新、同步、删除等）",
-        editorOnly: true,
-        serializable: false,
-    })
-    public toolsProps = new StateToolsProps();
-
     // #region 属性值
     @property({
         tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值",
@@ -189,6 +179,17 @@ export class StateSelect extends cc.Component {
         propData[this.propKey] = value;
         this.updateState(this.getCurrCtrl());
     }
+
+    /** 工具按钮 - inspector 中显示为可折叠分组 */
+    @property({
+        type: StateToolsProps,
+        displayName: "工具",
+        tooltip: "工具按钮（刷新、同步、删除等）",
+        editorOnly: true,
+        serializable: false,
+    })
+    public toolsProps = new StateToolsProps();
+
 
     /** 节点基础属性 - inspector 中显示为可折叠分组 */
     @property({
