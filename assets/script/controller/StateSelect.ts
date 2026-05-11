@@ -105,7 +105,7 @@ type FlatStateData = {
  */
 const CURRENT_VERSION = 2;
 
-@ccclass("StateSelect")
+@ccclass
 @menu("State/StateSelect")
 @executeInEditMode()
 @disallowMultiple()

@@ -33,13 +33,15 @@ export class StateValue {
     @property({ type: cc.Integer, readonly: true })
     public stateId: number = 0;
 
-    constructor(name: string, stateId: number) {
-        this.name = name;
-        this.stateId = stateId;
+    public static create(name: string, stateId: number): StateValue {
+        const value = new StateValue();
+        value.name = name;
+        value.stateId = stateId;
+        return value;
     }
 }
 
-@ccclass("StateController")
+@ccclass
 @menu("State/StateController")
 @executeInEditMode()
 export class StateController extends cc.Component {
@@ -289,7 +291,7 @@ export class StateController extends cc.Component {
                 // 🔧 使用智能命名方法生成状态名字
                 const smartStateName = this.getSmartStateName(index);
                 const newStateId = this.stateIdAuto++;
-                value[index] = new StateValue(smartStateName, newStateId);
+                value[index] = StateValue.create(smartStateName, newStateId);
             }
             else {
                 // 🔧 检测现有状态的手动更改
@@ -531,7 +533,7 @@ export class StateController extends cc.Component {
         const origin = this._states[index];
         const baseName = origin && origin.name ? origin.name : this.getSmartStateName(this._states.length);
         const copyName = `${baseName}_copy`;
-        const newState = new StateValue(copyName, this.stateIdAuto++);
+        const newState = StateValue.create(copyName, this.stateIdAuto++);
 
         const newStates = [...this._states];
         const insertIndex = newStates.length;
@@ -642,7 +644,7 @@ export class StateController extends cc.Component {
 
         if (!this._states.length) {
             // 🔧 从1开始命名状态
-            this._states = [new StateValue("1", this.stateIdAuto++), new StateValue("2", this.stateIdAuto++)];
+            this._states = [StateValue.create("1", this.stateIdAuto++), StateValue.create("2", this.stateIdAuto++)];
             StateErrorManager.info("创建默认状态", {
                 component: "StateController",
                 method: "__preload",
