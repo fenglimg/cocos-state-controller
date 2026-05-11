@@ -19,11 +19,12 @@ cc.Enum(InspectorRefreshMode);
  * 当 schema (StateController @property 字段结构) 演进时, 同步递增此版本号:
  * - 1: M2 初始版本 (引入 _serializedVersion + _migrate 框架, schema 未变更)
  * - 2 (M3): _stateSelectCache 按 ctrlId 分桶 + deleteState 触发清理事件 + StateSelect._ctrlData 历史 dead stateId 清扫
+ * - 3 (M4): StateSelect._ctrlData 统一按 StateValue.stateId 存储
  *
  * 旧场景反序列化后若 instance._serializedVersion < CURRENT_VERSION,
  * onLoad 会触发 _migrate(fromVersion) 完成数据迁移。
  */
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 @ccclass("stateValue")
 export class StateValue {
@@ -47,10 +48,10 @@ export class StateValue {
 export class StateController extends cc.Component {
     /**
      * 🔧 M2: 序列化 schema 版本号 (用于未来 _migrate 数据迁移)
-     * 默认值 = 1 (M2 阶段当前版本); 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
+     * 默认值 = CURRENT_VERSION; 旧场景反序列化后若小于 CURRENT_VERSION 会触发 _migrate
      */
     @property({ visible: false })
-    private _serializedVersion: number = 1;
+    private _serializedVersion: number = CURRENT_VERSION;
 
     /** 状态id自增 */
     @property({ visible: false })
@@ -709,10 +710,10 @@ export class StateController extends cc.Component {
      * @param fromVersion 当前数据的旧版本号 (即 _serializedVersion 反序列化后的值)
      */
     protected _migrate(fromVersion: number): void {
-        // M3 v1 → v2: StateController 端目前无 schema 变更, 仅版本号同步
+        // M3/M4: StateController 端目前无 schema 变更, 仅版本号同步
         // (StateSelect 端会做 _ctrlData dead stateId 清扫)
-        if (fromVersion < 2) {
-            this._serializedVersion = 2;
+        if (fromVersion < CURRENT_VERSION) {
+            this._serializedVersion = CURRENT_VERSION;
         }
     }
 
