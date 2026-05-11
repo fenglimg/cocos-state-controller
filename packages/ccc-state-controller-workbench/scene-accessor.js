@@ -153,7 +153,7 @@ function findSelectsByCtrlId(ctrlId) {
 // RPC handlers (exported messages map)
 // ──────────────────────────────────────────────────────────────────────────────
 
-module.exports = {
+const handlers = {
     /**
      * Build a snapshot of all controllers/selects in the scene.
      */
@@ -460,7 +460,13 @@ module.exports = {
             event.reply(err, null);
         }
     },
-
-    // Internals exposed for unit tests
-    __internals: { getNodeByUuid, collectAllComponents, withSnapshot, withSetProperty, findControllerByCtrlId, findSelectsByCtrlId },
 };
+
+// Internals exposed for unit tests. Keep this non-enumerable so Cocos Creator
+// does not try to register it as a scene-script IPC handler.
+Object.defineProperty(handlers, '__internals', {
+    value: { getNodeByUuid, collectAllComponents, withSnapshot, withSetProperty, findControllerByCtrlId, findSelectsByCtrlId },
+    enumerable: false,
+});
+
+module.exports = handlers;

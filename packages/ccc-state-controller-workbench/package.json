@@ -19,7 +19,11 @@
     "width": 420,
     "height": 360,
     "min-width": 320,
-    "min-height": 240
+    "min-height": 240,
+    "messages": [
+      "list-controllers",
+      "health-detect"
+    ]
   },
   "scene-script": "scene-accessor.js",
   "i18n": "i18n",

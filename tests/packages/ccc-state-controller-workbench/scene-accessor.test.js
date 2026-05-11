@@ -151,6 +151,7 @@ describe('scene-accessor IPC contracts', () => {
             'health-detect',
         ]));
         expect(accessor.__internals).toBeDefined();
+        expect(Object.keys(accessor)).not.toContain('__internals');
     });
 
     // ─── M5 mutation handlers ───────────────────────────────────────────────

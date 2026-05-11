@@ -26,6 +26,12 @@ function getSeverityClass(tag) {
     return 'info';
 }
 
+function reply(event, err, result) {
+    if (event && typeof event.reply === 'function') {
+        event.reply(err || null, result);
+    }
+}
+
 module.exports = {
     $: {
         globalRefreshBtn: '#global-refresh-btn',
@@ -132,8 +138,12 @@ module.exports = {
         this.refreshHealth();
     },
 
+    listControllers(callback) {
+        Editor.Scene.callSceneScript(PKG_NAME, 'list-controllers', {}, callback);
+    },
+
     refreshDashboard() {
-        Editor.Scene.callSceneScript(PKG_NAME, 'list-controllers', {}, (err, graph) => {
+        this.listControllers((err, graph) => {
             if (err || !graph) {
                 if (this.dashboardSummary) this.dashboardSummary.textContent = 'Failed to load: ' + (err && err.message || 'unknown');
                 return;
@@ -354,8 +364,12 @@ module.exports = {
         });
     },
 
+    detectHealth(callback) {
+        Editor.Scene.callSceneScript(PKG_NAME, 'health-detect', {}, callback);
+    },
+
     refreshHealth() {
-        Editor.Scene.callSceneScript(PKG_NAME, 'health-detect', {}, (err, res) => {
+        this.detectHealth((err, res) => {
             if (err || !res) {
                 // Client-side fallback if RPC fails
                 this.fallbackHealthDetect();
@@ -414,7 +428,7 @@ module.exports = {
             btn.addEventListener('click', (e) => {
                 const type = e.target.getAttribute('data-type');
                 if (type === 'orphan-controller' || type === 'dead-ctrl-data-refs') {
-                    Editor.Scene.callSceneScript(PKG_NAME, 'cleanup-orphans', {}, (err, res) => {
+                    Editor.Scene.callSceneScript(PKG_NAME, 'cleanup-orphans', {}, (_err, _res) => {
                         this.refreshAll();
                     });
                 } else if (type === 'state-name-collision') {
@@ -426,6 +440,30 @@ module.exports = {
     },
 
     messages: {
+        'list-controllers'(event) {
+            this.listControllers((err, graph) => {
+                if (!err && graph) {
+                    this.currentGraph = graph;
+                    this.renderDashboard();
+                    this.renderConfigDropdown();
+                    this.renderConfigWorkspace();
+                }
+                reply(event, err, graph || null);
+            });
+        },
+
+        'health-detect'(event) {
+            this.detectHealth((err, res) => {
+                if (!err && res) {
+                    this.renderHealth(res.issues || []);
+                }
+                else {
+                    this.fallbackHealthDetect();
+                }
+                reply(event, err, res || null);
+            });
+        },
+
         'res-list-controllers'(event, graph) {
             this.currentGraph = graph;
             this.renderDashboard();
