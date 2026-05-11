@@ -165,7 +165,6 @@ export class StateSelect extends cc.Component {
         tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值",
         visible: true,
         displayName: "🔸 当前属性值",
-        editorOnly: true,
     })
     public get propValue() {
         return this._propValue;

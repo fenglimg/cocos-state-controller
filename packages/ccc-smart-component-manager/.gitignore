@@ -1,6 +1,5 @@
 .ace-tool/
 
-# panel/index.js is a generated build artifact.
-# Source files: panel/styles.css, panel/template.html, panel/logic.js
-# Rebuild with: node panel/build.js
-panel/index.js
+# panel/index.js is generated from panel/styles.css, panel/template.html, and panel/logic.js,
+# but Cocos Creator loads it directly from package.json at editor startup.
+!panel/index.js
