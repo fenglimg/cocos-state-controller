@@ -83,6 +83,10 @@ type TCtrl = {
 @executeInEditMode()
 @disallowMultiple()
 export class StateSelect extends cc.Component {
+    // #region 1. 序列化字段与字段访问器
+    // cocos @property 层 + 主要 getter/setter, 必须留在 StateSelect 类上
+    // (服务于反射 / 编辑器 inspector / 场景序列化)
+
     /** root节点所有的ctrl */
     @property({ visible: false })
     private _ctrlsMap: { [ctrlId: string]: StateController } = {};
@@ -354,6 +358,11 @@ export class StateSelect extends cc.Component {
         }
     }
 
+    // #endregion 1.
+
+    // #region 2. 生命周期
+    // __preload / onLoad / onDestroy + 节点变化通知
+
     private _isPreloaded = false;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -474,7 +483,10 @@ export class StateSelect extends cc.Component {
         }
     }
 
-    // ================== 🔧 IMPL-001.6: 缓存失效通知 ==================
+    // #endregion 2.
+
+    // #region 3. 事件观察与控制器迁移
+    // 节点属性变化 hooks + parent check interval + 跨 controller 移动适配
 
     /**
      * 🔧 通知当前控制器缓存失效
@@ -827,6 +839,10 @@ export class StateSelect extends cc.Component {
         return this.getCtrls(node.parent);
     }
 
+    // #endregion 3.
+
+    // #region 4. 状态数据操作 (state 增删移 + page data 迁移)
+
     /** 更新状态数量 */
     public updateCtrlPage(ctrl: StateController, deleteIndex?: number) {
         if (!CC_EDITOR) {
@@ -1130,6 +1146,10 @@ export class StateSelect extends cc.Component {
                 return false;
         }
     }
+
+    // #endregion 4.
+
+    // #region 5. 属性同步与应用 (state 切换 → node/component apply)
 
     /** 确保节点在隐藏的时候也会执行__preload（负责stateSelect的显示） */
     public updatePreLoad(ctrl: StateController) {
@@ -1948,6 +1968,10 @@ export class StateSelect extends cc.Component {
         return baseTooltip;
     }
 
+    // #endregion 5.
+
+    // #region 6. 属性控制 API (Public) — Phase 5.2 抽出 PropertyControlService 目标
+
     /** 🔧 检查属性是否可用（节点是否支持该属性类型） */
     public isPropertyAvailable(propType: EnumPropName): boolean {
         if (!this.node || !this.node.isValid) {
@@ -2261,6 +2285,11 @@ export class StateSelect extends cc.Component {
             },
         });
     }
+
+    // #endregion 6.
+
+    // #region 7. Inspector 按钮 API (Public)
+    // 编辑器面板上手动触发的工具按钮
 
     /** 🔧 更新可用属性列表（刷新按钮调用） */
     public updateAvailableProps() {
@@ -2586,4 +2615,6 @@ export class StateSelect extends cc.Component {
             );
         }
     }
+
+    // #endregion 7.
 }
