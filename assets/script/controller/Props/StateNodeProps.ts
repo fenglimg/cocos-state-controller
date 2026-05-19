@@ -1,5 +1,5 @@
-import { EnumPropName } from "../../Controller/StateEnum";
-import { StateSelect } from "../../Controller/StateSelect";
+import { EnumPropName } from "../StateEnum";
+import { StateSelect } from "../StateSelect";
 
 const { ccclass, property } = cc._decorator;
 /** 节点基础属性分组 - inspector 中显示为可折叠区域 */
