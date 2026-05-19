@@ -31,10 +31,10 @@
 const {
     ccclass, property, menu, executeInEditMode, disallowMultiple,
 } = cc._decorator;
-import { StateComponentProps } from "./Props/StateComponentProps";
-import { StateNodeProps } from "./Props/StateNodeProps";
-import { StateToolsProps } from "./Props/StateToolsProps";
-import { StateWidgetProps } from "./Props/StateWidgetProps";
+import { StateComponentProps } from "./props/StateComponentProps";
+import { StateNodeProps } from "./props/StateNodeProps";
+import { StateToolsProps } from "./props/StateToolsProps";
+import { StateWidgetProps } from "./props/StateWidgetProps";
 import { StateController } from "./StateController";
 import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
