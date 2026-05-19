@@ -890,7 +890,11 @@ export class StateController extends cc.Component {
 
         // 🔧 直接遍历缓存的StateSelect组件
         for (const stateSelect of this._stateSelectCache) {
-            if (!stateSelect || !stateSelect.node || !stateSelect.node.active) {
+            // 注意：不能用 `!stateSelect.node.active` 做过滤。
+            // 那会让"上一个 state 把 node 关掉、新 state 应该重新开"的场景失效 —
+            // 下一次 updateState 因为 node.active=false 而被 skip，永远拿不到 active=true 的 apply。
+            // 这里只过滤真正失效的组件/节点。
+            if (!stateSelect || !stateSelect.node || !stateSelect.node.isValid) {
                 continue;
             }
 
