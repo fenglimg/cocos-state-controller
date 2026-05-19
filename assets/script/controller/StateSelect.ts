@@ -78,18 +78,6 @@ type TCtrl = {
     [stateId: string]: TPage
 };
 
-/** IMPL-005: 扁平化数据接口 */
-type FlatStateData = {
-    /** 属性值 */
-    value: TPropValue;
-    /** 控制器ID */
-    ctrlId: number;
-    /** 状态ID */
-    stateId: number;
-    /** 属性类型 */
-    propType: EnumPropName;
-};
-
 @ccclass("StateSelect")
 @menu("State/StateSelect")
 @executeInEditMode()
@@ -204,16 +192,6 @@ export class StateSelect extends cc.Component {
     @property
     private _ctrlData: TCtrl = {};
 
-    // #region IMPL-005: 数据结构优化
-
-    /** 扁平化数据存储（优化访问性能） */
-    private _flatData: Map<string, FlatStateData> = new Map();
-
-    /** 数据迁移标记 */
-    private _migrationComplete: boolean = false;
-
-    // #endregion IMPL-005
-
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
@@ -248,113 +226,6 @@ export class StateSelect extends cc.Component {
     private _controlledPropsCacheDirty: boolean = true;
 
     // #endregion IMPL-004
-
-    // #region IMPL-005: 数据结构优化方法
-
-    /**
-     * IMPL-005.3: 生成组合键
-     * 格式: "ctrlId_stateId_propType"
-     */
-    private makeKey(ctrlId: number, stateId: number, propType: EnumPropName): string {
-        return `${ctrlId}_${stateId}_${propType}`;
-    }
-
-    /**
-     * IMPL-005.4: 快速获取属性值
-     * 从扁平化Map中直接获取，避免三层嵌套访问
-     */
-    private getPropValueFast(ctrlId: number, stateId: number, propType: EnumPropName): TPropValue {
-        const key = this.makeKey(ctrlId, stateId, propType);
-        const flatData = this._flatData.get(key);
-        return flatData ? flatData.value : undefined;
-    }
-
-    /**
-     * IMPL-005.5: 快速设置属性值
-     * 同时更新扁平化Map和原始三层结构（保持兼容性）
-     */
-    private setPropValueFast(ctrlId: number, stateId: number, propType: EnumPropName, value: TPropValue): void {
-        const key = this.makeKey(ctrlId, stateId, propType);
-
-        // 更新扁平化数据
-        this._flatData.set(key, {
-            value,
-            ctrlId,
-            stateId,
-            propType,
-        });
-
-        // 同时更新原始三层结构（保持向后兼容）
-        if (!this._ctrlData[ctrlId]) {
-            this._ctrlData[ctrlId] = {};
-        }
-        if (!this._ctrlData[ctrlId][stateId]) {
-            this._ctrlData[ctrlId][stateId] = {} as TProp;
-        }
-        this._ctrlData[ctrlId][stateId][propType] = value;
-    }
-
-    /**
-     * IMPL-005.6: 从旧结构迁移数据
-     * 将三层嵌套的_ctrlData迁移到扁平化Map
-     */
-    private migrateFromLegacyData(): void {
-        if (this._migrationComplete) {
-            return;
-        }
-
-        StateErrorManager.debug("开始数据迁移：从三层结构到扁平化Map", {
-            component: "StateSelect",
-            method: "migrateFromLegacyData",
-        });
-
-        let migratedCount = 0;
-        this._flatData.clear();
-
-        // 遍历所有控制器
-        for (const ctrlId in this._ctrlData) {
-            const pageData = this._ctrlData[ctrlId];
-            if (!pageData) continue;
-
-            // 遍历所有状态
-            for (const stateId in pageData) {
-                const propData = pageData[stateId];
-                if (!propData) continue;
-
-                // 遍历所有属性
-                for (const key in propData) {
-                    // 跳过元数据键
-                    if (key.startsWith("$$")) continue;
-
-                    const propType = parseInt(key);
-                    if (isNaN(propType)) continue;
-
-                    const value = propData[propType];
-                    if (value === undefined) continue;
-
-                    // 添加到扁平化Map
-                    const ctrlIdNum = parseInt(ctrlId);
-                    const stateIdNum = parseInt(stateId);
-                    this.setPropValueFast(ctrlIdNum, stateIdNum, propType, value);
-                    migratedCount++;
-                }
-            }
-        }
-
-        this._migrationComplete = true;
-
-        if (migratedCount > 0) {
-            Editor.log(`[StateSelect] 数据迁移完成：${migratedCount} 个属性已迁移到扁平化结构`);
-        }
-
-        StateErrorManager.debug("数据迁移完成", {
-            component: "StateSelect",
-            method: "migrateFromLegacyData",
-            params: { migratedCount },
-        });
-    }
-
-    // #endregion IMPL-005
 
     // #region 控制器当前状态
     @property({ type: EnumStateName, tooltip: "控制器当前状态" })
@@ -534,11 +405,6 @@ export class StateSelect extends cc.Component {
         this.componentProps.owner = this;
         this.widgetProps.owner = this;
         this.toolsProps.owner = this;
-
-        // IMPL-005: 触发数据迁移
-        if (!this._migrationComplete) {
-            this.migrateFromLegacyData();
-        }
 
         // IMPL-001.6: 通知控制器缓存失效
         this.notifyControllerCacheDirty();
@@ -1860,15 +1726,9 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * IMPL-005.7: 获取某个状态的属性数据（兼容新结构）
-     * 保持原有API，内部触发数据迁移
+     * 获取某个状态的属性数据
      */
     private getPropData(state?: number, ctrlId?: number): TProp {
-        // IMPL-005: 自动触发数据迁移
-        if (!this._migrationComplete && CC_EDITOR) {
-            this.migrateFromLegacyData();
-        }
-
         const pageData = this.getPageData(ctrlId);
         const targetState = state != void 0 ? state : this.ctrlState;
         if (pageData[targetState] == void 0) {
