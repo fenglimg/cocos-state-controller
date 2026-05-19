@@ -1,12 +1,17 @@
 /**
- * 切 state 时 StateSelect 节点 inspector 刷新契约
+ * 切 state 时 StateSelect 节点 inspector **不应** 自动刷新 (契约锁定)
  *
- * Why: 用户发现 propValue (getter @property) 切 state 后显示陈旧值,
- * 因为 cocos 不会自动重读 getter, 且 6081bd3 去掉了切 state 的自动 forceRefreshInspector.
+ * Why: cocos `Editor.Utils.refreshSelectedInspector` 是全量重建 inspector dom,
+ * 自动调用会让用户切 state / 改 prop 时丢焦点 / 抖动 / 滚动跳动. 实测体验差.
+ * 跟 werewolf 项目默认 ManualRefresh 模式一致: propValue 等 getter @property
+ * 显示陈旧由用户主动按 "刷新检查器" 按钮 (manualRefreshTrigger) 解决.
  *
- * 修复 (选项 A): 在 StateController.updateState(EnumUpdateType.State) 路径上,
- * 对每个 StateSelect 主动调用 forceRefreshInspector. 改 propValue / state CRUD
- * 等其他路径仍不刷新 (体验优化).
+ * 历史回顾:
+ *   - 6081bd3 去掉 states setter + _emitSelectedPageChanged 的自动 refresh
+ *   - 53b56ae 加回 EnumUpdateType.State 路径的 select refresh (修 propValue 陈旧)
+ *     → 用户报抖动 → 回滚
+ *   - 这里锁定: 任何"被动"路径 (切 state / 改 propValue / state CRUD) 都不应触发
+ *     refresh, 只允许显式用户按钮触发.
  */
 
 declare global {
@@ -60,45 +65,56 @@ function setupCtrlAndSelect() {
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("切 state 触发 select inspector 刷新", () => {
-    it("ctrl.selectedIndex 改变, refreshSelectedInspector 应被 select 节点 uuid 调用", () => {
-        const { ctrl, selectNode } = setupCtrlAndSelect();
+describe("被动路径都不应触发 inspector 刷新", () => {
+    it("切 state (ctrl.selectedIndex 改变) 不应触发 refreshSelectedInspector", () => {
+        const { ctrl } = setupCtrlAndSelect();
         refreshSpy.mockClear();
 
         ctrl.selectedIndex = 1;
 
-        expect(refreshSpy).toHaveBeenCalledWith("node", selectNode.uuid);
+        expect(refreshSpy).not.toHaveBeenCalled();
     });
 
-    it("多个 select 都应被刷新一次", () => {
-        const ccL = (globalThis as any).cc;
-        const { root, ctrl } = setupCtrlAndSelect();
-        // 加第二个 select
-        const select2Node = new ccL.Node("SSR_Select2");
-        (root.children[0] as any).addChild(select2Node);
-        select2Node.addComponent(StateSelect);
-        (select2Node.getComponent(StateSelect) as any).__preload();
-        (ctrl as any).markCacheDirty();
-
-        refreshSpy.mockClear();
-        ctrl.selectedIndex = 1;
-
-        // 至少 select2 节点和原 select 节点各被刷新一次
-        const calledUuids = refreshSpy.mock.calls.map(c => c[1]);
-        expect(calledUuids).toContain(select2Node.uuid);
-    });
-});
-
-describe("改 propValue 不应触发 inspector 刷新 (体验优化)", () => {
-    it("propValue setter 不应直接调 refreshSelectedInspector", () => {
+    it("改 propValue 不应触发 refreshSelectedInspector", () => {
         const { select } = setupCtrlAndSelect();
         select.togglePropertyControl(EnumPropName.Active, true);
 
         refreshSpy.mockClear();
         (select as any).propValue = false;
 
-        // propValue setter 内调 updateState, 但 updateState 内不再带 forceRefresh.
-        // 只有 ctrl 端 EnumUpdateType.State 路径才会触发刷新.
         expect(refreshSpy).not.toHaveBeenCalled();
+    });
+
+    it("state CRUD (states 数组变化) 不应触发 refreshSelectedInspector", () => {
+        const { ctrl } = setupCtrlAndSelect();
+        refreshSpy.mockClear();
+
+        // 追加一个 state
+        const newStates = [...(ctrl as any)._states];
+        const StateValueCls = ControllerMod.StateValue;
+        newStates.push(StateValueCls.create("3", 99));
+        ctrl.states = newStates;
+
+        expect(refreshSpy).not.toHaveBeenCalled();
+    });
+});
+
+describe("唯一允许的刷新入口: 用户主动按按钮", () => {
+    it("ctrl 上的 manualRefreshTrigger 按钮触发刷新", () => {
+        const { ctrl, ctrlNode } = setupCtrlAndSelect();
+        refreshSpy.mockClear();
+
+        (ctrl as any).manualRefreshTrigger = true;
+
+        expect(refreshSpy).toHaveBeenCalledWith("node", ctrlNode.uuid);
+    });
+
+    it("select 上的 forceRefreshInspector() 显式调用触发刷新", () => {
+        const { select, selectNode } = setupCtrlAndSelect();
+        refreshSpy.mockClear();
+
+        select.forceRefreshInspector();
+
+        expect(refreshSpy).toHaveBeenCalledWith("node", selectNode.uuid);
     });
 });
