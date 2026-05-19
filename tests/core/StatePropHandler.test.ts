@@ -5,9 +5,9 @@
  * - IMPL-006.8: Handler registration, retrieval, and invocation
  */
 
-import { PropHandlerManager } from "../../../packages/ccc-state-controller-core/src/StatePropHandler";
-import { EnumPropName } from "../../../packages/ccc-state-controller-core/src/StateEnum";
-import { TPropValue } from "../../../packages/ccc-state-controller-core/src/StateSelect";
+import { PropHandlerManager } from "../../assets/script/controller/StatePropHandler";
+import { EnumPropName } from "../../assets/script/controller/StateEnum";
+import { TPropValue } from "../../assets/script/controller/StateSelect";
 
 // Mock Cocos Creator environment
 declare global {

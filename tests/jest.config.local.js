@@ -17,18 +17,12 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
-  // 覆盖率收集范围（项目根 assets + packages）
+  // 覆盖率收集范围（仅项目根 assets/）
   collectCoverageFrom: [
     '../assets/**/*.ts',
-    '../packages/ccc-state-controller/**/*.ts',
-    '../packages/ccc-state-controller-core/**/*.ts',
-    '../packages/ccc-state-controller-workbench/**/*.js',
     '!../assets/**/*.d.ts',
     '!../assets/**/*.test.ts',
     '!../assets/**/*.spec.ts',
-    '!../packages/**/*.d.ts',
-    '!../packages/**/*.test.ts',
-    '!../packages/**/*.spec.ts',
   ],
 
   // 模块路径映射
