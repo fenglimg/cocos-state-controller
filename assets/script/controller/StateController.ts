@@ -6,12 +6,11 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdateType, InspectorRefreshMode } from "./StateEnum";
+import { EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
-cc.Enum(InspectorRefreshMode);
 
 @ccclass("stateValue")
 export class StateValue {
@@ -353,8 +352,8 @@ export class StateController extends cc.Component {
 
         // 🔧 优化：使用智能刷新策略替代硬编码刷新
 
-        const reason = oldLen > newLen ? "状态删除" : "状态数量增加";
-        this.smartRefreshInspector(reason);
+        // states 变化后立即刷新 inspector, 不再走可配置策略
+        this.forceRefreshInspector();
 
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
@@ -660,10 +659,6 @@ export class StateController extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
-
-        // 🔧 清理刷新定时器
-        this.clearRefreshTimer();
-
         this.updateState(EnumUpdateType.Delete);
     }
 
@@ -930,55 +925,10 @@ export class StateController extends cc.Component {
         }
     }
 
-    // ================== 🔧 刷新优化功能使用说明 ==================
-    /**
-     * 🎯 属性检查器刷新优化功能说明：
-     *
-     * 1. **智能刷新 (推荐)**：
-     *    - 自动判断是否需要刷新
-     *    - 只在状态数量变化时刷新
-     *    - 平衡性能和体验
-     *
-     * 2. **自动刷新**：
-     *    - 延迟刷新，避免频繁操作
-     *    - 可配置延迟时间 (0.5-10秒)
-     *    - 适合快速编辑场景
-     *
-     * 3. **手动刷新**：
-     *    - 完全控制刷新时机
-     *    - 点击按钮主动刷新
-     *    - 适合性能敏感场景
-     *
-     */
-
-    /** 🔧 新增：属性检查器刷新策略 */
+    /** 手动刷新属性检查器按钮 */
     @property({
-        type: InspectorRefreshMode,
-        displayName: "刷新策略",
-        tooltip: "• 自动刷新：延迟刷新，防抖处理\n• 手动刷新：用户点击按钮刷新",
-    })
-    private inspectorRefreshMode: InspectorRefreshMode = InspectorRefreshMode.ManualRefresh;
-
-    /** 🔧 新增：自动刷新延迟时间（秒） */
-    @property({
-        displayName: "自动刷新延迟",
-        tooltip: "自动刷新模式下的延迟时间（秒）",
-        min: 0.5,
-        max: 10,
-        step: 0.5,
-        visible: function (this: StateController) {
-            return this.inspectorRefreshMode === InspectorRefreshMode.AutoRefresh;
-        },
-    })
-    private autoRefreshDelay: number = 2.0;
-
-    /** 🔧 新增：手动刷新按钮 */
-    @property({
-        displayName: "手动刷新",
-        tooltip: "点击刷新属性检查器",
-        visible: function (this: StateController) {
-            return this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh;
-        },
+        displayName: "刷新检查器",
+        tooltip: "点击刷新属性检查器 (状态列表 / selectedIndex 下拉等)",
     })
     public get manualRefreshTrigger() {
         return false;
@@ -990,98 +940,20 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 🔧 新增：防抖定时器 */
-    private _refreshTimer: ReturnType<typeof setTimeout> = null;
-
-    /** 🔧 新增：待刷新标记 */
-    private _pendingRefresh: boolean = false;
-
-    /** 🔧 新增：刷新状态指示器 */
-    @property({
-        displayName: "刷新状态",
-        tooltip: "当前属性检查器刷新状态",
-        readonly: true,
-    })
-    public get refreshStatus() {
-        if (!CC_EDITOR) {
-            return "运行时模式";
-        }
-
-        if (this._refreshTimer) {
-            return `⏳ 等待刷新 (${this.autoRefreshDelay}s)`;
-        }
-
-        if (this._pendingRefresh) {
-            if (this.inspectorRefreshMode === InspectorRefreshMode.ManualRefresh) {
-                return "🔄 等待手动刷新";
-            }
-            else {
-                return "⏸️ 等待智能刷新";
-            }
-        }
-
-        return "✅ 已同步";
-    }
-
-    /** 🔧 新增：强制刷新属性检查器 */
+    /** 强制刷新属性检查器 (states 变化后由内部直接调用, 不再走 strategy 分支) */
     private forceRefreshInspector() {
         if (!CC_EDITOR) {
             return;
         }
-
         try {
             Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
-            this._pendingRefresh = false;
-            StateErrorManager.info("属性检查器已刷新", {
-                component: "StateController",
-                method: "forceRefreshInspector",
-            });
         }
         catch (error) {
             StateErrorManager.warn("刷新属性检查器失败", {
                 component: "StateController",
                 method: "forceRefreshInspector",
-                params: { error: error.message },
+                params: { error: (error as Error).message },
             });
-        }
-    }
-
-    /** 🔧 新增：智能刷新 - 根据策略决定是否刷新 */
-    private smartRefreshInspector(reason: string = "状态变化") {
-        if (!CC_EDITOR) {
-            return;
-        }
-        switch (this.inspectorRefreshMode) {
-            case InspectorRefreshMode.AutoRefresh:
-                // 防抖刷新
-                this.debounceRefreshInspector(reason);
-                break;
-            case InspectorRefreshMode.ManualRefresh:
-                // 手动刷新：仅标记待刷新
-                this._pendingRefresh = true;
-                break;
-        }
-    }
-
-    /** 🔧 新增：防抖刷新 */
-    private debounceRefreshInspector(_reason: string) {
-        if (this._refreshTimer) {
-            clearTimeout(this._refreshTimer);
-        }
-
-        this._pendingRefresh = true;
-
-        this._refreshTimer = setTimeout(() => {
-            this.forceRefreshInspector();
-            this._refreshTimer = null;
-        }, this.autoRefreshDelay * 1000);
-    }
-
-    /** 🔧 新增：清理刷新定时器 */
-    private clearRefreshTimer() {
-        if (this._refreshTimer) {
-            clearTimeout(this._refreshTimer);
-            this._refreshTimer = null;
         }
     }
 }

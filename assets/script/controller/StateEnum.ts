@@ -130,11 +130,3 @@ export enum EnumPropName {
     // /** 旋转、四元数*/
     // Rotation,
 }
-
-/** 🔧 新增：属性检查器刷新策略 */
-export enum InspectorRefreshMode {
-    /** 自动刷新：延迟刷新，防抖处理 */
-    AutoRefresh = 0,
-    /** 手动刷新：用户点击按钮刷新 */
-    ManualRefresh = 1,
-}
