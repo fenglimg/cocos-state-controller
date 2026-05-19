@@ -1,4 +1,11 @@
-/** 状态名 */
+/**
+ * 状态名枚举 (空骨架, 不要往里加值)。
+ *
+ * Cocos Creator 2.x 用 @property(EnumStateName) 把字段显示成枚举下拉。
+ * 下拉的实际选项不在这里静态声明 — StateController 在运行时通过
+ *   cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array)
+ * 把当前实例的 states 列表注入到这个枚举的下拉项。
+ */
 export enum EnumStateName {
 }
 
@@ -19,7 +26,11 @@ export enum EnumUpdateType {
     /** 状态顺序变更 */
     Move = 6,
 }
-/** 控制器名字 */
+/**
+ * 控制器名字枚举 (空骨架, 不要往里加值)。
+ * 同 EnumStateName: 由 StateSelect 运行时把可见的控制器名字列表
+ * 注入为 currCtrlId 字段的 inspector 下拉项。
+ */
 export enum EnumCtrlName {
 }
 /**

@@ -1,10 +1,3 @@
-/**
- * 控制器已知问题：
- * 1.有些属性只能从PropValue设置没有监听方法如：Label_String,Opacity,Font等等。
- * 2.SpirteFrame不能在PropValue设置，只能从编辑器设置
- * 3.设置状态的时候selectedPage不会及时更新，需要手动切换界面更新
- */
-
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
