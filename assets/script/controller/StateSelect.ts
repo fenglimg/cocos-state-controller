@@ -2054,14 +2054,14 @@ export class StateSelect extends cc.Component {
 
         const availableProps: EnumPropName[] = [];
 
-        // 遍历所有属性类型（跳过 Non=0）
+        // cc.Enum(EnumPropName) 会把数字反向映射 key 设为不可枚举,
+        // for-in 只剩名字 key. 通过名字反查数字值, 而非 parseInt(propKey).
         for (const propKey in EnumPropName) {
-            const propType = parseInt(propKey);
-            if (isNaN(propType) || propType === EnumPropName.Non) {
+            const propType = (EnumPropName as any)[propKey];
+            if (typeof propType !== "number" || propType === EnumPropName.Non) {
                 continue;
             }
 
-            // 检查属性是否可用
             if (this.isPropertyAvailable(propType as EnumPropName)) {
                 availableProps.push(propType as EnumPropName);
             }
