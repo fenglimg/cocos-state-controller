@@ -5,7 +5,7 @@ import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
 
-@ccclass("stateValue")
+@ccclass("StateValue")
 export class StateValue {
     @property(cc.String)
     public name: string = "";
