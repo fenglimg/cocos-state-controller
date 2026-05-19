@@ -6,9 +6,9 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "../Controller/StateEnum";
-import { StateErrorManager } from "../Controller/StateErrorManager";
-import { StateSelect } from "../Controller/StateSelect";
+import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
+import { StateErrorManager } from "./StateErrorManager";
+import { StateSelect } from "./StateSelect";
 
 cc.Enum(EnumStateName);
 cc.Enum(InspectorRefreshMode);
