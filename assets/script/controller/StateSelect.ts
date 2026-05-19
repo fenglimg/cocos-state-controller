@@ -2344,18 +2344,18 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 修复：从内存同步数据（包含复选框状态更新） */
+    /**
+     * inspector "📥 从内存同步数据" 按钮处理函数
+     *
+     * 用于在数据 / inspector 显示走样时手动恢复:
+     *   - $$controlledProps$$ 从 $$changedProp$$ 兼容性重建
+     *   - $$lastProp$$ 恢复 _propKey / _currentDisplayProp / propValue 显示
+     *   - 刷新一次 inspector
+     */
     public syncDataFromMemory() {
-        if (!CC_EDITOR) {
-            return;
-        }
-
-        StateErrorManager.info("开始从内存同步数据", {
-            component: "StateSelect",
-            method: "syncDataFromMemory",
-        });
+        if (!CC_EDITOR) return;
 
         try {
-            // 获取当前状态的属性数据
             const propData = this.getPropData();
             if (!propData) {
                 StateErrorManager.warn("无法获取属性数据", {
@@ -2365,148 +2365,39 @@ export class StateSelect extends cc.Component {
                 return;
             }
 
-            Editor.log("propData: ", propData);
-
-            // 🔧 架构重构：处理新的数据结构
-            // 确保新的数据结构存在
+            // 确保元数据结构存在
             propData.$$controlledProps$$ = propData.$$controlledProps$$ || {};
-            propData.$$propertyData$$ = propData.$$propertyData$$ || {};
             propData.$$changedProp$$ = propData.$$changedProp$$ || {};
 
-            const controlledProps = propData.$$controlledProps$$;
-            const propertyData = propData.$$propertyData$$;
-            const changedProp = propData.$$changedProp$$;
-
-            // 🔧 第一步：迁移旧数据到新结构
-            const migratedProps: string[] = [];
-            for (const key in propData) {
-                // 跳过特殊键
-                if (key.startsWith("$$")) {
-                    continue;
-                }
-
-                // 检查是否为有效的属性类型数字键
-                const propType = parseInt(key);
-                if (!isNaN(propType) && propType in EnumPropName && propType !== EnumPropName.Non) {
-                    const propName = EnumPropName[propType];
-                    const propValue = propData[propType];
-
-                    // 迁移到新的propertyData结构
-                    if (propertyData[propType] === undefined && propValue !== undefined) {
-                        propertyData[propType] = propValue;
-                        migratedProps.push(propName);
-
-                        StateErrorManager.debug("迁移属性数据到新结构", {
-                            component: "StateSelect",
-                            method: "syncDataFromMemory",
-                            params: { propName, propType, propValue },
-                        });
-                    }
+            // 从 $$changedProp$$ 兼容性重建 $$controlledProps$$
+            // (历史数据 / 早期版本可能只有 changedProp 没有 controlledProps)
+            for (const propName in propData.$$changedProp$$) {
+                if (propData.$$controlledProps$$[propName] === undefined) {
+                    propData.$$controlledProps$$[propName] = propData.$$changedProp$$[propName];
                 }
             }
 
-            // 🔧 第二步：重建受控属性列表
-            const rebuiltControlProps: string[] = [];
-
-            // 从propertyData重建controlledProps
-            for (const propType in propertyData) {
-                const propTypeNum = parseInt(propType);
-                if (!isNaN(propTypeNum) && propTypeNum in EnumPropName && propTypeNum !== EnumPropName.Non) {
-                    const propName = EnumPropName[propTypeNum];
-
-                    if (!controlledProps[propName]) {
-                        controlledProps[propName] = propTypeNum;
-                        rebuiltControlProps.push(propName);
-                    }
-                }
-            }
-
-            // 从旧的changedProp重建controlledProps（兼容性）
-            for (const propName in changedProp) {
-                const propType = changedProp[propName];
-                if (!controlledProps[propName]) {
-                    controlledProps[propName] = propType;
-                    rebuiltControlProps.push(propName);
-                }
-            }
-
-            // 🔧 第三步：同步controlledProps到changedProp（兼容性）
-            for (const propName in controlledProps) {
-                const propType = controlledProps[propName];
-                changedProp[propName] = propType;
-            }
-
-            Editor.log("迁移的属性数据:", migratedProps);
-            Editor.log("重建的受控属性:", rebuiltControlProps);
-            Editor.log("最终的controlledProps:", controlledProps);
-            Editor.log("最终的propertyData:", propertyData);
-
-            // 🔧 修复：更新changedProp显示
-            this.updateChangedProp();
-
-            // 🔧 新增：强制刷新属性检查器以更新复选框状态
-            // 在Cocos Creator中，属性复选框的状态是通过getter方法动态计算的
-            // 调用forceRefreshInspector来触发界面重新渲染
-            this.forceRefreshInspector();
-
-            // 🔧 修复：如果有上次选择的属性，恢复选择并更新界面标识
+            // 恢复 lastProp 选中状态 + propValue 显示
             const lastProp = propData.$$lastProp$$;
-            if (lastProp) {
+            if (lastProp !== undefined && lastProp !== EnumPropName.Non) {
                 this._propKey = lastProp;
                 this._propValue = propData[lastProp];
-
-                // 🔧 关键：同时更新界面标识变量
                 this._currentDisplayProp = lastProp;
-
-                // 🔧 修复：显示属性值字段
                 this.setPropValue(lastProp);
-
-                StateErrorManager.debug("恢复上次选择的属性", {
-                    component: "StateSelect",
-                    method: "syncDataFromMemory",
-                    params: {
-                        lastProp: EnumPropName[lastProp],
-                        currentDisplayProp: EnumPropName[this._currentDisplayProp],
-                    },
-                });
             }
             else {
-                // 🔧 如果没有上次选择的属性，清空界面标识
                 this._currentDisplayProp = EnumPropName.Non;
-
-                // 🔧 修复：隐藏属性值字段
                 this.setPropValue(EnumPropName.Non);
             }
 
-            // 🔧 新增：统计同步的属性信息
-            const syncedProps = Object.keys(changedProp);
-
-            StateErrorManager.info("数据同步完成", {
-                component: "StateSelect",
-                method: "syncDataFromMemory",
-                params: {
-                    changedPropCount: syncedProps.length,
-                    syncedProps: syncedProps,
-                    currentPropKey: this._propKey ? EnumPropName[this._propKey] : "None",
-                },
-            });
-
-            // 🔧 新增：延迟再次刷新，确保界面完全更新
-            setTimeout(() => {
-                if (CC_EDITOR) {
-                    this.forceRefreshInspector();
-                    StateErrorManager.debug("延迟刷新完成", {
-                        component: "StateSelect",
-                        method: "syncDataFromMemory",
-                    });
-                }
-            }, 100);
+            this.updateChangedProp();
+            this.forceRefreshInspector();
         }
         catch (error) {
             StateErrorManager.error("数据同步失败", {
                 component: "StateSelect",
                 method: "syncDataFromMemory",
-                params: { error: error.message },
+                params: { error: (error as Error).message },
             });
         }
     }
