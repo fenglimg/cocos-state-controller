@@ -39,6 +39,7 @@ import { StateController } from "./StateController";
 import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { PropHandlerManager } from "./StatePropHandler";
+import { PropertyControlService } from "./StatePropertyControlService";
 
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
@@ -1089,64 +1090,6 @@ export class StateSelect extends cc.Component {
             .filter(key => !Number.isNaN(key));
     }
 
-    /** 🔧 新增：检查节点是否有对应属性的组件 */
-    private checkNodeHasComponentForProp(propType: EnumPropName): boolean {
-        if (!this.node || !this.node.isValid) {
-            return false;
-        }
-
-        switch (propType) {
-            case EnumPropName.LabelString:
-            case EnumPropName.Font:
-            case EnumPropName.LabelFontSize:
-            case EnumPropName.LabelLineHeight:
-            case EnumPropName.LabelSpacingX:
-            case EnumPropName.LabelWrapEnable:
-                return !!this.node.getComponent(cc.Label);
-            case EnumPropName.LabelOutlineColor:
-                return !!this.node.getComponent(cc.LabelOutline);
-            case EnumPropName.SpriteFrame:
-            case EnumPropName.SpriteFillRange:
-                return !!this.node.getComponent(cc.Sprite);
-            case EnumPropName.SliderProgress:
-                return !!this.node.getComponent(cc.Slider);
-            case EnumPropName.EditboxString:
-                return !!this.node.getComponent(cc.EditBox);
-            case EnumPropName.GrayScale:
-                // GrayScale是自定义组件，这里假设检查方式
-                return !!this.node.getComponent("GrayScale");
-            case EnumPropName.ButtonInteractable:
-                return !!this.node.getComponent(cc.Button);
-            case EnumPropName.ProgressBarProgress:
-                return !!this.node.getComponent(cc.ProgressBar);
-            case EnumPropName.ToggleIsChecked:
-                return !!this.node.getComponent(cc.Toggle);
-            case EnumPropName.RichTextString:
-                return !!this.node.getComponent(cc.RichText);
-            case EnumPropName.ScrollViewEnabled:
-                return !!this.node.getComponent(cc.ScrollView);
-            case EnumPropName.MaskEnabled:
-                return !!this.node.getComponent(cc.Mask);
-            case EnumPropName.WidgetEnabled:
-            case EnumPropName.WidgetAlignMode:
-            case EnumPropName.WidgetIsAlignTop:
-            case EnumPropName.WidgetIsAlignBottom:
-            case EnumPropName.WidgetIsAlignLeft:
-            case EnumPropName.WidgetIsAlignRight:
-            case EnumPropName.WidgetIsAlignHorizontalCenter:
-            case EnumPropName.WidgetIsAlignVerticalCenter:
-            case EnumPropName.WidgetTop:
-            case EnumPropName.WidgetBottom:
-            case EnumPropName.WidgetLeft:
-            case EnumPropName.WidgetRight:
-            case EnumPropName.WidgetHorizontalCenter:
-            case EnumPropName.WidgetVerticalCenter:
-                return !!this.node.getComponent(cc.Widget);
-            default:
-                return false;
-        }
-    }
-
     // #endregion 4.
 
     // #region 5. 属性同步与应用 (state 切换 → node/component apply)
@@ -1974,48 +1917,12 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 检查属性是否可用（节点是否支持该属性类型） */
     public isPropertyAvailable(propType: EnumPropName): boolean {
-        if (!this.node || !this.node.isValid) {
-            return false;
-        }
-
-        // 节点基础属性总是可用
-        const nodeBasicProps = [
-            EnumPropName.Active,
-            EnumPropName.Position,
-            EnumPropName.Scale,
-            EnumPropName.Color,
-            EnumPropName.Size,
-            EnumPropName.Euler,
-            EnumPropName.Anchor,
-            EnumPropName.Opacity,
-        ];
-
-        if (nodeBasicProps.includes(propType)) {
-            return true;
-        }
-
-        // 检查组件依赖的属性
-        return this.checkNodeHasComponentForProp(propType);
+        return PropertyControlService.isPropertyAvailable(this.node, propType);
     }
 
-    /** 🔧 架构重构：检查属性是否已被控制（使用新的controlledProps结构） */
+    /** 🔧 检查属性是否已被控制（使用新的controlledProps结构） */
     public isPropertyControlled(propType: EnumPropName): boolean {
-        const propData = this.getPropData();
-        if (!propData) {
-            return false;
-        }
-
-        // 🔧 优先使用新的controlledProps结构
-        const controlledProps = propData.$$controlledProps$$ || {};
-        const propName = EnumPropName[propType];
-
-        if (controlledProps[propName] !== undefined) {
-            return true;
-        }
-
-        // 🔧 兼容性：检查旧的changedProp结构
-        const changedProp = propData.$$changedProp$$ || {};
-        return !!changedProp[propName];
+        return PropertyControlService.isPropertyControlled(this.getPropData(), propType);
     }
 
     /** 🔧 切换属性控制状态 */
@@ -2072,31 +1979,12 @@ export class StateSelect extends cc.Component {
 
     /** 🔧 智能属性推断：扫描节点所有可用的属性 */
     public scanAvailableProperties(): EnumPropName[] {
-        if (!this.node || !this.node.isValid) {
-            return [];
-        }
-
-        const availableProps: EnumPropName[] = [];
-
-        // cc.Enum(EnumPropName) 会把数字反向映射 key 设为不可枚举,
-        // for-in 只剩名字 key. 通过名字反查数字值, 而非 parseInt(propKey).
-        for (const propKey in EnumPropName) {
-            const propType = (EnumPropName as any)[propKey];
-            if (typeof propType !== "number" || propType === EnumPropName.Non) {
-                continue;
-            }
-
-            if (this.isPropertyAvailable(propType as EnumPropName)) {
-                availableProps.push(propType as EnumPropName);
-            }
-        }
-
+        const availableProps = PropertyControlService.scanAvailableProperties(this.node);
         StateErrorManager.info("扫描可用属性完成", {
             component: "StateSelect",
             method: "scanAvailableProperties",
             params: { count: availableProps.length, props: availableProps.map(p => EnumPropName[p]) },
         });
-
         return availableProps;
     }
 
