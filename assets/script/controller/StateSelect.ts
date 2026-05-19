@@ -1435,9 +1435,13 @@ export class StateSelect extends cc.Component {
             params: { deleteIndex: deleteIndex, ctrlId: ctrl.ctrlId },
         });
 
-        // 🔧 严格验证删除索引
-        if (deleteIndex < 0 || deleteIndex >= ctrl.states.length) {
-            StateErrorManager.warn("无效的删除索引", {
+        // deleteIndex 是被删 state 的 *旧* index。
+        // ctrl.states.length 在 setter 触发 SelPage 通知时已经 -1。
+        // 所以当删除末尾 state 时, deleteIndex == ctrl.states.length 是合法的;
+        // 之前用 `>= ctrl.states.length` 的判断把这种情况当成 "无效", 导致 migrateStateData
+        // 错过末尾槽位的 delete pageData[deleteIndex] (B3 数据残留 bug)。
+        if (deleteIndex < 0) {
+            StateErrorManager.warn("删除索引为负", {
                 component: "StateSelect",
                 method: "handleStateDelete",
                 params: { deleteIndex: deleteIndex, stateCount: ctrl.states.length },
