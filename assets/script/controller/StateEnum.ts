@@ -3,7 +3,7 @@ export enum EnumStateName {
 }
 
 /** 更新选择器的类型 */
-export enum EnumUpdataType {
+export enum EnumUpdateType {
     /** 名字 */
     Name = 1,
     /** 可选状态 */
@@ -34,7 +34,7 @@ export enum EnumCtrlName {
  * 扩展方式：
  * 1. 在此枚举中添加新的属性类型
  * 2. 在StatePropHandler.ts中实现对应的处理器
- * 3. 在StateSelect.ts中的setDefaultPorp方法中添加对应的case
+ * 3. 在StateSelect.ts中的setDefaultProp方法中添加对应的case
  */
 export enum EnumPropName {
     /** 不选择 - 特殊值，表示未选择任何属性 */

@@ -6,7 +6,7 @@
  */
 
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
-import { EnumStateName, EnumUpdataType, InspectorRefreshMode } from "./StateEnum";
+import { EnumStateName, EnumUpdateType, InspectorRefreshMode } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
 
@@ -83,12 +83,12 @@ export class StateController extends cc.Component {
             return;
         }
         this._ctrlName = value;
-        this.updateState(EnumUpdataType.Name);
+        this.updateState(EnumUpdateType.Name);
     }
 
     private _previousIndex: number = -1;
     /** 上一次的选中下标 */
-    public get previsousIndex(): number {
+    public get previousIndex(): number {
         return this._previousIndex;
     }
 
@@ -190,11 +190,11 @@ export class StateController extends cc.Component {
             this._selectedIndex = value;
 
             // 🔧 通知所有相关组件状态已改变
-            this.updateState(EnumUpdataType.State);
+            this.updateState(EnumUpdateType.State);
 
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {
-                this.updateState(EnumUpdataType.Prop);
+                this.updateState(EnumUpdateType.Prop);
                 // 🔧 IMPL-002.1: 触发selectedPage变更通知
                 this._emitSelectedPageChanged();
             }
@@ -364,7 +364,7 @@ export class StateController extends cc.Component {
                 params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex },
             });
             // 如果有删除，通知第一个删除的索引
-            this.updateState(EnumUpdataType.SelPage, deletedIndices[0]);
+            this.updateState(EnumUpdateType.SelPage, deletedIndices[0]);
         }
         else {
             StateErrorManager.info("状态列表更新完成", {
@@ -372,7 +372,7 @@ export class StateController extends cc.Component {
                 method: "states.setter",
                 params: { finalStateCount: newLen, currentIndex: applyIndex },
             });
-            this.updateState(EnumUpdataType.SelPage);
+            this.updateState(EnumUpdateType.SelPage);
         }
     }
 
@@ -426,7 +426,7 @@ export class StateController extends cc.Component {
         this.states = newStates;
 
         // 🔧 通知 StateSelect 携带数据一起移动
-        this.updateState(EnumUpdataType.Move, { fromIndex: fromIndex, toIndex: targetIndex });
+        this.updateState(EnumUpdateType.Move, { fromIndex: fromIndex, toIndex: targetIndex });
 
         StateErrorManager.info("状态顺序已调整", {
             component: "StateController",
@@ -509,7 +509,7 @@ export class StateController extends cc.Component {
 
         this._selectedIndex = insertIndex;
         this.states = newStates;
-        this.updateState(EnumUpdataType.State);
+        this.updateState(EnumUpdateType.State);
 
         StateErrorManager.info("已复制当前状态", {
             component: "StateController",
@@ -646,14 +646,14 @@ export class StateController extends cc.Component {
             params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
         });
 
-        this.updateState(EnumUpdataType.Init);
+        this.updateState(EnumUpdateType.Init);
     }
 
     protected onLoad() {
         if (!CC_EDITOR) {
             return;
         }
-        this.updateState(EnumUpdataType.State);
+        this.updateState(EnumUpdateType.State);
     }
 
     protected onDestroy() {
@@ -664,7 +664,7 @@ export class StateController extends cc.Component {
         // 🔧 清理刷新定时器
         this.clearRefreshTimer();
 
-        this.updateState(EnumUpdataType.Delete);
+        this.updateState(EnumUpdateType.Delete);
     }
 
     /** 选择的状态名字 */
@@ -884,7 +884,7 @@ export class StateController extends cc.Component {
     }
 
     /** 🔧 核心方法：状态更新通知机制 - 使用缓存优化 (IMPL-001) */
-    private updateState(type: EnumUpdataType, value?: unknown) {
+    private updateState(type: EnumUpdateType, value?: unknown) {
         // 🔧 IMPL-001: 使用缓存替代BFS遍历
         this.rebuildStateSelectCache();
 
@@ -898,31 +898,31 @@ export class StateController extends cc.Component {
                 continue;
             }
 
-            if (type == EnumUpdataType.State) {
+            if (type == EnumUpdateType.State) {
                 // 🔧 状态切换：通知StateSelect组件状态已改变
                 stateSelect.updateState(this);
             }
-            else if (type == EnumUpdataType.Name) {
+            else if (type == EnumUpdateType.Name) {
                 // 🔧 名称更新：通知StateSelect组件控制器名称已更改
                 stateSelect.updateCtrlName(this.node);
             }
-            else if (type == EnumUpdataType.SelPage) {
+            else if (type == EnumUpdateType.SelPage) {
                 // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
                 stateSelect.updateCtrlPage(this, value as number);
             }
-            else if (type == EnumUpdataType.Delete) {
+            else if (type == EnumUpdateType.Delete) {
                 // 🔧 删除通知：通知StateSelect组件控制器即将被删除
                 stateSelect.updateDelete(this);
             }
-            else if (type == EnumUpdataType.Init) {
+            else if (type == EnumUpdateType.Init) {
                 // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
                 stateSelect.updatePreLoad(this);
             }
-            else if (type == EnumUpdataType.Prop) {
+            else if (type == EnumUpdateType.Prop) {
                 // 🔧 属性更新：通知StateSelect组件属性已更改
                 stateSelect.updateProp(this);
             }
-            else if (type == EnumUpdataType.Move) {
+            else if (type == EnumUpdateType.Move) {
                 // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
                 // @ts-expect-error 允许使用该方法
                 stateSelect.updateStateMove(this, value);

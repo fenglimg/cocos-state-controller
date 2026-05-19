@@ -67,17 +67,17 @@ describe("StateController deleteState data cleanup", () => {
         ctrl.selectedIndex = 0;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = true;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         ctrl.selectedIndex = 1;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = false;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         ctrl.selectedIndex = 2;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = true;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         // 删除中间 state (index 1)
         ctrl.selectedIndex = 1;
@@ -103,13 +103,13 @@ describe("StateController deleteState data cleanup", () => {
         ctrl.selectedIndex = 0;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = false;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         // state 1: active = true
         ctrl.selectedIndex = 1;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = true;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         // 删 state 1
         ctrl.selectedIndex = 1;

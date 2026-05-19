@@ -77,7 +77,7 @@ assets/script/controller/
 | `ctrlName` | string | 控制器名称（必须唯一） | "MainMenuCtrl" |
 | `selectedIndex` | number | 当前选中的状态索引 | 0, 1, 2... |
 | `states` | StateValue[] | 状态列表，可动态添加删除 | ["normal", "hover", "pressed"] |
-| `previsousIndex` | number | 上一个状态索引（只读） | 0 |
+| `previousIndex` | number | 上一个状态索引（只读） | 0 |
 
 
 #### 代码控制示例
@@ -92,7 +92,7 @@ controller.selectedPage = "hover";
 
 // 📊 获取当前状态信息
 let currentState = controller.selectedPage;
-let previousState = controller.previsousIndex;
+let previousState = controller.previousIndex;
 
 ### 🎨 StateSelect（状态选择器）
 
@@ -154,13 +154,13 @@ class StateController {
     set selectedPage(name: string);
     
     // 📊 上一个状态索引（只读）
-    get previsousIndex(): number;
+    get previousIndex(): number;
 }
 
 #### 生命周期方法
 
 // 🔄 状态切换时自动调用，通知所有相关的StateSelect组件
-private updateState(type: EnumUpdataType, value?: number): void;
+private updateState(type: EnumUpdateType, value?: number): void;
 
 ### 🎨 StateSelect API
 

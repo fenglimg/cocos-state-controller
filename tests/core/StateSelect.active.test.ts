@@ -79,7 +79,7 @@ describe("StateSelect.active regression", () => {
         // 契约 2: $$propertyData$$ 已写入初始值
         expect(propData.$$propertyData$$?.[EnumPropName.Active]).toBeDefined();
 
-        // 契约 3: legacy 数字 key 也必须有值 (兼容期, updateState/setDefaultPorp 走这条路径)
+        // 契约 3: legacy 数字 key 也必须有值 (兼容期, updateState/setDefaultProp 走这条路径)
         expect(propData[EnumPropName.Active]).toBeDefined();
     });
 
@@ -90,13 +90,13 @@ describe("StateSelect.active regression", () => {
         ctrl.selectedIndex = 0;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = false;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         // state 1 启用 Active 控制, 记录 active = true
         ctrl.selectedIndex = 1;
         select.togglePropertyControl(EnumPropName.Active, true);
         selectNode.active = true;
-        (select as any).setDefaultPorp(EnumPropName.Active);
+        (select as any).setDefaultProp(EnumPropName.Active);
 
         // 切回 state 0 → 应还原为 false
         ctrl.selectedIndex = 0;

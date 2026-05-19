@@ -384,21 +384,21 @@ export class StateSelect extends cc.Component {
         }
     }
 
-    private _isPreload = false;
+    private _isPreloaded = false;
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     protected __preload() {
         if (!CC_EDITOR) {
             return;
         }
-        if (this._isPreload) {
+        if (this._isPreloaded) {
             StateErrorManager.debug("跳过重复预加载", {
                 component: "StateSelect",
                 method: "__preload",
             });
             return;
         }
-        this._isPreload = true;
+        this._isPreloaded = true;
 
         // 初始化嵌套 CCClass 的 owner 引用
         this.nodeProps.owner = this;
@@ -537,42 +537,42 @@ export class StateSelect extends cc.Component {
 
     /** 节点active改变 */
     private activeChanged(_node: cc.Node) {
-        this.setDefaultPorp(EnumPropName.Active);
+        this.setDefaultProp(EnumPropName.Active);
     }
 
     /** 节点位置改变 */
     private positionChanged() {
-        this.setDefaultPorp(EnumPropName.Position);
+        this.setDefaultProp(EnumPropName.Position);
     }
 
     /** 节点旋转改变 */
     private rotationChanged() {
-        this.setDefaultPorp(EnumPropName.Euler);
+        this.setDefaultProp(EnumPropName.Euler);
     }
 
     /** 节点缩放改变 */
     private scaleChanged() {
-        this.setDefaultPorp(EnumPropName.Scale);
+        this.setDefaultProp(EnumPropName.Scale);
     }
 
     /** 节点大小改变 */
     private sizeChanged(_size: cc.Size) {
-        this.setDefaultPorp(EnumPropName.Size);
+        this.setDefaultProp(EnumPropName.Size);
     }
 
     /** 锚点改变 */
     private anchorChanged(_anchor: cc.Vec2) {
-        this.setDefaultPorp(EnumPropName.Anchor);
+        this.setDefaultProp(EnumPropName.Anchor);
     }
 
     /** 颜色改变 */
     private colorChanged(_color: cc.Color) {
-        this.setDefaultPorp(EnumPropName.Color);
+        this.setDefaultProp(EnumPropName.Color);
     }
 
     /** 图片改变 */
     private spriteFrameChanged(_sprite: cc.Sprite) {
-        this.setDefaultPorp(EnumPropName.SpriteFrame);
+        this.setDefaultProp(EnumPropName.SpriteFrame);
     }
 
     /** 检查父节点是否变化 */
@@ -1794,7 +1794,7 @@ export class StateSelect extends cc.Component {
     }
 
     /** 编辑器改变、改变对于状态属性（最开始是说改变默认属性） */
-    private setDefaultPorp(type: EnumPropName) {
+    private setDefaultProp(type: EnumPropName) {
         if (!CC_EDITOR) {
             return;
         }
@@ -1804,7 +1804,7 @@ export class StateSelect extends cc.Component {
 
         StateErrorManager.debug("检测到编辑器属性变化", {
             component: "StateSelect",
-            method: "setDefaultPorp",
+            method: "setDefaultProp",
             params: { propType: EnumPropName[type] },
         });
 
@@ -1822,7 +1822,7 @@ export class StateSelect extends cc.Component {
             if (propData[type] == void 0) {
                 StateErrorManager.debug("属性未被控制且无法自动添加，跳过更新", {
                     component: "StateSelect",
-                    method: "setDefaultPorp",
+                    method: "setDefaultProp",
                     params: { propType: EnumPropName[type] },
                 });
                 return;
@@ -2053,7 +2053,7 @@ export class StateSelect extends cc.Component {
             case EnumPropName.GrayScale: {
                 StateErrorManager.error("GrayScale属性在Cocos Creator 2.x中需要通过材质实现", {
                     component: "StateSelect",
-                    method: "setDefaultPorp",
+                    method: "setDefaultProp",
                 });
             } break;
             case EnumPropName.ButtonInteractable: {
@@ -2716,7 +2716,7 @@ export class StateSelect extends cc.Component {
 
         try {
             // 🔧 第一步：重置预加载状态
-            this._isPreload = false;
+            this._isPreloaded = false;
 
             // 🔧 第二步：清理当前状态
             this.currCtrlId = null;

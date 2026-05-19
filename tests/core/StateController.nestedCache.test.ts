@@ -118,19 +118,19 @@ describe("StateController nested cache isolation", () => {
         parentCtrl.selectedIndex = 0;
         parentSelect.togglePropertyControl(EnumPropName.Active, true);
         parentSelectNode.active = false;
-        (parentSelect as any).setDefaultPorp(EnumPropName.Active);
+        (parentSelect as any).setDefaultProp(EnumPropName.Active);
 
         // child state 0: childSelect.active = false
         childCtrl.selectedIndex = 0;
         childSelect.togglePropertyControl(EnumPropName.Active, true);
         childSelectNode.active = false;
-        (childSelect as any).setDefaultPorp(EnumPropName.Active);
+        (childSelect as any).setDefaultProp(EnumPropName.Active);
 
         // parent state 1: parentSelect.active = true
         parentCtrl.selectedIndex = 1;
         parentSelect.togglePropertyControl(EnumPropName.Active, true);
         parentSelectNode.active = true;
-        (parentSelect as any).setDefaultPorp(EnumPropName.Active);
+        (parentSelect as any).setDefaultProp(EnumPropName.Active);
 
         // 切换 parent 到 state 0, 期望:
         //   parentSelect.active 还原为 false (parent 应用)
