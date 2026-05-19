@@ -343,10 +343,8 @@ export class StateController extends cc.Component {
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
         this._selectedIndex = applyIndex;
 
-        // 🔧 优化：使用智能刷新策略替代硬编码刷新
-
-        // states 变化后立即刷新 inspector, 不再走可配置策略
-        this.forceRefreshInspector();
+        // 刻意不调 forceRefreshInspector: 自动强刷会打断当前操作 (焦点丢失 / 抖动),
+        // selectedPage 等 getter @property 的陈旧显示由用户点 "刷新检查器" 按钮解决.
 
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
@@ -687,26 +685,21 @@ export class StateController extends cc.Component {
     // ================== 🔧 IMPL-002: selectedPage修复 ==================
 
     /**
-     * 🔧 IMPL-002.2: 触发selectedPage变更通知
-     * 在编辑器环境下触发属性检查器刷新
+     * 触发 selectedPage 变更通知 (仅日志, 不再自动刷新 inspector).
+     *
+     * 历史: 这里曾在切状态后 setTimeout 强刷 inspector, 体验上会打断当前操作
+     * (焦点丢失 / 滚动跳动). 现在去掉, selectedPage 的陈旧显示由用户主动点
+     * inspector 上的 "刷新检查器" 按钮 (manualRefreshTrigger) 解决.
      */
     private _emitSelectedPageChanged(): void {
         if (!CC_EDITOR) {
             return;
         }
-
-        StateErrorManager.debug("触发selectedPage变更通知", {
+        StateErrorManager.debug("selectedPage 变更", {
             component: "StateController",
             method: "_emitSelectedPageChanged",
             params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
         });
-
-        // 触发编辑器刷新（延迟一帧确保数据已更新）
-        setTimeout(() => {
-            if (this.node && this.node.isValid) {
-                this.forceRefreshInspector();
-            }
-        }, 0);
     }
 
     /**
