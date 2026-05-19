@@ -882,6 +882,11 @@ export class StateController extends cc.Component {
             if (type == EnumUpdateType.State) {
                 // 🔧 状态切换：通知StateSelect组件状态已改变
                 stateSelect.updateState(this);
+                // 切 state 后, 主动刷新 select 节点的 inspector 让 propValue 等
+                // getter 字段重读当前 state 的值. 不刷会导致 propValue 显示陈旧
+                // (cocos 不会自动重读 getter @property). 这只是切 state 时刷新,
+                // 改 propValue / state CRUD 等仍不触发 (体验优化, 见 6081bd3).
+                stateSelect.forceRefreshInspector();
             }
             else if (type == EnumUpdateType.Name) {
                 // 🔧 名称更新：通知StateSelect组件控制器名称已更改
