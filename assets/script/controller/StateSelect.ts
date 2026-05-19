@@ -494,14 +494,23 @@ export class StateSelect extends cc.Component {
      * 当StateSelect组件创建/销毁/移动时调用
      */
     private notifyControllerCacheDirty(): void {
-        const ctrl = this.getCurrCtrl();
-        if (ctrl && ctrl.node && ctrl.node.isValid) {
-            ctrl.markCacheDirty();
-            StateErrorManager.debug("已通知控制器缓存失效", {
-                component: "StateSelect",
-                method: "notifyControllerCacheDirty",
-                params: { ctrlName: ctrl.ctrlName },
-            });
+        // 直接向上找父链上最近的 StateController, 不依赖 this.currCtrlId.
+        // 因为 __preload 内调用此方法时 currCtrlId 还没被设置, getCurrCtrl() 会
+        // 返回 undefined, markCacheDirty 不被调用 → 导致"ctrl 比 select 早创建,
+        // 第 2+ 个 select 永远不在 cache, 切 state 时跳过它"的 bug.
+        let parent = this.node ? this.node.parent : null;
+        while (parent && parent.isValid) {
+            const ctrl = parent.getComponent(StateController);
+            if (ctrl) {
+                ctrl.markCacheDirty();
+                StateErrorManager.debug("已通知控制器缓存失效", {
+                    component: "StateSelect",
+                    method: "notifyControllerCacheDirty",
+                    params: { ctrlName: ctrl.ctrlName },
+                });
+                return;
+            }
+            parent = parent.parent;
         }
     }
 
