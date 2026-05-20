@@ -39,6 +39,15 @@ export interface IPropHandler {
     setValue(node: cc.Node, value: TPropValue): void;
     /** 默认值, 通常等同 getValue */
     getDefaultValue(node: cc.Node): TPropValue | undefined;
+    /**
+     * 录制 diff 用: 判断两个值是否等同.
+     *  - 基础类型 (number/string/boolean): ===
+     *  - 复合类型 (Vec/Color/Size): 按字段值比 (含 alpha)
+     *  - 资源类型 (SpriteFrame/Font): 引用比 (===)
+     *  - undefined/null 双方为 nil 即 true
+     * 默认实现见 PropHandlerManager 注册路径 (factory 自带 isEqual)。
+     */
+    isEqual(a: TPropValue, b: TPropValue): boolean;
 }
 
 /**
@@ -74,22 +83,77 @@ export class PropHandlerManager {
         const handler = this.getHandler(propType);
         return handler ? handler.getDefaultValue(node) : undefined;
     }
+
+    /**
+     * 录制 diff 用: 判断两个值是否等同. 未注册的 propType 视为 false (保守, 视为有变化)。
+     * 双方均为 nil (undefined / null) 视为 true。
+     */
+    public static isEqual(propType: EnumPropName, a: TPropValue, b: TPropValue): boolean {
+        const aNil = a === undefined || a === null;
+        const bNil = b === undefined || b === null;
+        if (aNil && bNil) return true;
+        if (aNil !== bNil) return false;
+        const handler = this.getHandler(propType);
+        if (!handler) return false;
+        return handler.isEqual(a, b);
+    }
+}
+
+// ============================== isEqual helpers ==============================
+
+/** 默认 isEqual: ===, 用于基础类型与资源引用比 */
+function eqStrict(a: TPropValue, b: TPropValue): boolean {
+    return a === b;
+}
+
+/** Vec3 按值比 (x/y/z) */
+function eqVec3(a: TPropValue, b: TPropValue): boolean {
+    const av = a as cc.Vec3;
+    const bv = b as cc.Vec3;
+    return av.x === bv.x && av.y === bv.y && av.z === bv.z;
+}
+
+/** Vec2 按值比 (x/y) */
+function eqVec2(a: TPropValue, b: TPropValue): boolean {
+    const av = a as cc.Vec2;
+    const bv = b as cc.Vec2;
+    return av.x === bv.x && av.y === bv.y;
+}
+
+/** Color 按值比 (r/g/b/a) */
+function eqColor(a: TPropValue, b: TPropValue): boolean {
+    const ac = a as cc.Color;
+    const bc = b as cc.Color;
+    return ac.r === bc.r && ac.g === bc.g && ac.b === bc.b && ac.a === bc.a;
+}
+
+/** Size 按值比 (width/height) */
+function eqSize(a: TPropValue, b: TPropValue): boolean {
+    const as = a as cc.Size;
+    const bs = b as cc.Size;
+    return as.width === bs.width && as.height === bs.height;
 }
 
 /** 节点直接属性 (cc.Node 上的字段或方法访问); 需自定 get/set 控制复合类型 clone */
 function nodeProp<T extends TPropValue>(
     get: (n: cc.Node) => T | undefined,
     set: (n: cc.Node, v: T) => void,
+    isEqual: (a: TPropValue, b: TPropValue) => boolean = eqStrict,
 ): IPropHandler {
     return {
         getValue: get as (n: cc.Node) => TPropValue | undefined,
         setValue: (n, v) => set(n, v as T),
         getDefaultValue: get as (n: cc.Node) => TPropValue | undefined,
+        isEqual,
     };
 }
 
 /** 组件依赖属性 (节点上挂载的 cc.Component, 直接 field 读写); 缺组件返回 undefined */
-function compProp(compType: typeof cc.Component | any, fieldName: string): IPropHandler {
+function compProp(
+    compType: typeof cc.Component | any,
+    fieldName: string,
+    isEqual: (a: TPropValue, b: TPropValue) => boolean = eqStrict,
+): IPropHandler {
     return {
         getValue: (node) => {
             const c = node.getComponent(compType);
@@ -103,6 +167,7 @@ function compProp(compType: typeof cc.Component | any, fieldName: string): IProp
             const c = node.getComponent(compType);
             return c ? (c as any)[fieldName] : undefined;
         },
+        isEqual,
     };
 }
 
@@ -113,10 +178,10 @@ PropHandlerManager.register(EnumPropName.Active,
     nodeProp<boolean>(n => n.active, (n, v) => { n.active = v; }));
 
 PropHandlerManager.register(EnumPropName.Position,
-    nodeProp<cc.Vec3>(n => cc.v3(n.position), (n, v) => { n.position = v; }));
+    nodeProp<cc.Vec3>(n => cc.v3(n.position), (n, v) => { n.position = v; }, eqVec3));
 
 PropHandlerManager.register(EnumPropName.Euler,
-    nodeProp<cc.Vec3>(n => cc.v3(n.eulerAngles), (n, v) => { n.eulerAngles = v; }));
+    nodeProp<cc.Vec3>(n => cc.v3(n.eulerAngles), (n, v) => { n.eulerAngles = v; }, eqVec3));
 
 PropHandlerManager.register(EnumPropName.Scale,
     nodeProp<number>(n => n.scale, (n, v) => { n.scale = v; }));
@@ -125,18 +190,21 @@ PropHandlerManager.register(EnumPropName.Anchor,
     nodeProp<cc.Vec2>(
         n => cc.v2(n.anchorX, n.anchorY),
         (n, v) => n.setAnchorPoint(v),
+        eqVec2,
     ));
 
 PropHandlerManager.register(EnumPropName.Size,
     nodeProp<cc.Size>(
         n => { const s = n.getContentSize(); return cc.size(s.width, s.height); },
         (n, v) => { n.setContentSize(v); },
+        eqSize,
     ));
 
 PropHandlerManager.register(EnumPropName.Color,
     nodeProp<cc.Color>(
         n => { const c = n.color; return cc.color(c.r, c.g, c.b, c.a); },
         (n, v) => { n.color = v; },
+        eqColor,
     ));
 
 PropHandlerManager.register(EnumPropName.Opacity,
@@ -168,6 +236,7 @@ PropHandlerManager.register(EnumPropName.LabelOutlineColor, {
         const col = c.color;
         return cc.color(col.r, col.g, col.b, col.a);
     },
+    isEqual: eqColor,
 });
 
 // ---- Sprite ----
@@ -200,6 +269,7 @@ PropHandlerManager.register(EnumPropName.GrayScale, {
         const sprite = node.getComponent(cc.Sprite);
         return sprite ? false : undefined;
     },
+    isEqual: eqStrict,
 });
 
 // ---- Widget (14 个统一 field 风格) ----
