@@ -2009,6 +2009,90 @@ export class StateSelect extends cc.Component {
         return PropertyControlService.isPropertyControlled(this.getPropData(), propType);
     }
 
+    /**
+     * 当前 state 已勾选 prop 的"美化值"列表 (readonly, inspector 极简显示用)。
+     *
+     * 每项形如 `"Color: rgba(192,192,255,255)"`, `"Position: (100, 0, 0)"`,
+     * 匹配 /^[A-Z][a-zA-Z]+: .+\$/。值来源是 pageData[currentStateIndex][propType]
+     * (canonical 存储, 与 panel 同一份数据)。
+     *
+     * Wave 1 panel 未实装期间, 这是用户在 inspector 中唯一能看到的 state 内容摘要。
+     */
+    public get currentStateProps(): string[] {
+        const result: string[] = [];
+        const ctrl = this.getCurrCtrl();
+        if (!ctrl) {
+            return result;
+        }
+        const propData = this.getPropData();
+        if (!propData) {
+            return result;
+        }
+        // 遍历 EnumPropName, 跳过 Non=0, 收集已勾选的 prop
+        for (const key of Object.keys(EnumPropName)) {
+            const propType = (EnumPropName as any)[key];
+            if (typeof propType !== "number" || propType === EnumPropName.Non) {
+                continue;
+            }
+            if (!this.isPropertyControlled(propType)) {
+                continue;
+            }
+            const value = propData[propType];
+            if (value === undefined) {
+                continue;
+            }
+            const label = EnumPropName[propType]; // 用 enum 反向查表得到大写英文 name
+            result.push(`${label}: ${this.formatPropValue(value)}`);
+        }
+        return result;
+    }
+
+    /** 把 TPropValue 序列化为人类可读字符串 (currentStateProps 内部用) */
+    private formatPropValue(value: unknown): string {
+        if (value === null || value === undefined) {
+            return "-";
+        }
+        if (typeof value === "number") {
+            // 整数直显, 浮点保留 2 位
+            return Number.isInteger(value) ? String(value) : value.toFixed(2);
+        }
+        if (typeof value === "boolean" || typeof value === "string") {
+            return String(value);
+        }
+        if (typeof value === "object") {
+            const v = value as any;
+            // Color: { r,g,b,a }
+            if ("r" in v && "g" in v && "b" in v) {
+                return `rgba(${v.r},${v.g},${v.b},${v.a !== undefined ? v.a : 255})`;
+            }
+            // Vec3 / Position: { x, y, z }
+            if ("x" in v && "y" in v) {
+                if ("z" in v) {
+                    return `(${this.formatPropValue(v.x)}, ${this.formatPropValue(v.y)}, ${this.formatPropValue(v.z)})`;
+                }
+                return `(${this.formatPropValue(v.x)}, ${this.formatPropValue(v.y)})`;
+            }
+            // Size: { width, height }
+            if ("width" in v && "height" in v) {
+                return `${v.width}x${v.height}`;
+            }
+            // SpriteFrame / Font 等资源对象, 通常有 _uuid 或 name
+            if (v._uuid) {
+                return `<asset:${v._uuid.slice(0, 8)}>`;
+            }
+            if (v.name) {
+                return String(v.name);
+            }
+        }
+        // 兜底: JSON 单行
+        try {
+            return JSON.stringify(value);
+        }
+        catch {
+            return String(value);
+        }
+    }
+
     /** 🔧 切换属性控制状态 */
     public togglePropertyControl(propType: EnumPropName, enable: boolean) {
         if (!CC_EDITOR) {
