@@ -57,8 +57,8 @@ export class StateController extends cc.Component {
     /** 🔧 缓存脏标记：true表示需要重建缓存 */
     private _cacheDirty: boolean = true;
 
-    /** 控制器名字 */
-    @property(cc.String)
+    /** 控制器名字 (反序列化存储字段, inspector 通过 ctrlName getter 显示) */
+    @property({ type: cc.String, visible: false })
     private _ctrlName: string = "";
 
     @property({ displayName: "name", tooltip: "控制器唯一名称" })
@@ -84,12 +84,13 @@ export class StateController extends cc.Component {
         return this._previousIndex;
     }
 
-    /** 选中的状态下标 */
-    @property(EnumStateName)
+    /** 选中的状态下标 (反序列化存储, inspector 通过 selectedIndex getter 显示下拉) */
+    @property({ type: EnumStateName, visible: false })
     private _selectedIndex: EnumStateName = 0;
 
-    /** 状态顺序上移触发 */
+    /** 状态顺序上移触发 (panel 接管, inspector 隐藏) */
     @property({
+        visible: false,
         displayName: "状态上移",
         tooltip: "将当前选中的状态上移一位",
     })
@@ -103,8 +104,9 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 状态顺序下移触发 */
+    /** 状态顺序下移触发 (panel 接管, inspector 隐藏) */
     @property({
+        visible: false,
         displayName: "状态下移",
         tooltip: "将当前选中的状态下移一位",
     })
@@ -118,8 +120,9 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 复制当前状态触发 */
+    /** 复制当前状态触发 (panel 接管, inspector 隐藏) */
     @property({
+        visible: false,
         displayName: "复制当前状态",
         tooltip: "以当前状态为模板复制并插入到下一位",
     })
@@ -133,8 +136,9 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 删除当前状态触发 */
+    /** 删除当前状态触发 (panel 接管, inspector 隐藏) */
     @property({
+        visible: false,
         displayName: "删除当前状态",
         tooltip: "删除当前选中的状态并自动选择相邻状态",
     })
@@ -201,11 +205,11 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 状态名字列表 */
-    @property(StateValue)
+    /** 状态名字列表 (反序列化存储, inspector 由 panel 接管) */
+    @property({ type: StateValue, visible: false })
     private _states: StateValue[] = [];
 
-    @property({ type: StateValue, tooltip: "状态数量。数组内容为状态名称" })
+    @property({ type: StateValue, visible: false, tooltip: "状态数量。数组内容为状态名称 (panel 接管, inspector 隐藏)" })
     public get states() {
         return this._states;
     }
@@ -945,8 +949,9 @@ export class StateController extends cc.Component {
         return `${idx}. ${name}`;
     }
 
-    /** 手动刷新属性检查器按钮 */
+    /** 手动刷新属性检查器按钮 (panel 接管, inspector 隐藏) */
     @property({
+        visible: false,
         displayName: "刷新检查器",
         tooltip: "点击刷新属性检查器 (状态列表 / selectedIndex 下拉等)",
     })
