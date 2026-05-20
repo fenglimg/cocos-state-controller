@@ -79,19 +79,17 @@ describe("StateController inspector 极简形态", () => {
     });
 
     describe("[T16] 录制 / Panel 按钮 stub", () => {
-        it("recordTrigger setter 调用不抛错, 触发 cc.warn (\"尚未实现\")", () => {
+        // Wave 2 T14: recordTrigger 已从 cc.warn stub 升级为真实切换 isRecording.
+        // 保留 stub 时代的形状检查 (存在性 + 不抛), 行为校验交给 Recording.controller.test.ts。
+        it("recordTrigger setter 调用不抛错 (Wave 2 改为切换 isRecording, 不再 cc.warn)", () => {
             const { ctrl } = setup();
-            // 期望存在 recordTrigger 布尔字段 (button stub 形态: set true 触发动作)
-            // 与 manualRefreshTrigger 同形态
             expect("recordTrigger" in (ctrl as any).__proto__ || "recordTrigger" in ctrl).toBe(true);
-            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
-            try {
-                expect(() => { (ctrl as any).recordTrigger = true; }).not.toThrow();
-                expect(warnSpy).toHaveBeenCalled();
-            }
-            finally {
-                warnSpy.mockRestore();
-            }
+            expect(() => { (ctrl as any).recordTrigger = true; }).not.toThrow();
+            // Wave 2: recordTrigger=true 进入录制态
+            expect((ctrl as any).isRecording).toBe(true);
+            // 再 toggle 一次回到非录制态
+            expect(() => { (ctrl as any).recordTrigger = false; }).not.toThrow();
+            expect((ctrl as any).isRecording).toBe(false);
         });
 
         it("openPanelTrigger setter 调用不抛错, 触发 cc.warn (\"尚未实现\")", () => {

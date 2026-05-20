@@ -27,6 +27,12 @@ export enum EnumUpdateType {
     Move = 6,
     /** 状态复制 (copySelectedState 触发, 通知 StateSelect 深拷贝 pageData) */
     Copy = 7,
+    /** 录制开始 (StateController.startRecording 触发, 通知 StateSelect 拍 snapshot) */
+    RecordingStart = 8,
+    /** 录制结束 (StateController.stopRecording 触发, 通知 StateSelect final commit + 清 snapshot) */
+    RecordingStop = 9,
+    /** 状态即将切换 (selectedIndex setter 触发, 录制中触发 diff commit) */
+    StateWillChange = 10,
 }
 /**
  * 控制器名字枚举 (空骨架, 不要往里加值)。

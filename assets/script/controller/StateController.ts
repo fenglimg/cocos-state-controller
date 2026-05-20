@@ -44,6 +44,12 @@ export class StateController extends cc.Component {
     /** 是否初始 ,假设编辑器默认状态是2，代码里面正好第一次状态也是2，会导致selecteindex那里不刷新状态。 */
     private isInit: boolean = true;
 
+    /**
+     * 是否正在录制 (Wave 2 Topic 3 prefab diff 录制路径).
+     * 通过普通字段, 不加 @property → 不序列化, 重启编辑器 / 反序列化后自动回 false。
+     */
+    private _recording: boolean = false;
+
     // ================== 🔧 IMPL-001: BFS缓存优化 ==================
     /**
      * 🎯 缓存优化说明：
@@ -182,6 +188,10 @@ export class StateController extends cc.Component {
 
             // 🔧 状态切换流程：标记正在变化 → 保存上一状态 → 更新当前状态 → 触发更新
             this.isChanging = true;
+
+            // Wave 2: 切 state 前通知 (录制中需 commit diff 到 fromState)
+            this.updateState(EnumUpdateType.StateWillChange, this._selectedIndex);
+
             this._previousIndex = this._selectedIndex;
             this._selectedIndex = value;
 
@@ -923,6 +933,24 @@ export class StateController extends cc.Component {
                 // @ts-expect-error 允许使用该方法
                 stateSelect.updateStateCopy(this, value);
             }
+            else if (type == EnumUpdateType.RecordingStart) {
+                // Wave 2: 录制开始, StateSelect 拍 snapshot
+                if (typeof (stateSelect as any).onRecordingStart === "function") {
+                    (stateSelect as any).onRecordingStart(this);
+                }
+            }
+            else if (type == EnumUpdateType.RecordingStop) {
+                // Wave 2: 录制结束, StateSelect final commit + 清 snapshot
+                if (typeof (stateSelect as any).onRecordingStop === "function") {
+                    (stateSelect as any).onRecordingStop(this);
+                }
+            }
+            else if (type == EnumUpdateType.StateWillChange) {
+                // Wave 2: 切 state 前通知 (录制中触发 diff commit), value = fromState
+                if (typeof (stateSelect as any).onStateWillChange === "function") {
+                    (stateSelect as any).onStateWillChange(this, value as number);
+                }
+            }
         }
     }
 
@@ -966,19 +994,64 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 录制按钮 stub (Wave 2/3 实装真正录制功能后替换). 当前仅 cc.warn 占位。
+     * 当前是否正在录制 (Wave 2 Topic 3). readonly, 通过 startRecording / stopRecording 修改。
+     */
+    public get isRecording(): boolean {
+        return this._recording;
+    }
+
+    /**
+     * 进入录制态: 通知所有 StateSelect.onRecordingStart 拍 snapshot.
+     * 幂等: 已经在录制时 no-op。
+     */
+    public startRecording(): void {
+        if (this._recording) {
+            return;
+        }
+        this._recording = true;
+        StateErrorManager.info("开始录制", {
+            component: "StateController",
+            method: "startRecording",
+            params: { ctrlName: this._ctrlName },
+        });
+        this.updateState(EnumUpdateType.RecordingStart);
+    }
+
+    /**
+     * 退出录制态: 通知所有 StateSelect.onRecordingStop final commit + 清 snapshot.
+     * 幂等: 未在录制时 no-op。
+     */
+    public stopRecording(): void {
+        if (!this._recording) {
+            return;
+        }
+        this._recording = false;
+        StateErrorManager.info("停止录制", {
+            component: "StateController",
+            method: "stopRecording",
+            params: { ctrlName: this._ctrlName },
+        });
+        this.updateState(EnumUpdateType.RecordingStop);
+    }
+
+    /**
+     * 录制按钮: 切换 isRecording (Wave 2 实装).
      */
     @property({
         displayName: "🔴 录制状态",
-        tooltip: "录制场景到当前 state (Wave 2/3 实装, 当前为占位)",
+        tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
     })
     public get recordTrigger() {
-        return false;
+        return this._recording;
     }
 
-    public set recordTrigger(value: boolean) {
-        if (value && CC_EDITOR) {
-            cc.warn("[StateController] 录制功能尚未实现, 等待 Wave 2/3 panel 接入。");
+    public set recordTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        if (this._recording) {
+            this.stopRecording();
+        }
+        else {
+            this.startRecording();
         }
     }
 
