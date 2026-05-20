@@ -29,9 +29,12 @@ beforeAll(() => {
 const ControllerMod = require("../../assets/script/controller/StateController");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SelectMod = require("../../assets/script/controller/StateSelect");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const EnumMod = require("../../assets/script/controller/StateEnum");
 
 const { StateController, StateValue } = ControllerMod;
 const { StateSelect } = SelectMod;
+const { EnumPropName } = EnumMod;
 
 function setup() {
     const ccLocal = (globalThis as any).cc;
@@ -78,5 +81,40 @@ describe("StateController copySelectedState", () => {
 
         // selectedIndex 应跳到新插入位置 = 2
         expect(ctrl.selectedIndex).toBe(2);
+    });
+
+    it("[Bug B] 复制状态时应深拷贝原 state 的具体 prop 值 (不是 default 同步出来的)", () => {
+        const { ctrl, select, selectNode } = setup();
+        // setup 默认 2 个 state ["1", "2"]
+        const ccLocal = (globalThis as any).cc;
+
+        // state 0: Color = RED (255,0,0). 启用 controlling, 自动同步到全部 state + default
+        ctrl.selectedIndex = 0;
+        select.togglePropertyControl(EnumPropName.Color, true);
+        selectNode.color = ccLocal.color(255, 0, 0, 255);
+        (select as any).setDefaultProp(EnumPropName.Color);
+
+        // state 1: Color = BLUE (0,0,255). 仅覆盖 state 1, default 仍为 RED
+        ctrl.selectedIndex = 1;
+        selectNode.color = ccLocal.color(0, 0, 255, 255);
+        (select as any).setDefaultProp(EnumPropName.Color);
+
+        const pageDataBefore = (select as any)._ctrlData[ctrl.ctrlId];
+        expect(pageDataBefore[0][EnumPropName.Color].r).toBe(255); // state 0 = RED
+        expect(pageDataBefore[1][EnumPropName.Color].b).toBe(255); // state 1 = BLUE
+
+        // 复制 state 1 (BLUE). 末尾插入, Bug A 不触发
+        ctrl.duplicateCurrentState = true;
+
+        // 新 state 应在 index=2
+        expect(ctrl.states.length).toBe(3);
+        expect(ctrl.states[2].name).toBe("2_copy");
+
+        // 新 state 必须携带 state 1 的 BLUE, 而不是 default 的 RED 或 sync 副作用值
+        const pageData = (select as any)._ctrlData[ctrl.ctrlId];
+        expect(pageData[2]).toBeDefined();
+        expect(pageData[2][EnumPropName.Color]).toBeDefined();
+        expect(pageData[2][EnumPropName.Color].b).toBe(255); // BLUE
+        expect(pageData[2][EnumPropName.Color].r).toBe(0);   // 不是 RED
     });
 });
