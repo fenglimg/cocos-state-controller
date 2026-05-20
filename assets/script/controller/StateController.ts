@@ -922,6 +922,29 @@ export class StateController extends cc.Component {
         }
     }
 
+    /**
+     * 当前 state 的格式化标签 (readonly, inspector 极简形态展示)
+     * 格式: "`${index}. ${stateName}`", e.g. "1. hover"
+     * 越界时返回 "-" fallback (不抛错)。
+     */
+    @property({
+        displayName: "当前状态",
+        tooltip: "当前选中 state 的 index + 名称",
+        readonly: true,
+    })
+    public get currentStateLabel(): string {
+        const idx = this._selectedIndex;
+        if (!this._states || this._states.length === 0) {
+            return "-";
+        }
+        if (idx < 0 || idx >= this._states.length) {
+            return "-";
+        }
+        const s = this._states[idx];
+        const name = s && s.name ? s.name : "";
+        return `${idx}. ${name}`;
+    }
+
     /** 手动刷新属性检查器按钮 */
     @property({
         displayName: "刷新检查器",
