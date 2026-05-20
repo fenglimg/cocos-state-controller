@@ -915,6 +915,81 @@ export class StateSelect extends cc.Component {
         });
     }
 
+    /**
+     * 状态复制 (EnumUpdateType.Copy 触发)
+     *
+     * 契约: 在 pageData 中, 把 fromIndex 槽位的 prop 数据深拷贝到 toIndex 槽位;
+     * 若 toIndex 槽位以及之后已有数据 (常见 toIndex = fromIndex+1, 中间插入), 先把
+     * pageData[toIndex .. statesLength-2] 整体右移一格, 再把 fromIndex 的深拷贝写入 toIndex。
+     * statesLength 是 *新* states 长度 (含刚插入的 copy state)。
+     *
+     * 用 JSON.parse(JSON.stringify(x)) 一刀切深拷贝, 避免手抄字段漏掉嵌套结构 (Color/Size/Vec3 等
+     * 这里都已被 StatePropHandler 序列化为普通 object/number)。
+     */
+    public updateStateCopy(ctrl: StateController, copyInfo: { fromIndex: number, toIndex: number }) {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        if (!ctrl) {
+            return;
+        }
+
+        if (!copyInfo || copyInfo.fromIndex === undefined || copyInfo.toIndex === undefined) {
+            StateErrorManager.warn("状态复制信息无效", {
+                component: "StateSelect",
+                method: "updateStateCopy",
+                params: { copyInfo },
+            });
+            return;
+        }
+
+        const { fromIndex, toIndex } = copyInfo;
+        const statesLength = ctrl.states.length;
+
+        if (fromIndex < 0 || toIndex < 0 || fromIndex >= statesLength || toIndex >= statesLength) {
+            StateErrorManager.warn("状态复制索引越界, 取消同步", {
+                component: "StateSelect",
+                method: "updateStateCopy",
+                params: { fromIndex, toIndex, statesLength },
+            });
+            return;
+        }
+
+        const pageData = this.getPageData(ctrl.ctrlId);
+        if (!pageData) {
+            return;
+        }
+
+        // 1) 右移 [toIndex .. statesLength-2] 给新槽位腾位置 (从右往左以避免覆盖)
+        for (let i = statesLength - 1; i > toIndex; i--) {
+            const prev = pageData[i - 1];
+            if (prev != void 0) {
+                pageData[i] = prev;
+            }
+            else {
+                delete pageData[i];
+            }
+        }
+
+        // 2) 深拷贝 fromIndex 槽位到 toIndex
+        const source = pageData[fromIndex];
+        if (source != void 0) {
+            pageData[toIndex] = JSON.parse(JSON.stringify(source));
+        }
+        else {
+            delete pageData[toIndex];
+        }
+
+        this.updateChangedProp();
+
+        StateErrorManager.info("状态数据已深拷贝", {
+            component: "StateSelect",
+            method: "updateStateCopy",
+            params: { fromIndex, toIndex, statesLength },
+        });
+    }
+
     /** 🔧 新增：处理状态删除逻辑 */
     private handleStateDelete(ctrl: StateController, deleteIndex: number) {
         StateErrorManager.debug("开始处理状态删除", {
