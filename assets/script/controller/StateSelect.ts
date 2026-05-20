@@ -203,6 +203,16 @@ export class StateSelect extends cc.Component {
     @property({ visible: false })
     private _ctrlData: TCtrl = {};
 
+    /**
+     * 录制中的 snapshot (Wave 2 prefab diff 路径).
+     *
+     * onRecordingStart 时, 拍下当前节点上所有 controlled prop 的当前值,
+     * 切 state 或 stopRecording 时与当前节点状态做 diff, 把变化的 prop commit 到 fromState。
+     *
+     * 字段使用 plain (不加 @property), 不参与序列化, 录制态随 ctrl._recording 销毁。
+     */
+    private _snapshot: TProp | null = null;
+
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
@@ -1300,6 +1310,96 @@ export class StateSelect extends cc.Component {
                 appliedUpdates: updateBatch.length,
             },
         });
+    }
+
+    // ================== Wave 2: 录制 prefab diff 路径 ==================
+
+    /**
+     * 收集节点上当前所有受控 prop 的"实际"值, 作为 snapshot 基础。
+     *
+     * 数据来源: PropHandlerManager.getValue(node) (返回 clone, 不会被外部 mutate)。
+     * 过滤器: 仅 $$controlledProps$$ 中标记为 controlled 的 prop 才进 snapshot,
+     *         即只 diff 用户显式开启控制的 prop。
+     */
+    private readControlledPropsFromNode(ctrl: StateController): TProp {
+        const snap: TProp = {} as TProp;
+        if (!ctrl) {
+            return snap;
+        }
+        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+        const controlledProps = (propData && propData.$$controlledProps$$) || {};
+        for (const propName in controlledProps) {
+            const propType = controlledProps[propName];
+            const value = PropHandlerManager.getValue(propType, this.node);
+            if (value !== undefined) {
+                (snap as TPropDictionary)[propType] = value;
+            }
+        }
+        return snap;
+    }
+
+    /**
+     * 录制开始: 拍 snapshot, 后续节点改动以 diff vs snapshot 形式持久化。
+     * 由 StateController.startRecording -> updateState(RecordingStart) 派发。
+     */
+    public onRecordingStart(ctrl: StateController): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) {
+            return;
+        }
+        this._snapshot = this.readControlledPropsFromNode(ctrl);
+        StateErrorManager.debug("录制 snapshot 已拍", {
+            component: "StateSelect",
+            method: "onRecordingStart",
+            params: { snapKeys: Object.keys(this._snapshot).length },
+        });
+    }
+
+    /**
+     * 录制结束: 把当前与 snapshot 的 diff commit 到当前 state, 再清 snapshot。
+     * 由 StateController.stopRecording -> updateState(RecordingStop) 派发。
+     */
+    public onRecordingStop(ctrl: StateController): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) {
+            return;
+        }
+        // final commit: diff snapshot vs 当前节点, 写 ctrlData[currentState]
+        this.commitRecordingDiff(ctrl, ctrl.selectedIndex);
+        this._snapshot = null;
+        StateErrorManager.debug("录制 snapshot 已清", {
+            component: "StateSelect",
+            method: "onRecordingStop",
+        });
+    }
+
+    /**
+     * 把 (snapshot, 当前节点) 之间的差异 commit 到 ctrlData[targetState].
+     *
+     * 算法: 对 snapshot 中每个 prop, 读节点当前值, 用 PropHandler.isEqual 判断变化;
+     *      有变化 → 写 ctrlData[targetState][prop] = current; 同时刷新 snapshot 为 current
+     *      (供下一段 diff 起点)。
+     */
+    private commitRecordingDiff(ctrl: StateController, targetState: number): void {
+        if (!this._snapshot) return;
+        const propData = this.getPropData(targetState, ctrl.ctrlId);
+        const snap = this._snapshot;
+        for (const key of Object.keys(snap)) {
+            const propType = Number(key);
+            if (!Number.isFinite(propType) || propType === EnumPropName.Non) continue;
+            const currentValue = PropHandlerManager.getValue(propType as EnumPropName, this.node);
+            if (currentValue === undefined) continue;
+            const snapValue = (snap as TPropDictionary)[propType];
+            if (!PropHandlerManager.isEqual(propType as EnumPropName, snapValue, currentValue)) {
+                (propData as TPropDictionary)[propType] = currentValue;
+                (snap as TPropDictionary)[propType] = currentValue;
+                StateErrorManager.debug("录制 diff 提交", {
+                    component: "StateSelect",
+                    method: "commitRecordingDiff",
+                    params: { state: targetState, propType: EnumPropName[propType as EnumPropName] },
+                });
+            }
+        }
     }
 
     /** 🔧 批量更新UI，使用属性处理器系统和错误处理机制 */
