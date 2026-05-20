@@ -2047,6 +2047,40 @@ export class StateSelect extends cc.Component {
         return result;
     }
 
+    /**
+     * 录制按钮 stub (Wave 2/3 实装真正录制; 当前 cc.warn 占位)。
+     */
+    @property({
+        displayName: "🔴 录制状态 (select)",
+        tooltip: "录制当前节点 prop 到当前 state (Wave 2/3 panel 接管, 当前为占位)",
+    })
+    public get recordTrigger() {
+        return false;
+    }
+
+    public set recordTrigger(value: boolean) {
+        if (value && CC_EDITOR) {
+            cc.warn("[StateSelect] 录制功能尚未实现, 等待 Wave 2/3 panel 接入。");
+        }
+    }
+
+    /**
+     * 打开 panel 按钮 stub (Wave 2 panel 实装后接管)。
+     */
+    @property({
+        displayName: "⚙️ 打开 Panel (select)",
+        tooltip: "打开 StateController panel (Wave 2 Gemini 委托交付后接管)",
+    })
+    public get openPanelTrigger() {
+        return false;
+    }
+
+    public set openPanelTrigger(value: boolean) {
+        if (value && CC_EDITOR) {
+            cc.warn("[StateSelect] panel 尚未实现, 等待 Wave 2 Gemini 委托交付。");
+        }
+    }
+
     /** 把 TPropValue 序列化为人类可读字符串 (currentStateProps 内部用) */
     private formatPropValue(value: unknown): string {
         if (value === null || value === undefined) {

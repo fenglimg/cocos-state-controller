@@ -90,4 +90,30 @@ describe("StateSelect inspector 极简形态", () => {
             expect(list).toEqual([]);
         });
     });
+
+    describe("[T21] 录制 / Panel 按钮 stub", () => {
+        it("recordTrigger setter 不抛错, 触发 cc.warn", () => {
+            const { select } = setup();
+            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            try {
+                expect(() => { (select as any).recordTrigger = true; }).not.toThrow();
+                expect(warnSpy).toHaveBeenCalled();
+            }
+            finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it("openPanelTrigger setter 不抛错, 触发 cc.warn", () => {
+            const { select } = setup();
+            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            try {
+                expect(() => { (select as any).openPanelTrigger = true; }).not.toThrow();
+                expect(warnSpy).toHaveBeenCalled();
+            }
+            finally {
+                warnSpy.mockRestore();
+            }
+        });
+    });
 });
