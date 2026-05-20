@@ -157,15 +157,63 @@ T31  test: 全套确认基线 ≥ 414 + 新增, 0 fail
 
 ## 6. ICapability 最终形态 (T30 完成后回填)
 
-(待 T30 完成后回填实际接口签名)
+```ts
+// assets/script/controller/Capability.ts
+
+/** 通用 dispatch context. 各 capability 自己负责从 ctx 取所需字段 */
+export interface CapabilityContext {
+    ctrl?: any;                       // 派发来源控制器
+    select?: any;                     // 涉及的 StateSelect
+    fromState?: number;               // StateWillChange / StateChanged
+    toState?: number;
+    propType?: EnumPropName;          // onPropApply 上下文
+    propValue?: TPropValue;
+    extra?: { [key: string]: unknown };
+    /** 给定 propData, 返回 $$<capName>$$ 子对象 (CapabilityRegistry.dispatch 自动注入) */
+    namespace?: (propData: any, capName: string) => { [key: string]: unknown };
+}
+
+/** Capability 接口 (所有 hook 都可选) */
+export interface ICapability {
+    name: string;                                           // 命名空间唯一 key
+    dependsOn?: string[];                                   // 依赖 (Wave 2 仅声明用)
+    onStateWillChange?(ctx: CapabilityContext): void;
+    onStateChanged?(ctx: CapabilityContext): void;
+    onPropApply?(ctx: CapabilityContext, prop: { type: EnumPropName, value: TPropValue }): TPropValue | void;
+    onRecordingStart?(ctx: CapabilityContext): void;
+    onRecordingStop?(ctx: CapabilityContext): void;
+    onCtrlDataMigrate?(data: unknown, version: number): unknown;
+}
+```
+
+**CapabilityRegistry API**:
+- `register(cap: ICapability): void` — 同名覆盖
+- `unregister(name: string): void`
+- `get(name: string): ICapability | undefined`
+- `list(): ICapability[]` — 注册顺序
+- `clear(): void` — 测试用
+- `dispatch(event, ctx): unknown[]` — 同步遍历, 缺 hook 跳过, 异常 catch 走 StateErrorManager.warn, 返回每个 hook 的返回值数组
+
+**已注册 capability (Wave 2)**:
+- `propertyControl` — 包装 StatePropertyControlService
+- `autoSync` — 包装 autoSyncEnabled 全局开关
+- `recording` — Topic 3 录制路径的对外接口 (核心逻辑仍在 StateController/StateSelect)
+- `migration` — 占位, Wave 4 实装迁移逻辑
+
+**Wiring 点** (StateController):
+- `startRecording / stopRecording` → `dispatch("onRecordingStart" / "onRecordingStop")`
+- `selectedIndex setter` 切 state 前/后 → `dispatch("onStateWillChange" / "onStateChanged")`
 
 ---
 
 --- COMPLETION STATUS ---
-STATUS: IN_PROGRESS
+STATUS: DONE
 NOTES:
-- 31 个 task 已拆解, Topic 3 (T01-T17, 17 个) 和 Capability (T18-T30, 13 个) + 收尾 (T31, 1 个)
-- Day 8 effort 偏重 (~9h, RecordingCapability 抽 + namespace 隔离 + 占位), 已标注 "可拆 2 天" 的应对策略
-- 红测试任务 12 个 (T01/T03/T05/T07/T09/T12/T18/T20/T22/T24/T27/T29), 严格先于对应 green
-- 删除任务 (T10/T11) 严守红测试在前 (T07/T08/T09 e2e 必须先绿)
-- Risk 表覆盖 cc 事件删除回归 / isEqual 边界 / namespace 冲突 / scene 切换 / hot path / scope creep / 基线漂移 7 类
+- 31 个 task 全部完成, 各有独立 commit
+- 测试基线: 入分支 414 → 出分支 478 / 1 skipped / 0 fail (+64)
+- StateSelect.ts 净瘦身: 2720 → 2550 (-170 行); 删 setDefaultProp 295 行 switch + 8 hooks + _isFromCtrl ~365 行, 加 prefab diff 路径 (snapshot/commitDiff/onRecordingStart/Stop/onStateWillChange/Changed/commitPropFromNode) ~195 行
+- 长期 bug 修复: Button.interactable / Label.string / Widget.top 等无 cc 事件的 prop 现在能录入
+- Capability 框架已落地: ICapability 接口 + Registry + 4 个内置 capability (PropertyControl / AutoSync / Recording / Migration)
+- Core 与 capability 完全解耦: T29 baseline 验证 unregister 全部 capability 后 core 仍能切 state / 录制 / togglePropertyControl
+- 编辑器实测 checklist 留给用户在 cocos 中验证 (.workflow/active/wave2-recording-capability/MANUAL-TEST-recording.md)
+- 已发现 bug: 无 (.workflow/active/wave2-recording-capability/BUGS-found-during-wave2.md 仍为空)
