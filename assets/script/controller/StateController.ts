@@ -898,6 +898,10 @@ export class StateController extends cc.Component {
             if (type == EnumUpdateType.State) {
                 // 🔧 状态切换：通知StateSelect组件状态已改变
                 stateSelect.updateState(this);
+                // Wave 2: 录制中切 state, apply 完新 state 后通知 select 重拍 snapshot
+                if (this._recording && typeof (stateSelect as any).onStateChanged === "function") {
+                    (stateSelect as any).onStateChanged(this);
+                }
                 // 刻意不调 stateSelect.forceRefreshInspector(): 全量刷新 inspector
                 // 会丢焦点 / 抖动. propValue 等 getter @property 在切 state 后显示
                 // 陈旧由用户主动按 "刷新检查器" 按钮解决 (跟 werewolf 项目默认

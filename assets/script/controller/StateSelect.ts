@@ -1339,6 +1339,35 @@ export class StateSelect extends cc.Component {
     }
 
     /**
+     * 切 state 前 (录制中): commit diff 到 fromState.
+     * 由 StateController.selectedIndex setter → updateState(StateWillChange, fromIdx) 派发。
+     */
+    public onStateWillChange(ctrl: StateController, fromState: number): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
+        // 仅录制中才 diff commit
+        if (!ctrl.isRecording) return;
+        if (this._snapshot == null) return;
+        this.commitRecordingDiff(ctrl, fromState);
+    }
+
+    /**
+     * 切 state 后 (录制中): 重拍 snapshot, 作为新一段 diff 起点.
+     * 由 StateController 在 updateState(State) 之后再发 (T08 wiring).
+     */
+    public onStateChanged(ctrl: StateController): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
+        if (!ctrl.isRecording) return;
+        this._snapshot = this.readControlledPropsFromNode(ctrl);
+        StateErrorManager.debug("录制 snapshot 已重拍", {
+            component: "StateSelect",
+            method: "onStateChanged",
+            params: { newState: ctrl.selectedIndex },
+        });
+    }
+
+    /**
      * 录制开始: 拍 snapshot, 后续节点改动以 diff vs snapshot 形式持久化。
      * 由 StateController.startRecording -> updateState(RecordingStart) 派发。
      */
