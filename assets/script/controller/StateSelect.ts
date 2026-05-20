@@ -92,39 +92,41 @@ export class StateSelect extends cc.Component {
     @property({ visible: false })
     private _ctrlsMap: { [ctrlId: string]: StateController } = {};
 
-    /** 当前选中的ctrl名称对应的ctrlId */
-    @property(EnumCtrlName)
+    /** 当前选中的ctrl名称对应的ctrlId (反序列化字段, panel 接管, inspector 隐藏) */
+    @property({ type: EnumCtrlName, visible: false })
     private _currCtrlId: number = null;
 
-    @property(cc.Node)
+    /** 控制器所在节点 (反序列化字段, panel 接管, inspector 隐藏) */
+    @property({ type: cc.Node, visible: false })
     private _root: cc.Node = null;
 
-    /** 控制器所在节点 */
-    @property({ type: cc.Node, tooltip: "控制器所在节点，仅提示用", readonly: true })
+    /** 控制器所在节点 (root getter, panel 接管, inspector 隐藏) */
+    @property({ type: cc.Node, visible: false, tooltip: "控制器所在节点，仅提示用", readonly: true })
     public get root() {
         return this._root;
     }
 
-    /** 当前状态要改变的属性 */
-    @property({ type: EnumPropName })
+    /** 当前状态要改变的属性 (panel 接管, inspector 隐藏) */
+    @property({ type: EnumPropName, visible: false })
     private _propKey: EnumPropName = EnumPropName.Non;
 
-    /** 当前状态要改变的属性值 */
-    @property
+    /** 当前状态要改变的属性值 (panel 接管, inspector 隐藏) */
+    @property({ visible: false })
     private _propValue: TPropValue = null;
 
-    /** 🔧 新增：界面标识变量 - 用于标明当前正在展示属性值的属性类型 */
-    @property({ type: EnumPropName })
+    /** 🔧 新增：界面标识变量 - 用于标明当前正在展示属性值的属性类型 (panel 接管, inspector 隐藏) */
+    @property({ type: EnumPropName, visible: false })
     private _currentDisplayProp: EnumPropName = EnumPropName.Non;
 
-    @property
+    @property({ visible: false })
     private _isDeleteCurr: boolean = false;
 
     // #endregion
 
-    /** 工具按钮 - inspector 中显示为可折叠分组 */
+    /** 工具按钮 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
     @property({
         type: StateToolsProps,
+        visible: false,
         displayName: "工具",
         tooltip: "工具按钮（刷新、同步、删除等）",
         editorOnly: true,
@@ -136,8 +138,8 @@ export class StateSelect extends cc.Component {
     // 注: getter @property 不要加 editorOnly / serializable: false,
     // 因为 cc 引擎里 getter 本身就不会参与序列化, 加了 cc 会报多余警告。
     @property({
-        tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值",
-        visible: true,
+        tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值 (panel 接管, inspector 隐藏)",
+        visible: false,
         displayName: "🔸 当前属性值",
     })
     public get propValue() {
@@ -164,9 +166,10 @@ export class StateSelect extends cc.Component {
         this.updateState(this.getCurrCtrl());
     }
 
-    /** 节点基础属性 - inspector 中显示为可折叠分组 */
+    /** 节点基础属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
     @property({
         type: StateNodeProps,
+        visible: false,
         displayName: "节点属性",
         tooltip: "节点基础属性（Active, Position, Scale, Color, Size, Euler, Anchor, Opacity）",
         editorOnly: true,
@@ -174,9 +177,10 @@ export class StateSelect extends cc.Component {
     })
     public nodeProps = new StateNodeProps();
 
-    /** 组件属性 - inspector 中显示为可折叠分组 */
+    /** 组件属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
     @property({
         type: StateComponentProps,
+        visible: false,
         displayName: "组件属性",
         tooltip: "组件相关属性（Label, Sprite, Button, Toggle 等）",
         editorOnly: true,
@@ -184,9 +188,10 @@ export class StateSelect extends cc.Component {
     })
     public componentProps = new StateComponentProps();
 
-    /** Widget属性 - inspector 中显示为可折叠分组 */
+    /** Widget属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
     @property({
         type: StateWidgetProps,
+        visible: false,
         displayName: "Widget属性",
         tooltip: "Widget 布局相关属性",
         editorOnly: true,
@@ -194,8 +199,8 @@ export class StateSelect extends cc.Component {
     })
     public widgetProps = new StateWidgetProps();
 
-    /** 状态数据 */
-    @property
+    /** 状态数据 (反序列化存储, panel 接管, inspector 隐藏) */
+    @property({ visible: false })
     private _ctrlData: TCtrl = {};
 
     /** 用于检测父节点变化 */
@@ -203,7 +208,7 @@ export class StateSelect extends cc.Component {
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
 
     // #region 控制器当前状态
-    @property({ type: EnumStateName, tooltip: "控制器当前状态" })
+    @property({ type: EnumStateName, visible: false, tooltip: "控制器当前状态 (panel 接管, inspector 隐藏)" })
     public get ctrlState() {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
@@ -230,7 +235,7 @@ export class StateSelect extends cc.Component {
     // #endregion
 
     // #region 控制器名称
-    @property({ type: EnumCtrlName, displayName: "Ctrl Name", tooltip: "选择的控制器" })
+    @property({ type: EnumCtrlName, visible: false, displayName: "Ctrl Name", tooltip: "选择的控制器 (panel 接管, inspector 隐藏)" })
     public get currCtrlId() {
         return this._currCtrlId;
     }
@@ -2018,6 +2023,11 @@ export class StateSelect extends cc.Component {
      *
      * Wave 1 panel 未实装期间, 这是用户在 inspector 中唯一能看到的 state 内容摘要。
      */
+    @property({
+        displayName: "当前状态属性",
+        tooltip: "当前 state 已勾选 prop 的人类可读列表 (readonly, panel 接管后会更丰富)",
+        readonly: true,
+    })
     public get currentStateProps(): string[] {
         const result: string[] = [];
         const ctrl = this.getCurrCtrl();
