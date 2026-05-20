@@ -10,9 +10,7 @@ export class StateComponentProps {
     @property({
         displayName: "文本内容 (LabelString)",
         tooltip: "Label 组件的文本内容",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelString);
-        },
+        visible: false,
     })
     public get propLabelString() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelString) : false;
@@ -25,9 +23,7 @@ export class StateComponentProps {
     @property({
         displayName: "文本字号 (LabelFontSize)",
         tooltip: "Label 组件的字体大小",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelFontSize);
-        },
+        visible: false,
     })
     public get propLabelFontSize() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelFontSize) : false;
@@ -40,9 +36,7 @@ export class StateComponentProps {
     @property({
         displayName: "文本行高 (LabelLineHeight)",
         tooltip: "Label 组件的行高",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelLineHeight);
-        },
+        visible: false,
     })
     public get propLabelLineHeight() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelLineHeight) : false;
@@ -55,9 +49,7 @@ export class StateComponentProps {
     @property({
         displayName: "文本字距 (LabelSpacingX)",
         tooltip: "Label 组件的字符间距",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelSpacingX);
-        },
+        visible: false,
     })
     public get propLabelSpacingX() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelSpacingX) : false;
@@ -70,9 +62,7 @@ export class StateComponentProps {
     @property({
         displayName: "文本换行 (LabelWrapEnable)",
         tooltip: "Label 组件的自动换行开关",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelWrapEnable);
-        },
+        visible: false,
     })
     public get propLabelWrapEnable() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelWrapEnable) : false;
@@ -85,9 +75,7 @@ export class StateComponentProps {
     @property({
         displayName: "图片 (SpriteFrame)",
         tooltip: "Sprite 组件的图片资源",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.SpriteFrame);
-        },
+        visible: false,
     })
     public get propSpriteFrame() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.SpriteFrame) : false;
@@ -100,9 +88,7 @@ export class StateComponentProps {
     @property({
         displayName: "填充范围 (SpriteFillRange)",
         tooltip: "Sprite 组件的填充范围",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.SpriteFillRange);
-        },
+        visible: false,
     })
     public get propSpriteFillRange() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.SpriteFillRange) : false;
@@ -115,9 +101,7 @@ export class StateComponentProps {
     @property({
         displayName: "字体 (Font)",
         tooltip: "Label 组件的字体资源",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.Font);
-        },
+        visible: false,
     })
     public get propFont() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.Font) : false;
@@ -130,9 +114,7 @@ export class StateComponentProps {
     @property({
         displayName: "描边颜色 (LabelOutlineColor)",
         tooltip: "Label 描边组件的颜色",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.LabelOutlineColor);
-        },
+        visible: false,
     })
     public get propLabelOutlineColor() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.LabelOutlineColor) : false;
@@ -145,9 +127,7 @@ export class StateComponentProps {
     @property({
         displayName: "滑动条进度 (SliderProgress)",
         tooltip: "Slider 组件的进度值",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.SliderProgress);
-        },
+        visible: false,
     })
     public get propSliderProgress() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.SliderProgress) : false;
@@ -160,9 +140,7 @@ export class StateComponentProps {
     @property({
         displayName: "输入框文本 (EditboxString)",
         tooltip: "EditBox 组件的文本内容",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.EditboxString);
-        },
+        visible: false,
     })
     public get propEditboxString() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.EditboxString) : false;
@@ -175,9 +153,7 @@ export class StateComponentProps {
     @property({
         displayName: "灰度效果 (GrayScale)",
         tooltip: "节点的灰度显示效果",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.GrayScale);
-        },
+        visible: false,
     })
     public get propGrayScale() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.GrayScale) : false;
@@ -190,9 +166,7 @@ export class StateComponentProps {
     @property({
         displayName: "按钮交互 (ButtonInteractable)",
         tooltip: "Button 组件的交互开关",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.ButtonInteractable);
-        },
+        visible: false,
     })
     public get propButtonInteractable() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.ButtonInteractable) : false;
@@ -205,9 +179,7 @@ export class StateComponentProps {
     @property({
         displayName: "进度条进度 (ProgressBarProgress)",
         tooltip: "ProgressBar 组件的进度值",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.ProgressBarProgress);
-        },
+        visible: false,
     })
     public get propProgressBarProgress() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.ProgressBarProgress) : false;
@@ -220,9 +192,7 @@ export class StateComponentProps {
     @property({
         displayName: "Toggle选中 (ToggleIsChecked)",
         tooltip: "Toggle 组件的选中状态",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.ToggleIsChecked);
-        },
+        visible: false,
     })
     public get propToggleIsChecked() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.ToggleIsChecked) : false;
@@ -235,9 +205,7 @@ export class StateComponentProps {
     @property({
         displayName: "富文本内容 (RichTextString)",
         tooltip: "RichText 组件的文本内容",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.RichTextString);
-        },
+        visible: false,
     })
     public get propRichTextString() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.RichTextString) : false;
@@ -250,9 +218,7 @@ export class StateComponentProps {
     @property({
         displayName: "滚动视图 (ScrollViewEnabled)",
         tooltip: "ScrollView 组件的启用状态",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.ScrollViewEnabled);
-        },
+        visible: false,
     })
     public get propScrollViewEnabled() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.ScrollViewEnabled) : false;
@@ -265,9 +231,7 @@ export class StateComponentProps {
     @property({
         displayName: "遮罩启用 (MaskEnabled)",
         tooltip: "Mask 组件的启用状态",
-        visible: function (this: StateComponentProps) {
-            return this.owner && this.owner.isPropertyAvailable(EnumPropName.MaskEnabled);
-        },
+        visible: false,
     })
     public get propMaskEnabled() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.MaskEnabled) : false;
