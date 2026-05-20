@@ -1156,7 +1156,8 @@ export class StateSelect extends cc.Component {
     }
 
     // ==============更具控制器更新的状态 主要代码================
-    private _isFromCtrl: boolean = false;
+    // Wave 2 T11: _isFromCtrl 标记位删除 (原本用于 setDefaultProp 期间抑制循环写;
+    // setDefaultProp 已随 cc 事件 hook 一起退役, 标记位不再有意义)。
     /** 更新状态 */
     public updateState(ctrl: StateController) {
         if (!ctrl) {
@@ -1173,12 +1174,9 @@ export class StateSelect extends cc.Component {
             params: {
                 ctrlId: ctrl.ctrlId,
                 selectedIndex: ctrl.selectedIndex,
-                isFromCtrl: this._isFromCtrl,
                 currentPropKey: EnumPropName[this.propKey],
             },
         });
-
-        this._isFromCtrl = true;
 
         // 🔧 第一步：保存当前属性选择状态
         const currentPropKey = this.propKey;
@@ -1245,8 +1243,6 @@ export class StateSelect extends cc.Component {
             });
         }
 
-        this._isFromCtrl = false;
-
         StateErrorManager.info("状态更新完成", {
             component: "StateSelect",
             method: "updateState",
@@ -1256,6 +1252,35 @@ export class StateSelect extends cc.Component {
                 appliedUpdates: updateBatch.length,
             },
         });
+    }
+
+    /**
+     * 显式提交当前节点上某 prop 的值到当前 state 的 ctrlData (Wave 2 替代 setDefaultProp).
+     *
+     * 用途: 测试 / 工具 / panel 手动调用 "把节点当前 prop 值持久化到 state".
+     * 与录制路径关系: 录制路径走 snapshot+diff, 这里是直接 commit, 不依赖 snapshot。
+     * 仅当 prop 被 $$controlledProps$$ 标记为受控时才写入, 与原 setDefaultProp 行为一致。
+     */
+    public commitPropFromNode(type: EnumPropName): void {
+        if (!CC_EDITOR) return;
+        if (type === EnumPropName.Non) return;
+        const propData = this.getPropData();
+        // 仅 controlled props 接受 commit (与原 setDefaultProp 的 propData[type]==void 0 提前 return 等价)
+        if (propData[type] === undefined) return;
+        const value = PropHandlerManager.getValue(type, this.node);
+        if (value === undefined) return;
+        (propData as TPropDictionary)[type] = value;
+        if (type === this.propKey) {
+            this._propValue = value;
+        }
+    }
+
+    /**
+     * @deprecated Wave 2 重构: setDefaultProp 已迁移到 commitPropFromNode.
+     * 兼容性 shim, 现有测试仍可调用; 等价于 commitPropFromNode(type)。
+     */
+    public setDefaultProp(type: EnumPropName): void {
+        this.commitPropFromNode(type);
     }
 
     // ================== Wave 2: 录制 prefab diff 路径 ==================
@@ -1516,303 +1541,6 @@ export class StateSelect extends cc.Component {
         );
     }
 
-    /** 编辑器改变、改变对于状态属性（最开始是说改变默认属性） */
-    private setDefaultProp(type: EnumPropName) {
-        if (!CC_EDITOR) {
-            return;
-        }
-        if (this._isFromCtrl) {
-            return;// 不是编辑器改变
-        }
-
-        StateErrorManager.debug("检测到编辑器属性变化", {
-            component: "StateSelect",
-            method: "setDefaultProp",
-            params: { propType: EnumPropName[type] },
-        });
-
-        let propData = this.getPropData();
-
-        // 🔧 新增：先尝试自动添加属性到changed_prop（如果未被控制）
-        if (propData[type] == void 0) {
-            // 属性未被控制，尝试自动添加
-            // this.autoAddPropToChangedProp(type);
-
-            // 重新获取propData，因为autoAddPropToChangedProp可能已经添加了属性
-            propData = this.getPropData();
-
-            // 如果仍然未被控制，则跳过更新
-            if (propData[type] == void 0) {
-                StateErrorManager.debug("属性未被控制且无法自动添加，跳过更新", {
-                    component: "StateSelect",
-                    method: "setDefaultProp",
-                    params: { propType: EnumPropName[type] },
-                });
-                return;
-            }
-        }
-
-        // else {
-        //     // 🔧 属性已被控制，仅设置PropKey
-        //     this.autoAddPropToChangedProp(type);
-        // }
-        switch (type) {
-            case EnumPropName.Non: {
-                return;
-            }
-            case EnumPropName.Active: {
-                propData[EnumPropName.Active] = this.node.active;
-            } break;
-            case EnumPropName.Position: {
-                (propData[EnumPropName.Position] as cc.Vec3).set(this.node.position);
-            } break;
-            case EnumPropName.LabelString: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.LabelString] = label.string;
-            } break;
-            case EnumPropName.LabelFontSize: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.LabelFontSize] = label.fontSize;
-            } break;
-            case EnumPropName.LabelLineHeight: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.LabelLineHeight] = label.lineHeight;
-            } break;
-            case EnumPropName.LabelSpacingX: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.LabelSpacingX] = label.spacingX;
-            } break;
-            case EnumPropName.LabelWrapEnable: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.LabelWrapEnable] = label.enableWrapText;
-            } break;
-            case EnumPropName.Font: {
-                const label = this.node.getComponent(cc.Label);
-                if (!label) {
-                    return;
-                }
-                propData[EnumPropName.Font] = label.font;
-            } break;
-            case EnumPropName.LabelOutlineColor: {
-                const labelOutline = this.node.getComponent(cc.LabelOutline);
-                if (!labelOutline) {
-                    return;
-                }
-                (propData[EnumPropName.LabelOutlineColor] as cc.Color).set(labelOutline.color);
-            } break;
-            case EnumPropName.SpriteFrame: {
-                const sprite = this.node.getComponent(cc.Sprite);
-                if (!sprite) {
-                    return;
-                }
-                propData[EnumPropName.SpriteFrame] = sprite.spriteFrame;
-            } break;
-            case EnumPropName.SpriteFillRange: {
-                const sprite = this.node.getComponent(cc.Sprite);
-                if (!sprite) {
-                    return;
-                }
-                propData[EnumPropName.SpriteFillRange] = sprite.fillRange;
-            } break;
-            case EnumPropName.WidgetEnabled: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetEnabled] = widget.enabled;
-            } break;
-            case EnumPropName.WidgetAlignMode: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetAlignMode] = widget.alignMode;
-            } break;
-            case EnumPropName.WidgetIsAlignTop: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignTop] = widget.isAlignTop;
-            } break;
-            case EnumPropName.WidgetIsAlignBottom: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignBottom] = widget.isAlignBottom;
-            } break;
-            case EnumPropName.WidgetIsAlignLeft: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignLeft] = widget.isAlignLeft;
-            } break;
-            case EnumPropName.WidgetIsAlignRight: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignRight] = widget.isAlignRight;
-            } break;
-            case EnumPropName.WidgetIsAlignHorizontalCenter: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignHorizontalCenter] = widget.isAlignHorizontalCenter;
-            } break;
-            case EnumPropName.WidgetIsAlignVerticalCenter: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetIsAlignVerticalCenter] = widget.isAlignVerticalCenter;
-            } break;
-            case EnumPropName.WidgetTop: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetTop] = widget.top;
-            } break;
-            case EnumPropName.WidgetBottom: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetBottom] = widget.bottom;
-            } break;
-            case EnumPropName.WidgetLeft: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetLeft] = widget.left;
-            } break;
-            case EnumPropName.WidgetRight: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetRight] = widget.right;
-            } break;
-            case EnumPropName.WidgetHorizontalCenter: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetHorizontalCenter] = widget.horizontalCenter;
-            } break;
-            case EnumPropName.WidgetVerticalCenter: {
-                const widget = this.node.getComponent(cc.Widget);
-                if (!widget) {
-                    return;
-                }
-                propData[EnumPropName.WidgetVerticalCenter] = widget.verticalCenter;
-            } break;
-            case EnumPropName.EditboxString: {
-                const editbox = this.node.getComponent(cc.EditBox);
-                if (!editbox) {
-                    return;
-                }
-                propData[EnumPropName.EditboxString] = editbox.string;
-            } break;
-            case EnumPropName.RichTextString: {
-                const richText = this.node.getComponent(cc.RichText);
-                if (!richText) {
-                    return;
-                }
-                propData[EnumPropName.RichTextString] = richText.string;
-            } break;
-            case EnumPropName.Euler: {
-                (propData[EnumPropName.Euler] as cc.Vec3).set(this.node.eulerAngles);
-            } break;
-            case EnumPropName.Scale: {
-                propData[EnumPropName.Scale] = this.node.scale;
-            } break;
-            case EnumPropName.Anchor: {
-                propData[EnumPropName.Anchor] = cc.v2(this.node.anchorX, this.node.anchorY);
-            } break;
-            case EnumPropName.Size: {
-                propData[EnumPropName.Size] = this.node.getContentSize();
-            } break;
-            case EnumPropName.Color: {
-                propData[EnumPropName.Color] = this.node.color;
-            } break;
-            case EnumPropName.Opacity: {
-                propData[EnumPropName.Opacity] = this.node.opacity;
-            } break;
-            case EnumPropName.SliderProgress: {
-                const slider = this.node.getComponent(cc.Slider);
-                if (!slider) {
-                    return;
-                }
-                propData[EnumPropName.SliderProgress] = slider.progress;
-            } break;
-            case EnumPropName.ProgressBarProgress: {
-                const progressBar = this.node.getComponent(cc.ProgressBar);
-                if (!progressBar) {
-                    return;
-                }
-                propData[EnumPropName.ProgressBarProgress] = progressBar.progress;
-            } break;
-            case EnumPropName.GrayScale: {
-                StateErrorManager.error("GrayScale属性在Cocos Creator 2.x中需要通过材质实现", {
-                    component: "StateSelect",
-                    method: "setDefaultProp",
-                });
-            } break;
-            case EnumPropName.ButtonInteractable: {
-                const button = this.node.getComponent(cc.Button);
-                if (!button) {
-                    return;
-                }
-                propData[EnumPropName.ButtonInteractable] = button.interactable;
-            } break;
-            case EnumPropName.ToggleIsChecked: {
-                const toggle = this.node.getComponent(cc.Toggle);
-                if (!toggle) {
-                    return;
-                }
-                propData[EnumPropName.ToggleIsChecked] = toggle.isChecked;
-            } break;
-            case EnumPropName.ScrollViewEnabled: {
-                const scrollView = this.node.getComponent(cc.ScrollView);
-                if (!scrollView) {
-                    return;
-                }
-                propData[EnumPropName.ScrollViewEnabled] = scrollView.enabled;
-            } break;
-            case EnumPropName.MaskEnabled: {
-                const mask = this.node.getComponent(cc.Mask);
-                if (!mask) {
-                    return;
-                }
-                propData[EnumPropName.MaskEnabled] = mask.enabled;
-            } break;
-        }
-
-        if (type == this.propKey) {
-            this._propValue = propData[this.propKey];
-        }
-    }
 
     /** 父节点改变，转换已经缓存的位置 */
     private transPosition(oldParent: cc.Node) {
