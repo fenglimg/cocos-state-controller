@@ -92,16 +92,17 @@ describe("StateSelect inspector 极简形态", () => {
     });
 
     describe("[T21] 录制 / Panel 按钮 stub", () => {
-        it("recordTrigger setter 不抛错, 触发 cc.warn", () => {
-            const { select } = setup();
-            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
-            try {
-                expect(() => { (select as any).recordTrigger = true; }).not.toThrow();
-                expect(warnSpy).toHaveBeenCalled();
-            }
-            finally {
-                warnSpy.mockRestore();
-            }
+        // Wave 2 T15: recordTrigger 已从 cc.warn stub 升级为镜像 ctrl._recording.
+        // 此处保留 stub 时代的 "不抛" 形状检查, 行为校验交给 Recording.* test。
+        it("recordTrigger setter 不抛错 (Wave 2 改为镜像 ctrl._recording, 不再 cc.warn)", () => {
+            const { select, ctrl } = setup();
+            expect(() => { (select as any).recordTrigger = true; }).not.toThrow();
+            // Wave 2: setter 通过 ctrl.startRecording 进入录制态, getter 反映 ctrl.isRecording
+            expect((select as any).recordTrigger).toBe(true);
+            expect(ctrl.isRecording).toBe(true);
+            // 再 toggle 退出
+            expect(() => { (select as any).recordTrigger = false; }).not.toThrow();
+            expect((select as any).recordTrigger).toBe(false);
         });
 
         it("openPanelTrigger setter 不抛错, 触发 cc.warn", () => {

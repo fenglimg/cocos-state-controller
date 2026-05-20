@@ -1861,19 +1861,33 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 录制按钮 stub (Wave 2/3 实装真正录制; 当前 cc.warn 占位)。
+     * 录制按钮 (Wave 2 实装): 镜像 currCtrl.isRecording, 点击 toggle ctrl.startRecording / stopRecording.
+     * 让用户在 StateSelect inspector 上也能起停录制, 与 StateController inspector 共享同一录制态。
      */
     @property({
         displayName: "🔴 录制状态 (select)",
-        tooltip: "录制当前节点 prop 到当前 state (Wave 2/3 panel 接管, 当前为占位)",
+        tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
     })
     public get recordTrigger() {
-        return false;
+        const ctrl = this.getCurrCtrl();
+        return !!(ctrl && ctrl.isRecording);
     }
 
-    public set recordTrigger(value: boolean) {
-        if (value && CC_EDITOR) {
-            cc.warn("[StateSelect] 录制功能尚未实现, 等待 Wave 2/3 panel 接入。");
+    public set recordTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        const ctrl = this.getCurrCtrl();
+        if (!ctrl) {
+            StateErrorManager.warn("recordTrigger: 未找到当前控制器", {
+                component: "StateSelect",
+                method: "recordTrigger.setter",
+            });
+            return;
+        }
+        if (ctrl.isRecording) {
+            ctrl.stopRecording();
+        }
+        else {
+            ctrl.startRecording();
         }
     }
 
