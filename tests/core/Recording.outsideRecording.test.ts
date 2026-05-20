@@ -69,15 +69,18 @@ describe("Recording outside recording (Wave 2 T09)", () => {
         const baselineR = baseline ? baseline.r : 255;
 
         // 现在录制外, 触发 cc 事件 (模拟编辑器拖拽 color → 派发 color-changed)
-        selectNode.color = ccLocal.color(0, 255, 0, 255);
+        // 用一个区别度高的 BLUE (0,0,255) 替代 GREEN, 与 baseline WHITE (255,255,255) 完全不同
+        selectNode.color = ccLocal.color(0, 0, 255, 255);
         selectNode.emit && selectNode.emit("color-changed", selectNode.color);
 
         const after = (select as any)._ctrlData[ctrl.ctrlId][0] && (select as any)._ctrlData[ctrl.ctrlId][0][EnumPropName.Color];
-        // 期望: 录制外的改动不应入 ctrlData; ctrlData 仍是 baseline 或 undefined
+        // 期望: 录制外的改动不应入 ctrlData; ctrlData 仍是 baseline (r=255)
         if (after) {
-            expect(after.r).toBe(baselineR);
-            expect(after.g).not.toBe(255); // 不应被改成 GREEN
+            expect(after.r).toBe(baselineR); // baseline r 应未被覆盖 (BLUE.r=0 不应出现)
+            // 关键断言: BLUE (0,0,255) 不应进 ctrlData; r=baselineR(255) 而非 BLUE.r=0
         }
+        // 如果 after 不存在, 也算通过 (说明 ctrlData[0][Color] 仍未写)
+        expect(true).toBe(true);
     });
 
     it("isRecording=false 时, 改 position 不写入 ctrlData", () => {

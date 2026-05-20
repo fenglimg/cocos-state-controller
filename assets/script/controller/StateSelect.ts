@@ -467,14 +467,9 @@ export class StateSelect extends cc.Component {
             this.checkParentChanged();
         }, 1000);
 
-        this.node.on("active-in-hierarchy-changed", this.activeChanged, this);
-        this.node.on("position-changed", this.positionChanged, this);
-        this.node.on("rotation-changed", this.rotationChanged, this);
-        this.node.on("scale-changed", this.scaleChanged, this);
-        this.node.on("size-changed", this.sizeChanged, this);
-        this.node.on("anchor-changed", this.anchorChanged, this);
-        this.node.on("color-changed", this.colorChanged, this);
-        this.node.on("spriteframe-changed", this.spriteFrameChanged, this);
+        // Wave 2 T10: 删除 8 个 cc 事件 hook (position/color/scale/size/anchor/active/rotation/spriteframe).
+        // 录制现在走 prefab diff 路径 (StateController.startRecording → snapshot → 切 state/stop 时 diff commit),
+        // 不再依赖运行时 cc 事件; 顺手修复"无 cc 事件的 prop (button.interactable/label.string/widget.top) 无法录制"长期 bug。
     }
 
     protected onDestroy() {
@@ -487,16 +482,7 @@ export class StateSelect extends cc.Component {
         // IMPL-001.6: 销毁时通知控制器缓存失效
         this.notifyControllerCacheDirty();
 
-        if (this.node && this.node.isValid) {
-            this.node.off("active-in-hierarchy-changed", this.activeChanged, this);
-            this.node.off("position-changed", this.positionChanged, this);
-            this.node.off("rotation-changed", this.rotationChanged, this);
-            this.node.off("scale-changed", this.scaleChanged, this);
-            this.node.off("size-changed", this.sizeChanged, this);
-            this.node.off("anchor-changed", this.anchorChanged, this);
-            this.node.off("color-changed", this.colorChanged, this);
-            this.node.off("spriteframe-changed", this.spriteFrameChanged, this);
-        }
+        // Wave 2 T10: 8 个 cc 事件 hook 已删, 这里不再需要 off。
     }
 
     // #endregion 2.
@@ -532,46 +518,6 @@ export class StateSelect extends cc.Component {
     /** 父节点改变 */
     private parentChanged(oldParent: cc.Node) {
         this.transPosition(oldParent);
-    }
-
-    /** 节点active改变 */
-    private activeChanged(_node: cc.Node) {
-        this.setDefaultProp(EnumPropName.Active);
-    }
-
-    /** 节点位置改变 */
-    private positionChanged() {
-        this.setDefaultProp(EnumPropName.Position);
-    }
-
-    /** 节点旋转改变 */
-    private rotationChanged() {
-        this.setDefaultProp(EnumPropName.Euler);
-    }
-
-    /** 节点缩放改变 */
-    private scaleChanged() {
-        this.setDefaultProp(EnumPropName.Scale);
-    }
-
-    /** 节点大小改变 */
-    private sizeChanged(_size: cc.Size) {
-        this.setDefaultProp(EnumPropName.Size);
-    }
-
-    /** 锚点改变 */
-    private anchorChanged(_anchor: cc.Vec2) {
-        this.setDefaultProp(EnumPropName.Anchor);
-    }
-
-    /** 颜色改变 */
-    private colorChanged(_color: cc.Color) {
-        this.setDefaultProp(EnumPropName.Color);
-    }
-
-    /** 图片改变 */
-    private spriteFrameChanged(_sprite: cc.Sprite) {
-        this.setDefaultProp(EnumPropName.SpriteFrame);
     }
 
     /** 检查父节点是否变化 */
