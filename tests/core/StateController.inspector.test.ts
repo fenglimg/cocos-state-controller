@@ -77,4 +77,34 @@ describe("StateController inspector 极简形态", () => {
             expect(typeof ctrl.currentStateLabel).toBe("string");
         });
     });
+
+    describe("[T16] 录制 / Panel 按钮 stub", () => {
+        it("recordTrigger setter 调用不抛错, 触发 cc.warn (\"尚未实现\")", () => {
+            const { ctrl } = setup();
+            // 期望存在 recordTrigger 布尔字段 (button stub 形态: set true 触发动作)
+            // 与 manualRefreshTrigger 同形态
+            expect("recordTrigger" in (ctrl as any).__proto__ || "recordTrigger" in ctrl).toBe(true);
+            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            try {
+                expect(() => { (ctrl as any).recordTrigger = true; }).not.toThrow();
+                expect(warnSpy).toHaveBeenCalled();
+            }
+            finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it("openPanelTrigger setter 调用不抛错, 触发 cc.warn (\"尚未实现\")", () => {
+            const { ctrl } = setup();
+            expect("openPanelTrigger" in (ctrl as any).__proto__ || "openPanelTrigger" in ctrl).toBe(true);
+            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            try {
+                expect(() => { (ctrl as any).openPanelTrigger = true; }).not.toThrow();
+                expect(warnSpy).toHaveBeenCalled();
+            }
+            finally {
+                warnSpy.mockRestore();
+            }
+        });
+    });
 });
