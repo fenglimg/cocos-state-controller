@@ -499,6 +499,8 @@ export class StateController extends cc.Component {
 
         this._selectedIndex = insertIndex;
         this.states = newStates;
+        // 先派发 Copy 让各 StateSelect 深拷贝 pageData, 再发 State 让所有 select apply 当前 state
+        this.updateState(EnumUpdateType.Copy, { fromIndex: index, toIndex: insertIndex });
         this.updateState(EnumUpdateType.State);
 
         StateErrorManager.info("已复制当前状态", {
@@ -911,6 +913,11 @@ export class StateController extends cc.Component {
                 // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
                 // @ts-expect-error 允许使用该方法
                 stateSelect.updateStateMove(this, value);
+            }
+            else if (type == EnumUpdateType.Copy) {
+                // 🔧 状态复制：通知 StateSelect 深拷贝 pageData[fromIndex] → pageData[toIndex]
+                // @ts-expect-error 允许使用该方法
+                stateSelect.updateStateCopy(this, value);
             }
         }
     }
