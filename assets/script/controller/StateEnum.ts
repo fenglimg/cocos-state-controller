@@ -25,6 +25,8 @@ export enum EnumUpdateType {
     Prop = 5,
     /** 状态顺序变更 */
     Move = 6,
+    /** 状态复制 (copySelectedState 触发, 通知 StateSelect 深拷贝 pageData) */
+    Copy = 7,
 }
 /**
  * 控制器名字枚举 (空骨架, 不要往里加值)。
