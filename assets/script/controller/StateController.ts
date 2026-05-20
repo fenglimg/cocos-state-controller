@@ -1,4 +1,5 @@
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
+import { CapabilityRegistry } from "./CapabilityRegistry";
 import { EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
@@ -191,12 +192,16 @@ export class StateController extends cc.Component {
 
             // Wave 2: 切 state 前通知 (录制中需 commit diff 到 fromState)
             this.updateState(EnumUpdateType.StateWillChange, this._selectedIndex);
+            // Wave 2 T25: capability 层广播 state 切换
+            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value });
 
             this._previousIndex = this._selectedIndex;
             this._selectedIndex = value;
 
             // 🔧 通知所有相关组件状态已改变
             this.updateState(EnumUpdateType.State);
+            // Wave 2 T25: capability 层广播 state 已切
+            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value });
 
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {
@@ -1048,6 +1053,8 @@ export class StateController extends cc.Component {
             params: { ctrlName: this._ctrlName },
         });
         this.updateState(EnumUpdateType.RecordingStart);
+        // Wave 2 T25: capability 层广播 (let 其它 capability 如 timeline/undo 监听)
+        CapabilityRegistry.dispatch("onRecordingStart", { ctrl: this });
     }
 
     /**
@@ -1065,6 +1072,8 @@ export class StateController extends cc.Component {
             params: { ctrlName: this._ctrlName },
         });
         this.updateState(EnumUpdateType.RecordingStop);
+        // Wave 2 T25: capability 层广播
+        CapabilityRegistry.dispatch("onRecordingStop", { ctrl: this });
     }
 
     /**
