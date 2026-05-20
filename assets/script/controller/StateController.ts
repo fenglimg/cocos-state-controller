@@ -494,8 +494,8 @@ export class StateController extends cc.Component {
         const newState = StateValue.create(copyName, this.stateIdAuto++);
 
         const newStates = [...this._states];
-        const insertIndex = newStates.length;
-        newStates.push(newState);
+        const insertIndex = index + 1;
+        newStates.splice(insertIndex, 0, newState);
 
         this._selectedIndex = insertIndex;
         this.states = newStates;
