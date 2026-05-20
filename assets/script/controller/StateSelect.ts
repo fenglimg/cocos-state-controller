@@ -587,6 +587,19 @@ export class StateSelect extends cc.Component {
 
         // 如果新旧都有控制器且不同，执行数据承接
         if (oldCtrl && newCtrl && oldCtrl.ctrlId !== newCtrl.ctrlId) {
+            // Wave 2 T16: 跨 ctrl 移动前的兜底 commit
+            // 若 oldCtrl 正在录制, 先把当前 diff commit 到 oldCtrl 的当前 state, 再清 snapshot,
+            // 避免数据随 ctrl 切换丢失。
+            if (oldCtrl.isRecording && this._snapshot != null) {
+                StateErrorManager.info("跨 ctrl 移动前自动 commit 录制 diff", {
+                    component: "StateSelect",
+                    method: "handleControllerTransition",
+                    params: { fromCtrl: oldCtrl.ctrlName, state: oldCtrl.selectedIndex },
+                });
+                this.commitRecordingDiff(oldCtrl, oldCtrl.selectedIndex);
+                this._snapshot = null;
+            }
+
             // 1. 备份当前状态数据
             const oldCtrlData = this._ctrlData[oldCtrl.ctrlId];
 

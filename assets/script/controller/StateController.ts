@@ -652,7 +652,25 @@ export class StateController extends cc.Component {
             params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
         });
 
+        // Wave 2 T16: 兜底 commit - 场景切换时自动 stopRecording
+        // 即使用户没主动停录, 切场景前也会 commit 当前 state 的 diff, 避免数据丢失
+        if (cc.director && typeof cc.director.on === "function") {
+            cc.director.on(cc.Director.EVENT_BEFORE_SCENE_LAUNCH, this._onSceneBeforeLaunch, this);
+        }
+
         this.updateState(EnumUpdateType.Init);
+    }
+
+    /** Wave 2 T16: 场景切换前的兜底 commit hook. */
+    private _onSceneBeforeLaunch(): void {
+        if (this._recording) {
+            StateErrorManager.info("场景切换前自动停止录制", {
+                component: "StateController",
+                method: "_onSceneBeforeLaunch",
+                params: { ctrlName: this._ctrlName },
+            });
+            this.stopRecording();
+        }
     }
 
     protected onLoad() {
@@ -665,6 +683,17 @@ export class StateController extends cc.Component {
     protected onDestroy() {
         if (!CC_EDITOR) {
             return;
+        }
+        // Wave 2 T16: onDestroy 兜底 - 若仍在录制, stopRecording 触发 final commit
+        if (this._recording) {
+            StateErrorManager.info("控制器销毁前自动停止录制 (commit final diff)", {
+                component: "StateController",
+                method: "onDestroy",
+            });
+            this.stopRecording();
+        }
+        if (cc.director && typeof cc.director.off === "function") {
+            cc.director.off(cc.Director.EVENT_BEFORE_SCENE_LAUNCH, this._onSceneBeforeLaunch, this);
         }
         this.updateState(EnumUpdateType.Delete);
     }
