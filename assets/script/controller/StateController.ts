@@ -36,6 +36,13 @@ export class StateController extends cc.Component {
     @property({ visible: false })
     public ctrlId = Date.now();
 
+    /**
+     * runtime 启动时跳转的"主页"state 的 stateId (Wave 3, HomePageCapability 管理).
+     * -1 表示未设. 用 stateId 而非 index, 跨 reorder/delete 稳定.
+     */
+    @property({ visible: false })
+    public _homePageStateId: number = -1;
+
     /** 历史状态名字 */
     @property({ visible: false })
     private _historyStateName: { [key: number]: string } = {};
@@ -680,6 +687,8 @@ export class StateController extends cc.Component {
 
     protected onLoad() {
         if (!CC_EDITOR) {
+            // Wave 3: runtime 启动 capability hook (HomePage 等用此跳到指定 state)
+            CapabilityRegistry.dispatch("onRuntimeInit", { ctrl: this });
             return;
         }
         this.updateState(EnumUpdateType.State);

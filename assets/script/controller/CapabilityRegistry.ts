@@ -20,7 +20,8 @@ type CapEvent =
     | "onPropApply"
     | "onRecordingStart"
     | "onRecordingStop"
-    | "onCtrlDataMigrate";
+    | "onCtrlDataMigrate"
+    | "onRuntimeInit";
 
 /** namespace helper 注入. 给 propData 设置 / 读取 `$$<capName>$$` 子对象. */
 function namespaceHelper(propData: any, capName: string): { [key: string]: unknown } {

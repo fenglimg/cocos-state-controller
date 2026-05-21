@@ -61,6 +61,13 @@ export interface ICapability {
     onStateChanged?(ctx: CapabilityContext): void;
 
     /**
+     * Runtime 启动初始化钩子 (Wave 3).
+     * StateController.onLoad runtime path 调用. 用于 HomePageCapability 等
+     * 在 runtime 启动时自动跳到指定 state. 编辑期不触发.
+     */
+    onRuntimeInit?(ctx: CapabilityContext): void;
+
+    /**
      * Prop apply 钩子 (StateSelect.batchUpdateUI 内调用):
      * 返回 TPropValue 则改写要 apply 的值; 返回 void / undefined 不改写.
      */
