@@ -7,10 +7,15 @@ const { ccclass, property } = cc._decorator;
 export class StateWidgetProps {
     public owner: StateSelect = null;
 
+    /** 内部 helper: 节点是否挂了某个 cc.Component (visible 函数共用). */
+    private _hasComp(comp: any): boolean {
+        return !!(this.owner && this.owner.node && this.owner.node.getComponent(comp));
+    }
+
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "Widget启用 (WidgetEnabled)",
         tooltip: "Widget 组件的启用状态",
-        visible: false,
     })
     public get propWidgetEnabled() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetEnabled) : false;
@@ -21,9 +26,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "对齐模式 (WidgetAlignMode)",
         tooltip: "Widget 的对齐刷新模式",
-        visible: false,
     })
     public get propWidgetAlignMode() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetAlignMode) : false;
@@ -34,9 +39,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "顶部对齐 (IsAlignTop)",
         tooltip: "是否启用顶部对齐",
-        visible: false,
     })
     public get propWidgetIsAlignTop() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignTop) : false;
@@ -47,9 +52,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "顶部边距 (WidgetTop)",
         tooltip: "顶部对齐的边距值",
-        visible: false,
     })
     public get propWidgetTop() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetTop) : false;
@@ -60,9 +65,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "底部对齐 (IsAlignBottom)",
         tooltip: "是否启用底部对齐",
-        visible: false,
     })
     public get propWidgetIsAlignBottom() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignBottom) : false;
@@ -73,9 +78,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "底部边距 (WidgetBottom)",
         tooltip: "底部对齐的边距值",
-        visible: false,
     })
     public get propWidgetBottom() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetBottom) : false;
@@ -86,9 +91,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "左侧对齐 (IsAlignLeft)",
         tooltip: "是否启用左侧对齐",
-        visible: false,
     })
     public get propWidgetIsAlignLeft() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignLeft) : false;
@@ -99,9 +104,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "左侧边距 (WidgetLeft)",
         tooltip: "左侧对齐的边距值",
-        visible: false,
     })
     public get propWidgetLeft() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetLeft) : false;
@@ -112,9 +117,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "右侧对齐 (IsAlignRight)",
         tooltip: "是否启用右侧对齐",
-        visible: false,
     })
     public get propWidgetIsAlignRight() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignRight) : false;
@@ -125,9 +130,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "右侧边距 (WidgetRight)",
         tooltip: "右侧对齐的边距值",
-        visible: false,
     })
     public get propWidgetRight() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetRight) : false;
@@ -138,9 +143,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "水平居中 (IsAlignHCenter)",
         tooltip: "是否启用水平居中对齐",
-        visible: false,
     })
     public get propWidgetIsAlignHorizontalCenter() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignHorizontalCenter) : false;
@@ -151,9 +156,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "水平偏移 (HCenter)",
         tooltip: "水平居中的偏移值",
-        visible: false,
     })
     public get propWidgetHorizontalCenter() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetHorizontalCenter) : false;
@@ -164,9 +169,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "垂直居中 (IsAlignVCenter)",
         tooltip: "是否启用垂直居中对齐",
-        visible: false,
     })
     public get propWidgetIsAlignVCenter() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetIsAlignVerticalCenter) : false;
@@ -177,9 +182,9 @@ export class StateWidgetProps {
     }
 
     @property({
+        visible(this: StateWidgetProps) { return this._hasComp(cc.Widget); },
         displayName: "垂直偏移 (VCenter)",
         tooltip: "垂直居中的偏移值",
-        visible: false,
     })
     public get propWidgetVerticalCenter() {
         return this.owner ? this.owner.isPropertyControlled(EnumPropName.WidgetVerticalCenter) : false;

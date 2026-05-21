@@ -1,13 +1,14 @@
 /**
- * Props visibility 契约 (T09 of PLN-001 Wave 1)
+ * Props visibility 契约 — 无插件闭环路线重定向
  *
  * 4 个 props 类 (StateNodeProps / StateComponentProps / StateWidgetProps / StateToolsProps)
- * 的 @property getter/setter 应全部 visible:false (panel 时代不再让用户在 inspector 里勾 prop)。
+ * 的 @property getter/setter 应全部对 inspector 可见 (visible 属性 undefined 或 true), 让用户
+ * 不依赖 panel 即可在 inspector 直接勾 prop / 用工具按钮.
  *
- * 同时验证: 加了 visible:false 之后, getter/setter 仍正常工作 (代理到 owner.togglePropertyControl).
+ * 同时验证: 可见之后, getter/setter 仍正常代理到 owner.togglePropertyControl.
  *
- * Red 阶段: 现状 @property 未带 visible, 断言 `<key>$_$visible === false` 必失败。
- * Green 阶段 (T10-T13): 在装饰器参数中追加 visible:false, 测试转绿。
+ * 历史: panel 时代曾要求 visible:false (panel 独占), 2026-05-21 翻案为 "无插件闭环",
+ * inspector 重新成为 prop 勾选主入口, 这条契约同步翻转.
  */
 
 declare global {
@@ -67,17 +68,19 @@ describe("Props visibility 契约", () => {
     ];
 
     for (const { name, ctor } of classes) {
-        it(`[${name}] 所有 @property 应标 visible:false`, () => {
+        it(`[${name}] 所有 @property 不应被静态隐藏 (visible !== false)`, () => {
             const keys = listPropertyKeys(ctor);
             expect(keys.length).toBeGreaterThan(0);
             for (const key of keys) {
                 const v = getVisibleAttr(ctor, key);
-                expect({ propKey: key, visible: v }).toEqual({ propKey: key, visible: false });
+                // 合法值: undefined (默认可见) / true (固定可见) / function (动态可见, 用于
+                // applicable 过滤). 不允许显式 false (那是 panel 时代的整体隐藏).
+                expect({ propKey: key, visible: v }).not.toEqual({ propKey: key, visible: false });
             }
         });
     }
 
-    it("StateNodeProps: visible:false 后, getter/setter 仍正确代理 owner.togglePropertyControl", () => {
+    it("StateNodeProps: 可见之后, getter/setter 仍正确代理 owner.togglePropertyControl", () => {
         const ccL = (globalThis as any).cc;
         const root = new ccL.Node("PVR_Root");
         const ctrlNode = new ccL.Node("PVR_CtrlNode");
