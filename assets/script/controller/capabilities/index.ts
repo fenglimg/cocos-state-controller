@@ -10,6 +10,7 @@
  */
 
 import "./AutoSyncCapability";
+import "./CodeGenCapability";
 import "./EventCapability";
 import "./HomePageCapability";
 import "./MigrationCapability";
