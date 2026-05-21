@@ -1,5 +1,5 @@
 /**
- * state-controller-panel — Pure IPC handler 层 (Wave 3 Panel scaffold).
+ * state-controller-panel — Pure IPC handler 层.
  *
  * 所有面板操作的纯函数实现, 不依赖 Cocos Editor 全局.
  * 接收 ctrl 实例 (+ 必要时 select 实例) 与参数, 返回结果.
@@ -9,26 +9,62 @@
  *   - 包 event.reply 回包
  *   - 把 installBroadcastBridge 的 send 接到 Editor.Ipc.sendToPanel
  *
- * 设计原则 (与 brief v0.2 §1 一致):
- *   - core 永远薄: 全部走 capability 接口
- *   - panel 不 import StateController, 仅经 capability + 这层 handler
+ * 设计原则:
+ *   - 所有读写都走 ctrl/select 实例的 field/setter, 不依赖 plugin 侧 require 项目源
+ *   - capability 本体在 game runtime 里通过 ctrl 加载时自注册 + selectedIndex.setter
+ *     自动联动 (录制 / 事件 / tween 等), plugin 侧不重复维护一份
+ *   - 唯一例外: installBroadcastBridge 要监听 game runtime 内 state 切换, 需要
+ *     EventCapability 单例. 它仅在 jest (node CommonJS) 路径下可达; cocos 编辑器
+ *     scene-script 上下文里 require 项目源会抛, 此时降级到 noop bridge —— panel
+ *     操作触发的刷新走 scene-accessor.js 主动 broadcast 路径, 用户在编辑器外手改
+ *     ctrl 时需手动重选 ctrl. (具体见 feedback memory: editor-e2e-required)
  *   - 错误兜底: ctrl 为 null/undefined 不抛, 返回安全值
  */
 
 'use strict';
 
-// L0 capability 自注册. 引用一次即可触发 register.
-require('../../../assets/script/controller/capabilities');
-
-const { CapabilityRegistry } = require('../../../assets/script/controller/CapabilityRegistry');
-const { EnumPropName } = require('../../../assets/script/controller/StateEnum');
-
-function cap(name) {
-    return CapabilityRegistry.get(name);
+// 项目源 require — 仅 jest 路径用得到, cocos 编辑器侧 try 失败也无害.
+let _CapabilityRegistry = null;
+try {
+    require('../../../assets/script/controller/capabilities/index');
+    _CapabilityRegistry = require('../../../assets/script/controller/CapabilityRegistry').CapabilityRegistry;
+} catch (_) {
+    // cocos editor scene-script 上下文 — 项目 ts 源不可达, installBroadcastBridge 降级
 }
 
 function safeCtrlId(ctrl) {
     return (ctrl && typeof ctrl.ctrlId === 'number') ? ctrl.ctrlId : -1;
+}
+
+function findIndexByStateId(ctrl, stateId) {
+    const states = ctrl && ctrl._states;
+    if (!states) return -1;
+    for (let i = 0; i < states.length; i++) {
+        const s = states[i];
+        if (s && s.stateId === stateId) return i;
+    }
+    return -1;
+}
+
+function findStateByName(ctrl, name) {
+    const states = ctrl && ctrl._states;
+    if (!states) return null;
+    for (let i = 0; i < states.length; i++) {
+        const s = states[i];
+        if (s && s.name === name) return { index: i, stateId: s.stateId };
+    }
+    return null;
+}
+
+function listAllStates(ctrl) {
+    const out = [];
+    if (!ctrl || !ctrl._states) return out;
+    for (let i = 0; i < ctrl._states.length; i++) {
+        const s = ctrl._states[i];
+        if (!s) continue;
+        out.push({ index: i, stateId: s.stateId, name: s.name });
+    }
+    return out;
 }
 
 /**
@@ -36,16 +72,15 @@ function safeCtrlId(ctrl) {
  */
 function getCtrlSnapshot(ctrl) {
     if (!ctrl) return null;
-    const selPageId = cap('selectedPageId');
-    const homePage = cap('homePage');
-    const states = selPageId ? selPageId.listAllStates(ctrl) : [];
-
+    const states = listAllStates(ctrl);
+    const idx = ctrl.selectedIndex;
+    const sel = states[idx];
     return {
         ctrlId: ctrl.ctrlId,
         ctrlName: ctrl.ctrlName || '',
-        selectedIndex: ctrl.selectedIndex,
-        selectedStateId: selPageId ? selPageId.getSelectedStateId(ctrl) : -1,
-        homePageStateId: homePage ? homePage.getHomePage(ctrl) : -1,
+        selectedIndex: idx,
+        selectedStateId: sel ? sel.stateId : -1,
+        homePageStateId: (typeof ctrl._homePageStateId === 'number') ? ctrl._homePageStateId : -1,
         isRecording: !!ctrl.isRecording,
         states: states,
     };
@@ -61,34 +96,29 @@ function setSelectedIndex(ctrl, index) {
 
 function setStateById(ctrl, stateId) {
     if (!ctrl) return false;
-    const c = cap('selectedPageId');
-    if (!c) return false;
-    return c.setStateById(ctrl, stateId);
+    const idx = findIndexByStateId(ctrl, stateId);
+    if (idx < 0) return false;
+    ctrl.selectedIndex = idx;
+    return true;
 }
 
 function setHomePage(ctrl, stateIdOrName) {
     if (!ctrl) return false;
-    const c = cap('homePage');
-    if (!c) return false;
-
     if (stateIdOrName === -1) {
-        c.setHomePage(ctrl, -1);
+        ctrl._homePageStateId = -1;
         return true;
     }
-
-    // 调用前快照, 若调用后值未变则视为失败 (stateId/Name 不存在)
-    const before = c.getHomePage(ctrl);
-    c.setHomePage(ctrl, stateIdOrName);
-    const after = c.getHomePage(ctrl);
-
+    let found = null;
     if (typeof stateIdOrName === 'number') {
-        return after === stateIdOrName;
+        const idx = findIndexByStateId(ctrl, stateIdOrName);
+        if (idx >= 0) found = { stateId: stateIdOrName };
     }
-    // name 路径: 看是否切到了对应 stateId
-    const selPageId = cap('selectedPageId');
-    if (!selPageId) return after !== before;
-    const expectedId = selPageId.getStateIdByName(ctrl, stateIdOrName);
-    return expectedId !== -1 && after === expectedId;
+    else if (typeof stateIdOrName === 'string') {
+        found = findStateByName(ctrl, stateIdOrName);
+    }
+    if (!found) return false;
+    ctrl._homePageStateId = found.stateId;
+    return true;
 }
 
 function setRecording(ctrl, isRecording) {
@@ -102,16 +132,20 @@ function setRecording(ctrl, isRecording) {
 /**
  * 新增 state. 走 StateController.states setter (复用 smart-name + stateId 分配逻辑).
  * 返回新 stateId, 失败返回 -1.
+ *
+ * 不 require StateController 源: 用现有 state 的 constructor 当工厂.
  */
 function addState(ctrl, name) {
     if (!ctrl || !ctrl._states) return -1;
-    // StateValue.create 通过 StateController 自己的 stateIdAuto 自增分配
-    // 简单做法: 用 setter 触发, name 通过 _historyStateName 路径名字会被识别为手工
-    // 更直接: 直接 splice + 让 setter 内部分配 stateId
-    const StateController = ctrl.constructor;
-    const Mod = require('../../../assets/script/controller/StateController');
-    const StateValue = Mod.StateValue;
-    const beforeIds = new Set(ctrl._states.map(function (s) { return s.stateId; }));
+    const protoState = ctrl._states[0];
+    if (!protoState || typeof protoState.constructor !== 'function') return -1;
+    const StateValue = protoState.constructor;
+    if (typeof StateValue.create !== 'function') return -1;
+
+    const beforeIds = Object.create(null);
+    for (let i = 0; i < ctrl._states.length; i++) {
+        beforeIds[ctrl._states[i].stateId] = true;
+    }
     const newState = StateValue.create(name || ('S' + ctrl._states.length), ctrl.stateIdAuto++);
     const newStates = ctrl._states.slice();
     newStates.push(newState);
@@ -119,8 +153,8 @@ function addState(ctrl, name) {
 
     // setter 内部可能改写 newState 引用; 用 id diff 找到新加入的 stateId
     let newId = -1;
-    for (var i = 0; i < ctrl._states.length; i++) {
-        if (!beforeIds.has(ctrl._states[i].stateId)) {
+    for (let i = 0; i < ctrl._states.length; i++) {
+        if (!beforeIds[ctrl._states[i].stateId]) {
             newId = ctrl._states[i].stateId;
             break;
         }
@@ -156,7 +190,11 @@ function addProperty(ctrl, select, propType) {
 }
 
 /**
- * 把 capability 事件流 + setRecording 转成 IPC broadcast.
+ * 把 ctrl 内部 state 切换 + setRecording 转成 IPC broadcast.
+ *
+ * jest 路径: 通过 EventCapability + ad-hoc capability 注册. 测试覆盖.
+ * cocos 编辑器路径: _CapabilityRegistry 为 null → noop. panel 触发的操作走
+ *   scene-accessor.js 主动 broadcast 'on-data-changed' 自刷新.
  *
  * @param ctrl - 目标 controller
  * @param send - (eventName, payload) => void, 上层接 Editor.Ipc.sendToPanel
@@ -164,7 +202,9 @@ function addProperty(ctrl, select, propType) {
  */
 function installBroadcastBridge(ctrl, send) {
     if (!ctrl || typeof send !== 'function') return function () {};
-    const event = cap('event');
+    if (!_CapabilityRegistry) return function () {};
+
+    const event = _CapabilityRegistry.get('event');
     if (!event) return function () {};
 
     const stateChangedCb = function (payload) {
@@ -178,8 +218,6 @@ function installBroadcastBridge(ctrl, send) {
     };
     event.on(ctrl, 'stateChanged', stateChangedCb);
 
-    // setRecording 走 capability "onRecordingStart/Stop" — 注册 ad-hoc capability 实现转发
-    // 用 Registry 注册一个临时 capability 实例 (面向单 ctrl 过滤)
     const recBridgeName = '_panelRecordingBridge_' + ctrl.ctrlId;
     const recBridge = {
         name: recBridgeName,
@@ -190,11 +228,11 @@ function installBroadcastBridge(ctrl, send) {
             if (ctx.ctrl === ctrl) send('onRecordingChanged', { ctrlId: safeCtrlId(ctrl), isRecording: false });
         },
     };
-    CapabilityRegistry.register(recBridge);
+    _CapabilityRegistry.register(recBridge);
 
     return function unsubscribe() {
         event.off(ctrl, 'stateChanged', stateChangedCb);
-        CapabilityRegistry.unregister(recBridgeName);
+        _CapabilityRegistry.unregister(recBridgeName);
     };
 }
 
@@ -208,6 +246,4 @@ module.exports = {
     removeState: removeState,
     addProperty: addProperty,
     installBroadcastBridge: installBroadcastBridge,
-    // 给 scene-accessor 包路由用
-    EnumPropName: EnumPropName,
 };

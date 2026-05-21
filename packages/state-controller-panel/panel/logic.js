@@ -28,11 +28,18 @@ module.exports = {
     ready() {
         this.currentCtrlUuid = null;
         this.currentSnapshot = null;
+        // 标记首次 (best-effort) 拉取: cocos 2.x panel ready 可能早于 scene-script 注册,
+        // 第一次失败不报红, 等 scene:reloaded / setTimeout 兜底 / 用户操作触发重试.
+        this._initialFetch = true;
 
         this._bindEvents();
 
-        // 初始拉取场景中的 Controller
-        this.refreshCtrlList();
+        // 兜底: scene 已 ready 的场景下不会再触发 scene:reloaded, 延迟拉一次 (够 scene-script 注册).
+        setTimeout(() => {
+            if (!this.currentSnapshot && !this.$ctrlList.children.length) {
+                this.refreshCtrlList();
+            }
+        }, 300);
     },
 
     close() {
@@ -106,9 +113,15 @@ module.exports = {
     refreshCtrlList() {
         this._callScene('list-ctrls', null, (err, list) => {
             if (err) {
-                Editor.error(err);
+                // 首次 ready 期间 scene-script 可能还没注册, silent 让 scene:reloaded 重试;
+                // 用户主动触发 (例如重选 ctrl) 时才报红.
+                if (!this._initialFetch) {
+                    Editor.error(err);
+                }
+                this._initialFetch = false;
                 return;
             }
+            this._initialFetch = false;
             this.$ctrlList.innerHTML = '';
             
             if (!list || list.length === 0) {
@@ -241,6 +254,11 @@ module.exports = {
 
     // IPC 接收，处理由 scene-accessor 广播过来的事件
     messages: {
+        // cocos 2.x scene 加载完会广播这条 — 此时 scene-script 已注册, 重新拉 ctrl 列表.
+        // 关键: 修复 panel ready 早于 scene-script 注册的时序问题.
+        'scene:reloaded'() {
+            this.refreshCtrlList();
+        },
         'state-controller-panel:on-state-changed'(event, payload) {
             if (this.currentSnapshot && payload && payload.ctrlId === this.currentSnapshot.ctrlId) {
                 this.refreshSnapshot();

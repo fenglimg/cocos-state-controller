@@ -28,7 +28,26 @@
  *     如不可达, 把 handlers 改成 inline 或通过 Editor.require 解析.
  */
 
-const handlers = require('./lib/handlers');
+// 加载阶段日志: 帮诊断 cocos 2.x scene-script 静默吞错. 若控制台看不到
+// "[state-controller-panel] scene-script loaded" 说明 require 链失败.
+try {
+    if (typeof Editor !== 'undefined' && Editor.log) {
+        Editor.log('[state-controller-panel] scene-accessor.js loading...');
+    }
+} catch (_) { /* noop */ }
+
+let handlers;
+try {
+    handlers = require('./lib/handlers');
+    if (typeof Editor !== 'undefined' && Editor.log) {
+        Editor.log('[state-controller-panel] scene-script loaded, handlers keys:', Object.keys(handlers).join(','));
+    }
+} catch (e) {
+    if (typeof Editor !== 'undefined' && Editor.error) {
+        Editor.error('[state-controller-panel] handlers.js load failed:', e && (e.stack || e.message || String(e)));
+    }
+    handlers = {};
+}
 
 /** 临时持有: 当前 panel 关注的 ctrl uuid → unsubscribe 函数 */
 const broadcastBridges = new Map();
