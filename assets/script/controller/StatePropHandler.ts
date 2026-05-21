@@ -66,6 +66,13 @@ export class PropHandlerManager {
         return this.handlers.get(propType);
     }
 
+    /** 列出所有已注册 prop type (供录制全 prop snapshot 等扫描场景). */
+    public static listRegisteredPropTypes(): EnumPropName[] {
+        const out: EnumPropName[] = [];
+        this.handlers.forEach((_, k) => out.push(k));
+        return out;
+    }
+
     public static getValue(propType: EnumPropName, node: cc.Node): TPropValue | undefined {
         if (!node) return undefined;
         const handler = this.getHandler(propType);

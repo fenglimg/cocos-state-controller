@@ -92,16 +92,65 @@ describe("StateController inspector 极简形态", () => {
             expect((ctrl as any).isRecording).toBe(false);
         });
 
-        it("openPanelTrigger setter 调用不抛错, 触发 cc.warn (\"尚未实现\")", () => {
+        it("openPanelTrigger setter 调 Editor.Panel.open('state-controller-panel')", () => {
             const { ctrl } = setup();
             expect("openPanelTrigger" in (ctrl as any).__proto__ || "openPanelTrigger" in ctrl).toBe(true);
-            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            const openMock = jest.fn();
+            const prev = (globalThis as any).Editor;
+            (globalThis as any).Editor = { Panel: { open: openMock } };
             try {
                 expect(() => { (ctrl as any).openPanelTrigger = true; }).not.toThrow();
-                expect(warnSpy).toHaveBeenCalled();
+                expect(openMock).toHaveBeenCalledWith("state-controller-panel");
             }
             finally {
-                warnSpy.mockRestore();
+                (globalThis as any).Editor = prev;
+            }
+        });
+    });
+
+    describe("homePageState 下拉 (无插件闭环)", () => {
+        it("默认值 -1 表示 (无), getter 返回 -1", () => {
+            const { ctrl } = setup();
+            expect(ctrl.homePageState).toBe(-1);
+            expect((ctrl as any)._homePageStateId).toBe(-1);
+        });
+
+        it("setter 写入存在的 stateId 后, _homePageStateId 同步; getter 回写一致", () => {
+            const { ctrl } = setup();
+            const targetId = ctrl._states[1].stateId;
+            ctrl.homePageState = targetId;
+            expect((ctrl as any)._homePageStateId).toBe(targetId);
+            expect(ctrl.homePageState).toBe(targetId);
+        });
+
+        it("setter 写入 -1 表示清空 homepage", () => {
+            const { ctrl } = setup();
+            const targetId = ctrl._states[0].stateId;
+            ctrl.homePageState = targetId;
+            expect((ctrl as any)._homePageStateId).toBe(targetId);
+            ctrl.homePageState = -1;
+            expect((ctrl as any)._homePageStateId).toBe(-1);
+        });
+
+        it("setter 写入不存在的 stateId 应被拒, 回退 -1 + 不抛", () => {
+            const { ctrl } = setup();
+            expect(() => { ctrl.homePageState = 9999; }).not.toThrow();
+            expect((ctrl as any)._homePageStateId).toBe(-1);
+        });
+
+        it("enumList 注入: __preload + states setter 后, homePageState 下拉项 = [(无),...states]", () => {
+            const { ctrl } = setup();
+            const ccL = (globalThis as any).cc;
+            // 注: cocos 的 setClassAttr(instance, ...) 写到 instance.__attrs__, 不是 class
+            const attrs = ccL.Class.Attr.getClassAttrs(ctrl);
+            const homePageEnumList = attrs["homePageState$_$enumList"];
+            expect(Array.isArray(homePageEnumList)).toBe(true);
+            expect(homePageEnumList.length).toBe(1 + ctrl._states.length);
+            expect(homePageEnumList[0]).toEqual({ name: "(无)", value: -1 });
+            // value 必须是 stateId (reorder/delete 稳定), 不是 index
+            for (let i = 0; i < ctrl._states.length; i++) {
+                expect(homePageEnumList[i + 1].value).toBe(ctrl._states[i].stateId);
+                expect(homePageEnumList[i + 1].name).toBe(ctrl._states[i].name);
             }
         });
     });

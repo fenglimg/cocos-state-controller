@@ -105,16 +105,123 @@ describe("StateSelect inspector 极简形态", () => {
             expect((select as any).recordTrigger).toBe(false);
         });
 
-        it("openPanelTrigger setter 不抛错, 触发 cc.warn", () => {
+        it("openPanelTrigger setter 调 Editor.Panel.open('state-controller-panel')", () => {
             const { select } = setup();
-            const warnSpy = jest.spyOn((globalThis as any).cc, "warn").mockImplementation(() => {});
+            const openMock = jest.fn();
+            const prev = (globalThis as any).Editor;
+            (globalThis as any).Editor = { Panel: { open: openMock } };
             try {
                 expect(() => { (select as any).openPanelTrigger = true; }).not.toThrow();
-                expect(warnSpy).toHaveBeenCalled();
+                expect(openMock).toHaveBeenCalledWith("state-controller-panel");
             }
             finally {
-                warnSpy.mockRestore();
+                (globalThis as any).Editor = prev;
             }
+        });
+    });
+
+    describe("StateSelect 上的切 state 入口 (ctrlState) — 无插件闭环", () => {
+        it("ctrlState getter 返回 ctrl.selectedIndex", () => {
+            const { select, ctrl } = setup();
+            expect((select as any).ctrlState).toBe(ctrl.selectedIndex);
+            ctrl.selectedIndex = 1;
+            expect((select as any).ctrlState).toBe(1);
+        });
+
+        it("ctrlState setter 写入会同步改 ctrl.selectedIndex (双向联动)", () => {
+            const { select, ctrl } = setup();
+            expect(ctrl.selectedIndex).toBe(0);
+            (select as any).ctrlState = 1;
+            expect(ctrl.selectedIndex).toBe(1);
+        });
+
+        it("ctrlState 应对 inspector 可见 (无 visible:false)", () => {
+            const ccL = (globalThis as any).cc;
+            const { select } = setup();
+            const attrs = ccL.Class.Attr.getClassAttrs((select as any).constructor);
+            const visible = attrs["ctrlState$_$visible"];
+            // 合法: undefined (默认显示) 或 true; 禁止 false
+            expect(visible).not.toBe(false);
+        });
+    });
+
+    describe("prop toggle applicable 过滤 — 节点无对应 cc.Component 时, toggle 应不显示", () => {
+        function buildSelectWithNode(extraComps: any[] = []) {
+            const ccL = (globalThis as any).cc;
+            const root = new ccL.Node("AF_Root");
+            const ctrlNode = new ccL.Node("AF_CtrlNode");
+            root.addChild(ctrlNode);
+            const selectNode = new ccL.Node("AF_SelectNode");
+            ctrlNode.addChild(selectNode);
+            for (const C of extraComps) selectNode.addComponent(C);
+            const ctrl = ctrlNode.addComponent(StateController);
+            (ctrl as any).__preload();
+            const select = selectNode.addComponent(StateSelect);
+            (select as any).__preload();
+            return { select };
+        }
+
+        function getVisible(propsObj: any, propKey: string): unknown {
+            const ccL = (globalThis as any).cc;
+            const attrs = ccL.Class.Attr.getClassAttrs(propsObj.constructor);
+            return attrs[propKey + "$_$visible"];
+        }
+
+        function isVisible(propsObj: any, propKey: string): boolean {
+            const v = getVisible(propsObj, propKey);
+            if (typeof v === "function") {
+                return v.call(propsObj);
+            }
+            return v !== false;
+        }
+
+        it("没挂 cc.Label: propLabelString / propFont 等 Label 系列应不可见", () => {
+            const { select } = buildSelectWithNode([]);
+            const cp = (select as any).componentProps;
+            cp.owner = select; // 测试环境下保证 owner 关联
+            expect(isVisible(cp, "propLabelString")).toBe(false);
+            expect(isVisible(cp, "propFont")).toBe(false);
+            expect(isVisible(cp, "propLabelFontSize")).toBe(false);
+        });
+
+        it("挂了 cc.Label: propLabelString 应可见", () => {
+            const ccL = (globalThis as any).cc;
+            const { select } = buildSelectWithNode([ccL.Label]);
+            const cp = (select as any).componentProps;
+            cp.owner = select;
+            expect(isVisible(cp, "propLabelString")).toBe(true);
+        });
+
+        it("没挂 cc.Sprite: propSpriteFrame / propGrayScale 应不可见", () => {
+            const { select } = buildSelectWithNode([]);
+            const cp = (select as any).componentProps;
+            cp.owner = select;
+            expect(isVisible(cp, "propSpriteFrame")).toBe(false);
+            expect(isVisible(cp, "propGrayScale")).toBe(false);
+        });
+
+        it("没挂 cc.Widget: 14 个 propWidget* 全部不可见", () => {
+            const { select } = buildSelectWithNode([]);
+            const wp = (select as any).widgetProps;
+            wp.owner = select;
+            const ccL = (globalThis as any).cc;
+            const attrs = ccL.Class.Attr.getClassAttrs(wp.constructor);
+            const widgetKeys = Object.keys(attrs)
+                .filter(k => k.endsWith("$_$visible"))
+                .map(k => k.replace("$_$visible", ""))
+                .filter(k => k.indexOf("propWidget") === 0);
+            expect(widgetKeys.length).toBeGreaterThanOrEqual(14);
+            for (const key of widgetKeys) {
+                expect({ key, visible: isVisible(wp, key) }).toEqual({ key, visible: false });
+            }
+        });
+
+        it("挂了 cc.Widget: propWidgetEnabled 应可见", () => {
+            const ccL = (globalThis as any).cc;
+            const { select } = buildSelectWithNode([ccL.Widget]);
+            const wp = (select as any).widgetProps;
+            wp.owner = select;
+            expect(isVisible(wp, "propWidgetEnabled")).toBe(true);
         });
     });
 });

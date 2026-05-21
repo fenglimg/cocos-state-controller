@@ -1,8 +1,10 @@
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { CapabilityRegistry } from "./CapabilityRegistry";
-// Wave 3 T07: 让所有 L0 内置 capability 跟着 StateController 一起被打入产出 (side-effect 自注册)
-import "./capabilities";
-import { EnumStateName, EnumUpdateType } from "./StateEnum";
+// Wave 3 T07: 让所有 L0 内置 capability 跟着 StateController 一起被打入产出 (side-effect 自注册).
+// 显式 /index: cocos 2.x ts 编译路径不做 folder→index 解析, 写 "./capabilities" 会报
+// "Cannot find module './capabilities'" (jest 用 node resolver 能解出, 编辑器不行).
+import "./capabilities/index";
+import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
 
@@ -40,10 +42,42 @@ export class StateController extends cc.Component {
 
     /**
      * runtime 启动时跳转的"主页"state 的 stateId (Wave 3, HomePageCapability 管理).
-     * -1 表示未设. 用 stateId 而非 index, 跨 reorder/delete 稳定.
+     * -1 表示未设 (runtime noop, 停在 selectedIndex 默认). 用 stateId 而非 index, 跨 reorder/delete 稳定.
      */
     @property({ visible: false })
     public _homePageStateId: number = -1;
+
+    /**
+     * homepage inspector 入口. 下拉项 = "(无)" + 所有 state. value=-1 表示未设.
+     *
+     * 存储是 stateId (稳定), 显示是 stateId (enumList value=stateId). 选项注入见
+     * setClassAttr("homePageState", "enumList", ...) — 总是把 "(无)" unshift 到列表首.
+     */
+    @property({ type: EnumStateName, displayName: "homePageState", tooltip: "runtime 启动时跳转的状态. (无)=不跳, 停在默认" })
+    public get homePageState(): EnumStateName {
+        return this._homePageStateId as EnumStateName;
+    }
+
+    public set homePageState(value: EnumStateName) {
+        const stateId = value as number;
+        if (stateId === -1) {
+            this._homePageStateId = -1;
+            return;
+        }
+        // 校验 stateId 真存在 (防御性: enumList 注入失误时也不写脏数据)
+        const exists = this._states.some(s => s && s.stateId === stateId);
+        if (exists) {
+            this._homePageStateId = stateId;
+        }
+        else {
+            this._homePageStateId = -1;
+            StateErrorManager.warn("homePageState: 选中的 stateId 不存在, 已重置 -1", {
+                component: "StateController",
+                method: "homePageState.setter",
+                params: { stateId },
+            });
+        }
+    }
 
     /** 历史状态名字 */
     @property({ visible: false })
@@ -60,6 +94,14 @@ export class StateController extends cc.Component {
      */
     private _recording: boolean = false;
 
+    /**
+     * 标记当前 stopRecording 的触发来源 (模型 Z, 切 state 时自动停).
+     *   "manual": 用户点录制按钮关 (默认), StateSelect.onRecordingStop 走完整路径 + 弹窗
+     *   "auto":   selectedIndex setter 自动触发, StateSelect.onRecordingStop 走静默 + Editor.log
+     * 字段非 @property, 不序列化. 仅在 stopRecording 调用前后短暂有效.
+     */
+    public _stopRecordingMode: "manual" | "auto" = "manual";
+
     // ================== 🔧 IMPL-001: BFS缓存优化 ==================
     /**
      * 🎯 缓存优化说明：
@@ -74,7 +116,7 @@ export class StateController extends cc.Component {
     private _cacheDirty: boolean = true;
 
     /** 控制器名字 (反序列化存储字段, inspector 通过 ctrlName getter 显示) */
-    @property({ type: cc.String, visible: false })
+    @property({ visible: false })
     private _ctrlName: string = "";
 
     @property({ displayName: "name", tooltip: "控制器唯一名称" })
@@ -178,6 +220,20 @@ export class StateController extends cc.Component {
         if (this.isInit || this._selectedIndex != value) {
             this.isInit = false;
 
+            // 模型 Z: 录制中切 state → 自动 stopRecording, 把改动 commit 到 fromState 后再切.
+            // 标记 _stopRecordingMode="auto" 让 StateSelect.onRecordingStop 走静默 + log 路径,
+            // 不弹"未跟随 prop"窗 (高频操作不打扰). stopRecording 后 _recording=false,
+            // 后续 StateWillChange / onStateWillChange 看到 !isRecording 自动跳过, 不重复 commit.
+            if (this._recording) {
+                this._stopRecordingMode = "auto";
+                try {
+                    this.stopRecording();
+                }
+                finally {
+                    this._stopRecordingMode = "manual";
+                }
+            }
+
             const originalValue = value;
             // 🔧 边界检查：确保状态索引在有效范围内
             value = Math.max(0, Math.min(this._states.length - 1, value));
@@ -229,11 +285,12 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 状态名字列表 (反序列化存储, inspector 由 panel 接管) */
+    /** 状态名字列表 (反序列化字段). inspector 通过 states getter/setter 暴露. */
     @property({ type: StateValue, visible: false })
     private _states: StateValue[] = [];
 
-    @property({ type: StateValue, visible: false, tooltip: "状态数量。数组内容为状态名称 (panel 接管, inspector 隐藏)" })
+    /** 状态列表 inspector 入口. cocos 数组 UI 的 + / × / 拖动会调 setter, 走完整 invariants. */
+    @property({ type: StateValue, displayName: "states", tooltip: "状态列表 — 用 cocos 数组 UI 直接添加/删除/重排/改名" })
     public get states() {
         return this._states;
     }
@@ -369,6 +426,11 @@ export class StateController extends cc.Component {
 
         // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
+        // homePageState 下拉同步: value=stateId (稳定), 首项 "(无)" 表示未设.
+        const homePageArray = ([{ name: "(无)", value: -1 }] as Array<{ name: string, value: number }>)
+            .concat(value.map(v => ({ name: v.name, value: v.stateId })));
+        // @ts-expect-error 允许使用该方法
+        cc.Class.Attr.setClassAttr(this, "homePageState", "enumList", homePageArray);
         this._selectedIndex = applyIndex;
 
         // 刻意不调 forceRefreshInspector: 自动强刷会打断当前操作 (焦点丢失 / 抖动),
@@ -641,6 +703,11 @@ export class StateController extends cc.Component {
 
         // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
+        // homePageState 下拉同步: value=stateId, 首项 "(无)"=-1.
+        const homePageArray = ([{ name: "(无)", value: -1 }] as Array<{ name: string, value: number }>)
+            .concat(this.states.map(v => ({ name: v.name, value: v.stateId })));
+        // @ts-expect-error 允许使用该方法
+        cc.Class.Attr.setClassAttr(this, "homePageState", "enumList", homePageArray);
 
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
         if (this._states.length > 0 && (this._selectedIndex < 0 || this._selectedIndex >= this._states.length)) {
@@ -1052,20 +1119,122 @@ export class StateController extends cc.Component {
     /**
      * 进入录制态: 通知所有 StateSelect.onRecordingStart 拍 snapshot.
      * 幂等: 已经在录制时 no-op。
+     *
+     * 模型 Z dirty 检测: 进入录制前若发现节点已勾跟随的 prop 跟 ctrlData[currentState]
+     * 不一致 (用户没录就改了节点), 弹窗 3 选 1: 保存到当前 state / 丢弃恢复 / 取消.
+     * 弹窗异步, 用户选完才真正进入录制态. 编辑器外 (jest / 运行时) 无 Editor.Dialog,
+     * 走默认行为 = "保存到当前 state" (defaultId=0).
      */
     public startRecording(): void {
         if (this._recording) {
             return;
         }
+        const dirty = this.collectControlledDirty();
+        if (dirty.length === 0) {
+            this._doStartRecording();
+            return;
+        }
+        this.promptDirtyAndStart(dirty);
+    }
+
+    /** 真正进入录制态 (无 dirty 检查). dirty 弹窗 / 直接 startRecording 都走这一条. */
+    private _doStartRecording(): void {
         this._recording = true;
         StateErrorManager.info("开始录制", {
             component: "StateController",
-            method: "startRecording",
+            method: "_doStartRecording",
             params: { ctrlName: this._ctrlName },
         });
         this.updateState(EnumUpdateType.RecordingStart);
         // Wave 2 T25: capability 层广播 (let 其它 capability 如 timeline/undo 监听)
         CapabilityRegistry.dispatch("onRecordingStart", { ctrl: this });
+    }
+
+    /**
+     * 扫所有受控 StateSelect 上的 controlled prop, 节点当前值 vs ctrlData[currentState] 不一致
+     * 即 dirty. 返回 [{ select, propType, current, stored }, ...].
+     */
+    private collectControlledDirty(): Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }> {
+        const out: Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }> = [];
+        this.rebuildStateSelectCache();
+        if (!this._stateSelectCache) return out;
+        for (const select of this._stateSelectCache) {
+            try {
+                const list = (select as any).collectDirtyControlled
+                    ? (select as any).collectDirtyControlled(this)
+                    : [];
+                for (const entry of list) out.push({ select, ...entry });
+            }
+            catch (e) {
+                StateErrorManager.warn("collectControlledDirty: StateSelect 收集 dirty 失败", {
+                    component: "StateController",
+                    method: "collectControlledDirty",
+                    params: { error: (e as Error).message },
+                });
+            }
+        }
+        return out;
+    }
+
+    /**
+     * dirty 弹窗: 节点上跟当前 state 不一致的 controlled prop, 3 选 1.
+     *  0 = 保存到当前 state (默认)  → commit 节点当前值到 ctrlData + _doStartRecording
+     *  1 = 丢弃恢复存储值          → 应用 ctrlData 回节点 (updateState) + _doStartRecording
+     *  2 = 取消                    → 不进入录制态
+     */
+    private promptDirtyAndStart(dirty: Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }>): void {
+        const lines = dirty.map(d => {
+            const nodeName = d.select.node && d.select.node.name || "?";
+            return `  [${nodeName}] ${EnumPropName[d.propType]}`;
+        });
+        const message = `节点上以下已跟随的 prop 与 state[${this._selectedIndex}] 存储不一致:\n${lines.join("\n")}\n\n如何处理后再进入录制态?`;
+        const onSave = () => {
+            // 把节点当前值写进 ctrlData (类似 commit 路径)
+            for (const d of dirty) {
+                try {
+                    const propData = (d.select as any).getPropData(this._selectedIndex, this.ctrlId);
+                    if (propData) propData[d.propType] = d.current;
+                }
+                catch (_) { /* noop */ }
+            }
+            this._doStartRecording();
+        };
+        const onDiscard = () => {
+            // 应用 ctrlData 回节点
+            this.rebuildStateSelectCache();
+            if (this._stateSelectCache) {
+                for (const select of this._stateSelectCache) {
+                    try { select.updateState(this); }
+                    catch (_) { /* noop */ }
+                }
+            }
+            this._doStartRecording();
+        };
+        this.showDialog({
+            type: "info",
+            title: "进入录制前: 节点有未保存改动",
+            message,
+            buttons: ["保存到当前 state", "丢弃恢复存储值", "取消"],
+            defaultId: 0,
+            cancelId: 2,
+        }, (idx) => {
+            if (idx === 0) onSave();
+            else if (idx === 1) onDiscard();
+            // idx === 2: 取消, 什么都不做
+        });
+    }
+
+    /** Editor.Dialog 兼容封装 (jest 环境可 mock). */
+    private showDialog(opts: any, cb: (idx: number) => void): void {
+        try {
+            const Ed = (globalThis as any).Editor;
+            if (Ed && Ed.Dialog && typeof Ed.Dialog.messageBox === "function") {
+                Ed.Dialog.messageBox(opts, cb);
+                return;
+            }
+        }
+        catch (_) { /* 静默降级 */ }
+        cb(typeof opts.defaultId === "number" ? opts.defaultId : 0);
     }
 
     /**
@@ -1109,11 +1278,11 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 打开 panel 按钮 stub (Wave 1 后由 panel 注册 IPC 接管). 当前仅 cc.warn 占位。
+     * 打开 State Controller Panel.
      */
     @property({
         displayName: "⚙️ 打开 Panel",
-        tooltip: "打开 StateController panel 编辑窗口 (Wave 2 panel 实装后接管)",
+        tooltip: "打开 State Controller Panel",
     })
     public get openPanelTrigger() {
         return false;
@@ -1121,7 +1290,10 @@ export class StateController extends cc.Component {
 
     public set openPanelTrigger(value: boolean) {
         if (value && CC_EDITOR) {
-            cc.warn("[StateController] panel 尚未实现, 等待 Wave 2 Gemini 委托交付。");
+            const ed = (globalThis as any).Editor;
+            if (ed && ed.Panel && typeof ed.Panel.open === "function") {
+                ed.Panel.open("state-controller-panel");
+            }
         }
     }
 

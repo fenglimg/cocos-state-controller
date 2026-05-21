@@ -123,10 +123,9 @@ export class StateSelect extends cc.Component {
 
     // #endregion
 
-    /** 工具按钮 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
+    /** 工具按钮分组 — inspector 折叠区, 工具按钮 (刷新检查器等). */
     @property({
         type: StateToolsProps,
-        visible: false,
         displayName: "工具",
         tooltip: "工具按钮（刷新、同步、删除等）",
         editorOnly: true,
@@ -166,10 +165,9 @@ export class StateSelect extends cc.Component {
         this.updateState(this.getCurrCtrl());
     }
 
-    /** 节点基础属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
+    /** 节点基础属性分组 (Active/Position/Scale/Color/Size/Euler/Anchor/Opacity). */
     @property({
         type: StateNodeProps,
-        visible: false,
         displayName: "节点属性",
         tooltip: "节点基础属性（Active, Position, Scale, Color, Size, Euler, Anchor, Opacity）",
         editorOnly: true,
@@ -177,10 +175,9 @@ export class StateSelect extends cc.Component {
     })
     public nodeProps = new StateNodeProps();
 
-    /** 组件属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
+    /** 组件属性分组 (Label, Sprite, Button, Toggle 等). */
     @property({
         type: StateComponentProps,
-        visible: false,
         displayName: "组件属性",
         tooltip: "组件相关属性（Label, Sprite, Button, Toggle 等）",
         editorOnly: true,
@@ -188,10 +185,9 @@ export class StateSelect extends cc.Component {
     })
     public componentProps = new StateComponentProps();
 
-    /** Widget属性 - inspector 中显示为可折叠分组 (panel 接管, inspector 隐藏) */
+    /** Widget 布局属性分组. */
     @property({
         type: StateWidgetProps,
-        visible: false,
         displayName: "Widget属性",
         tooltip: "Widget 布局相关属性",
         editorOnly: true,
@@ -213,12 +209,23 @@ export class StateSelect extends cc.Component {
      */
     private _snapshot: TProp | null = null;
 
+    /**
+     * 录制中的全 prop snapshot (含未勾选跟随的 applicable prop).
+     *
+     * 用途: 手动 stopRecording 时检测"未跟随的 prop 在录制期间被改了" — 弹窗问
+     * 是否要追加跟随并保存. 切 state 自动 stop 时仅记日志 (走 D1 路径).
+     *
+     * 拍快照范围: PropHandlerManager.getValue(prop, node) !== undefined 的所有 prop
+     * (== 节点挂了对应 cc.Component 的 prop). 不影响 _snapshot 的 commit 路径.
+     */
+    private _fullSnapshot: TProp | null = null;
+
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
 
-    // #region 控制器当前状态
-    @property({ type: EnumStateName, visible: false, tooltip: "控制器当前状态 (panel 接管, inspector 隐藏)" })
+    // #region 控制器当前状态 (StateSelect 上的切 state 快捷入口, 镜像 ctrl.selectedIndex)
+    @property({ type: EnumStateName, displayName: "selectedState", tooltip: "切到指定 state (镜像 controller.selectedIndex, 改这里 = 改 ctrl)" })
     public get ctrlState() {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
@@ -1352,7 +1359,9 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 录制开始: 拍 snapshot, 后续节点改动以 diff vs snapshot 形式持久化。
+     * 录制开始: 拍双 snapshot.
+     *   _snapshot: 仅 controlled prop, 供 commit 路径用
+     *   _fullSnapshot: 所有 applicable prop, 供 stop 时检测未跟随 dirty 用
      * 由 StateController.startRecording -> updateState(RecordingStart) 派发。
      */
     public onRecordingStart(ctrl: StateController): void {
@@ -1361,15 +1370,21 @@ export class StateSelect extends cc.Component {
             return;
         }
         this._snapshot = this.readControlledPropsFromNode(ctrl);
-        StateErrorManager.debug("录制 snapshot 已拍", {
+        this._fullSnapshot = this.readAllApplicablePropsFromNode();
+        StateErrorManager.debug("录制双 snapshot 已拍", {
             component: "StateSelect",
             method: "onRecordingStart",
-            params: { snapKeys: Object.keys(this._snapshot).length },
+            params: {
+                controlledKeys: Object.keys(this._snapshot).length,
+                fullKeys: Object.keys(this._fullSnapshot).length,
+            },
         });
     }
 
     /**
-     * 录制结束: 把当前与 snapshot 的 diff commit 到当前 state, 再清 snapshot。
+     * 录制结束: commit controlled diff + 区分 auto/manual 收尾.
+     *   auto (ctrl._stopRecordingMode === "auto", 切 state 触发): 静默 commit, Editor.log 反馈
+     *   manual (按钮触发): 检测未跟随 prop 是否被改, 弹窗问是否追加跟随
      * 由 StateController.stopRecording -> updateState(RecordingStop) 派发。
      */
     public onRecordingStop(ctrl: StateController): void {
@@ -1377,13 +1392,160 @@ export class StateSelect extends cc.Component {
         if (!ctrl || ctrl.ctrlId !== this.currCtrlId) {
             return;
         }
-        // final commit: diff snapshot vs 当前节点, 写 ctrlData[currentState]
-        this.commitRecordingDiff(ctrl, ctrl.selectedIndex);
+        const targetState = ctrl.selectedIndex;
+        // final commit: diff controlled snapshot vs 当前节点, 写 ctrlData[targetState]
+        const committed = this.commitRecordingDiff(ctrl, targetState);
+        // 检测未跟随的 dirty (录制期间被改但没勾跟随的 applicable prop)
+        const untracked = this.detectUntrackedDirty();
+
+        const isAuto = (ctrl as any)._stopRecordingMode === "auto";
+        if (isAuto) {
+            // 切 state 自动 stop — 静默反馈
+            if (committed.length > 0) {
+                const names = committed.map(p => EnumPropName[p]).join(", ");
+                this.editorLog(`[StateSelect "${this.node && this.node.name}"] 已保存 ${names} 到 state[${targetState}]`);
+            }
+            if (untracked.length > 0) {
+                const names = untracked.map(p => EnumPropName[p]).join(", ");
+                this.editorWarn(`[StateSelect "${this.node && this.node.name}"] 未跟随 prop ${names} 被改但已丢弃 (切 state 自动结束录制)`);
+            }
+        }
+        else if (untracked.length > 0) {
+            // 手动 stop 且有未跟随 dirty — 弹窗
+            this.promptUntrackedAfterStop(ctrl, untracked);
+        }
+
         this._snapshot = null;
+        this._fullSnapshot = null;
         StateErrorManager.debug("录制 snapshot 已清", {
             component: "StateSelect",
             method: "onRecordingStop",
+            params: { auto: isAuto, committed: committed.length, untracked: untracked.length },
         });
+    }
+
+    /**
+     * 给 StateController.startRecording 用: 扫本 StateSelect 的 controlled prop,
+     * 节点当前值 vs ctrlData[ctrl.selectedIndex] 不一致 = dirty.
+     * 返回 [{ propType, current, stored }, ...]. 由 ctrl 端聚合后弹窗.
+     */
+    public collectDirtyControlled(ctrl: StateController): Array<{ propType: EnumPropName, current: unknown, stored: unknown }> {
+        const out: Array<{ propType: EnumPropName, current: unknown, stored: unknown }> = [];
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return out;
+        if (!this.node) return out;
+        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+        const controlledProps = (propData && propData.$$controlledProps$$) || {};
+        for (const propName in controlledProps) {
+            const propType = controlledProps[propName] as EnumPropName;
+            if (propType === EnumPropName.Non) continue;
+            const current = PropHandlerManager.getValue(propType, this.node);
+            if (current === undefined) continue;
+            const stored = (propData as TPropDictionary)[propType];
+            if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
+            if (!PropHandlerManager.isEqual(propType, stored, current)) {
+                out.push({ propType, current, stored });
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 扫节点上所有 applicable prop (== PropHandler.getValue 不返回 undefined 的 prop).
+     * 含未勾选跟随的, 供录制期间"未跟随 dirty"检测.
+     */
+    private readAllApplicablePropsFromNode(): TProp {
+        const out: TProp = {} as TProp;
+        if (!this.node) return out;
+        // 走 PropHandlerManager 的已注册列表 — TS enum 在 ts-jest 下不保证有 reverse mapping,
+        // 不能依赖 Object.keys(EnumPropName) 拿数字 key.
+        const allPropTypes = PropHandlerManager.listRegisteredPropTypes();
+        for (const propType of allPropTypes) {
+            if (propType === EnumPropName.Non) continue;
+            const v = PropHandlerManager.getValue(propType, this.node);
+            if (v !== undefined) (out as TPropDictionary)[propType] = v;
+        }
+        return out;
+    }
+
+    /**
+     * 录制期间, 哪些 applicable prop 被改了**但没勾选跟随**.
+     * 用 _fullSnapshot (start 时全 prop 快照) vs 当前节点 diff, 减去 controlled 部分.
+     */
+    private detectUntrackedDirty(): EnumPropName[] {
+        const out: EnumPropName[] = [];
+        if (!this._fullSnapshot) return out;
+        for (const k of Object.keys(this._fullSnapshot)) {
+            const propType = Number(k) as EnumPropName;
+            if (propType === EnumPropName.Non) continue;
+            if (this.isPropertyControlled(propType)) continue; // 已跟随 — commit 路径已处理
+            const before = (this._fullSnapshot as TPropDictionary)[propType];
+            const current = PropHandlerManager.getValue(propType, this.node);
+            if (current === undefined) continue;
+            if (!PropHandlerManager.isEqual(propType, before, current)) {
+                out.push(propType);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 手动 stopRecording + 有未跟随 dirty 时弹窗: 是否把这些 prop 自动加入跟随并保存当前值.
+     * Editor.Dialog 异步, 用户点完才操作. 此时录制已停, 数据切 fromState 已 commit, 不冲突.
+     */
+    private promptUntrackedAfterStop(ctrl: StateController, untracked: EnumPropName[]): void {
+        const names = untracked.map(p => EnumPropName[p]);
+        const message = `录制期间这些 prop 被改了, 但未勾选跟随:\n  ${names.join("\n  ")}\n\n是否自动加入跟随并保存到 state[${ctrl.selectedIndex}]?`;
+        const onConfirm = () => {
+            for (const propType of untracked) {
+                this.togglePropertyControl(propType, true);
+                // togglePropertyControl(prop, true) 会写 controlled flag + 默认值;
+                // 这里再 commit 节点当前实际值, 覆盖默认.
+                const current = PropHandlerManager.getValue(propType, this.node);
+                if (current !== undefined) {
+                    const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+                    (propData as TPropDictionary)[propType] = current;
+                }
+            }
+            this.editorLog(`[StateSelect "${this.node && this.node.name}"] 追加跟随 + 保存: ${names.join(", ")} 到 state[${ctrl.selectedIndex}]`);
+        };
+        this.showDialog({
+            type: "info",
+            title: "录制结束: 未跟随的 prop 被改",
+            message,
+            buttons: ["保存并自动加入跟随", "丢弃"],
+            defaultId: 0,
+            cancelId: 1,
+        }, (idx) => {
+            if (idx === 0) onConfirm();
+            else this.editorLog(`[StateSelect "${this.node && this.node.name}"] 丢弃未跟随 prop: ${names.join(", ")}`);
+        });
+    }
+
+    /** Editor.Dialog 兼容封装 (jest 环境可 mock). */
+    private showDialog(opts: any, cb: (idx: number) => void): void {
+        try {
+            const Ed = (globalThis as any).Editor;
+            if (Ed && Ed.Dialog && typeof Ed.Dialog.messageBox === "function") {
+                Ed.Dialog.messageBox(opts, cb);
+                return;
+            }
+        } catch (_) { /* 静默降级 */ }
+        // 编辑器不可用 — 走默认 (defaultId), 与 cocos 真实弹窗一致
+        cb(typeof opts.defaultId === "number" ? opts.defaultId : 0);
+    }
+
+    private editorLog(msg: string): void {
+        try {
+            const Ed = (globalThis as any).Editor;
+            if (Ed && typeof Ed.log === "function") Ed.log(msg);
+        } catch (_) { /* noop */ }
+    }
+
+    private editorWarn(msg: string): void {
+        try {
+            const Ed = (globalThis as any).Editor;
+            if (Ed && typeof Ed.warn === "function") Ed.warn(msg);
+        } catch (_) { /* noop */ }
     }
 
     /**
@@ -1393,8 +1555,9 @@ export class StateSelect extends cc.Component {
      *      有变化 → 写 ctrlData[targetState][prop] = current; 同时刷新 snapshot 为 current
      *      (供下一段 diff 起点)。
      */
-    private commitRecordingDiff(ctrl: StateController, targetState: number): void {
-        if (!this._snapshot) return;
+    private commitRecordingDiff(ctrl: StateController, targetState: number): EnumPropName[] {
+        const committed: EnumPropName[] = [];
+        if (!this._snapshot) return committed;
         const propData = this.getPropData(targetState, ctrl.ctrlId);
         const snap = this._snapshot;
         for (const key of Object.keys(snap)) {
@@ -1406,6 +1569,7 @@ export class StateSelect extends cc.Component {
             if (!PropHandlerManager.isEqual(propType as EnumPropName, snapValue, currentValue)) {
                 (propData as TPropDictionary)[propType] = currentValue;
                 (snap as TPropDictionary)[propType] = currentValue;
+                committed.push(propType as EnumPropName);
                 StateErrorManager.debug("录制 diff 提交", {
                     component: "StateSelect",
                     method: "commitRecordingDiff",
@@ -1413,6 +1577,7 @@ export class StateSelect extends cc.Component {
                 });
             }
         }
+        return committed;
     }
 
     /** 🔧 批量更新UI，使用属性处理器系统和错误处理机制 */
@@ -1905,11 +2070,11 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 打开 panel 按钮 stub (Wave 2 panel 实装后接管)。
+     * 打开 State Controller Panel.
      */
     @property({
         displayName: "⚙️ 打开 Panel (select)",
-        tooltip: "打开 StateController panel (Wave 2 Gemini 委托交付后接管)",
+        tooltip: "打开 State Controller Panel",
     })
     public get openPanelTrigger() {
         return false;
@@ -1917,7 +2082,10 @@ export class StateSelect extends cc.Component {
 
     public set openPanelTrigger(value: boolean) {
         if (value && CC_EDITOR) {
-            cc.warn("[StateSelect] panel 尚未实现, 等待 Wave 2 Gemini 委托交付。");
+            const ed = (globalThis as any).Editor;
+            if (ed && ed.Panel && typeof ed.Panel.open === "function") {
+                ed.Panel.open("state-controller-panel");
+            }
         }
     }
 
