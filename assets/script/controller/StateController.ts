@@ -1,5 +1,7 @@
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { CapabilityRegistry } from "./CapabilityRegistry";
+// Wave 3 T07: 让所有 L0 内置 capability 跟着 StateController 一起被打入产出 (side-effect 自注册)
+import "./capabilities";
 import { EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
