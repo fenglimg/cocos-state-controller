@@ -17,3 +17,4 @@ import "./PresetCapability";
 import "./PropertyControlCapability";
 import "./RecordingCapability";
 import "./SelectedPageIdCapability";
+import "./TweenCapability";
