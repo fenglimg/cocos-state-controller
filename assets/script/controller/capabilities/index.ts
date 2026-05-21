@@ -13,6 +13,7 @@ import "./AutoSyncCapability";
 import "./EventCapability";
 import "./HomePageCapability";
 import "./MigrationCapability";
+import "./PresetCapability";
 import "./PropertyControlCapability";
 import "./RecordingCapability";
 import "./SelectedPageIdCapability";
