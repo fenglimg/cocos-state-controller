@@ -13,7 +13,7 @@ module.exports = {
 
   // 以 tests/ 为 rootDir（隔离依赖所在位置）
   // 扫描 tests/core/ 下的测试文件
-  roots: ['<rootDir>/core'],
+  roots: ['<rootDir>/core', '<rootDir>/panel'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
