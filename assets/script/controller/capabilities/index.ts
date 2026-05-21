@@ -14,6 +14,7 @@ import "./CodeGenCapability";
 import "./EventCapability";
 import "./HomePageCapability";
 import "./MigrationCapability";
+import "./MultiCtrlBindingCapability";
 import "./PresetCapability";
 import "./PropertyControlCapability";
 import "./RecordingCapability";
