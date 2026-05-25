@@ -28,7 +28,7 @@
     }
   },
   "panel": {
-    "main": "panel/index.js",
+    "main": "panel/build.js",
     "type": "dockable",
     "title": "智能组件管理器",
     "width": 450,
