@@ -1,14 +1,17 @@
 /**
  * Props visibility 契约 — 无插件闭环路线重定向
  *
- * 4 个 props 类 (StateNodeProps / StateComponentProps / StateWidgetProps / StateToolsProps)
+ * 3 个 props 类 (StateNodeProps / StateComponentProps / StateWidgetProps)
  * 的 @property getter/setter 应全部对 inspector 可见 (visible 属性 undefined 或 true), 让用户
- * 不依赖 panel 即可在 inspector 直接勾 prop / 用工具按钮.
+ * 不依赖 panel 即可在 inspector 直接勾 prop.
  *
  * 同时验证: 可见之后, getter/setter 仍正常代理到 owner.togglePropertyControl.
  *
- * 历史: panel 时代曾要求 visible:false (panel 独占), 2026-05-21 翻案为 "无插件闭环",
- * inspector 重新成为 prop 勾选主入口, 这条契约同步翻转.
+ * 历史:
+ *   - panel 时代曾要求 visible:false (panel 独占), 2026-05-21 翻案为 "无插件闭环",
+ *     inspector 重新成为 prop 勾选主入口, 这条契约同步翻转.
+ *   - 2026-05-25 StateToolsProps (工具组 5 按钮) 整组物理删除, brief §6 必删清单兑现.
+ *     方法本身保留 (forceRefreshInspector 等仍是 public API + 各自有单测).
  */
 
 declare global {
@@ -34,8 +37,6 @@ const ComponentPropsMod = require("../../assets/script/controller/props/StateCom
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const WidgetPropsMod = require("../../assets/script/controller/props/StateWidgetProps");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ToolsPropsMod = require("../../assets/script/controller/props/StateToolsProps");
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const SelectMod = require("../../assets/script/controller/StateSelect");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnum");
@@ -43,7 +44,6 @@ const EnumMod = require("../../assets/script/controller/StateEnum");
 const { StateNodeProps } = NodePropsMod;
 const { StateComponentProps } = ComponentPropsMod;
 const { StateWidgetProps } = WidgetPropsMod;
-const { StateToolsProps } = ToolsPropsMod;
 const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
@@ -64,7 +64,6 @@ describe("Props visibility 契约", () => {
         { name: "StateNodeProps", ctor: StateNodeProps },
         { name: "StateComponentProps", ctor: StateComponentProps },
         { name: "StateWidgetProps", ctor: StateWidgetProps },
-        { name: "StateToolsProps", ctor: StateToolsProps },
     ];
 
     for (const { name, ctor } of classes) {

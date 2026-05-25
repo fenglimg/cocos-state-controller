@@ -33,7 +33,6 @@ const {
 } = cc._decorator;
 import { StateComponentProps } from "./props/StateComponentProps";
 import { StateNodeProps } from "./props/StateNodeProps";
-import { StateToolsProps } from "./props/StateToolsProps";
 import { StateWidgetProps } from "./props/StateWidgetProps";
 import { StateController } from "./StateController";
 import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
@@ -122,16 +121,6 @@ export class StateSelect extends cc.Component {
     private _isDeleteCurr: boolean = false;
 
     // #endregion
-
-    /** 工具按钮分组 — inspector 折叠区, 工具按钮 (刷新检查器等). */
-    @property({
-        type: StateToolsProps,
-        displayName: "工具",
-        tooltip: "工具按钮（刷新、同步、删除等）",
-        editorOnly: true,
-        serializable: false,
-    })
-    public toolsProps = new StateToolsProps();
 
     /** 节点基础属性分组 (Active/Position/Scale/Color/Size/Euler/Anchor/Opacity). */
     @property({
@@ -384,7 +373,6 @@ export class StateSelect extends cc.Component {
         this.nodeProps.owner = this;
         this.componentProps.owner = this;
         this.widgetProps.owner = this;
-        this.toolsProps.owner = this;
 
         // IMPL-001.6: 通知控制器缓存失效
         this.notifyControllerCacheDirty();
