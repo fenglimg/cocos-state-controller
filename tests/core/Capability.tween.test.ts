@@ -197,6 +197,49 @@ describe("TweenCapability (Wave 4 T03)", () => {
         expect(types).toContain(EnumPropName.Color);
     });
 
+    it("W6-2b: dispatch payload 含 propRef 时 TweenCapability 不抛异常 + 老行为不破", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { TweenCapability } = require("../../assets/script/controller/capabilities/TweenCapability");
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { CapabilityRegistry } = require("../../assets/script/controller/CapabilityRegistry");
+        const { ctrl, select, selectNode } = setupCtrl();
+        const ccLocal = (globalThis as any).cc;
+
+        // 起一个内置 Color prop (有 EnumPropRefMap 映射 → propRef="cc.Node.color")
+        select.togglePropertyControl(EnumPropName.Color, true);
+        selectNode.color = ccLocal.color(255, 0, 0, 255);
+        (select as any).commitPropFromNode(EnumPropName.Color);
+        ctrl.selectedIndex = 1;
+        selectNode.color = ccLocal.color(0, 255, 0, 255);
+        (select as any).commitPropFromNode(EnumPropName.Color);
+        ctrl.selectedIndex = 0;
+
+        // 直接派发一个含 propRef 字段的 ctx — Tween onStateChanged 不应抛
+        expect(() => {
+            CapabilityRegistry.dispatch("onStateChanged", {
+                ctrl,
+                fromState: 0,
+                toState: 1,
+                propType: EnumPropName.Color,
+                propRef: "cc.Node.color",
+            });
+        }).not.toThrow();
+
+        // 内置 Color prop tween 路径仍可用 (adapter 收到调用)
+        const calls: any[] = [];
+        TweenCapability.installAdapter({
+            runTween(node: any, propType: number) { calls.push(propType); return null; },
+        });
+        TweenCapability.setEnabled(ctrl, true);
+        ctrl.selectedIndex = 1;
+        // Color prop 在 supported 列表中 → 应被 tween
+        const colorCalls = calls.filter(p => p === EnumPropName.Color);
+        expect(colorCalls.length).toBeGreaterThanOrEqual(1);
+
+        TweenCapability.resetAdapter();
+        TweenCapability.setEnabled(ctrl, false);
+    });
+
     it("adapter.runTween 抛异常 → onStateChanged 不抛, 不影响 core 切换", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { TweenCapability } = require("../../assets/script/controller/capabilities/TweenCapability");

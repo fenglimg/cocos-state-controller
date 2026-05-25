@@ -33,6 +33,7 @@ import { CapabilityRegistry } from "../CapabilityRegistry";
 import { CapabilityContext, ICapability } from "../Capability";
 import { EnumPropName } from "../StateEnum";
 import { StateErrorManager } from "../StateErrorManager";
+import { ENUM_TO_PROPREF, PROPREF_TO_ENUM } from "../EnumPropRefMap";
 
 export interface TweenConfig {
     duration: number;
@@ -92,6 +93,29 @@ function propTypeToNodeField(propType: EnumPropName): string | null {
         case EnumPropName.Rotation: return "angle";
         default: return null;
     }
+}
+
+/**
+ * W6-2b: propRef-aware 派生. 优先用 ctx.propRef → PROPREF_TO_ENUM 反查 propType; fallback ctx.propType.
+ * 用于将来 onPropertyControlled / onPropertyReleased 等 propRef-aware 事件触发 tween 调整时识别 prop 类型.
+ *
+ * AMBIGUOUS 内置 prop (Position / Anchor / Size / GrayScale) 无 ENUM_TO_PROPREF 映射, propRef 派生失败,
+ * 仍走 propType-only 路径 (tween 内部插值仍按 EnumPropName 决策).
+ */
+function resolvePropTypeFromCtx(ctx: CapabilityContext): EnumPropName | undefined {
+    if (typeof ctx.propType === "number" && ctx.propType > 0) return ctx.propType;
+    if (typeof ctx.propRef === "string") {
+        const mapped = PROPREF_TO_ENUM[ctx.propRef];
+        if (mapped !== undefined) return mapped as EnumPropName;
+    }
+    return undefined;
+}
+
+/**
+ * W6-2b: propType → propRef 派生 (用于日志 / 与下游 capability 协调). AMBIGUOUS 项无映射 → undefined.
+ */
+function derivePropRefFromType(propType: EnumPropName): string | undefined {
+    return ENUM_TO_PROPREF[propType];
 }
 
 /**
@@ -174,6 +198,16 @@ export const TweenCapability: ICapability & {
         const config = TweenCapability.getConfig(ctrl);
         const toIdx = (typeof ctx.toState === "number") ? ctx.toState : ctrl.selectedIndex;
 
+        // W6-2b: 若 ctx 含 propRef 字段 (新派发链路), 派生出 propType 用于 supportedSet 命中;
+        //   反之若 ctx.propType 提供, 派生 propRef 仅供日志. 主循环仍按 targetState 数字 key 遍历
+        //   (tween 内部计算路径未动 — 仅 dispatch 入口 propRef-aware).
+        const ctxPropType: EnumPropName | undefined = resolvePropTypeFromCtx(ctx);
+        if (ctxPropType !== undefined) {
+            const propRef = ctx.propRef || derivePropRefFromType(ctxPropType);
+            // 仅用于追溯, 不改变下面的迭代逻辑
+            void propRef;
+        }
+
         const selects = collectDirectSelects(ctrl);
         for (let i = 0; i < selects.length; i++) {
             const sel = selects[i];
@@ -205,6 +239,28 @@ export const TweenCapability: ICapability & {
                 }
             }
         }
+    },
+
+    /**
+     * W6-2b: onPropertyControlled propRef-aware hook 占位.
+     *   - 内置 prop (ctxPropType 命中 supportedSet) → 后续可触发 baseline 更新等
+     *   - 自定义 prop (无 propType 映射, 仅 propRef) → 当前 tween 不支持自定义 prop 插值, no-op
+     *   不修改 tween 内部计算 / 主 onStateChanged 路径, 仅 dispatch 入口 propRef-aware.
+     */
+    onPropertyControlled(ctx: CapabilityContext): void {
+        const propType = resolvePropTypeFromCtx(ctx);
+        const propRef = ctx.propRef || (typeof propType === "number" ? derivePropRefFromType(propType) : undefined);
+        // no-op: 后续 wave 可在此挂 tween baseline 重置等逻辑
+        void propType;
+        void propRef;
+    },
+
+    onPropertyReleased(ctx: CapabilityContext): void {
+        const propType = resolvePropTypeFromCtx(ctx);
+        const propRef = ctx.propRef || (typeof propType === "number" ? derivePropRefFromType(propType) : undefined);
+        // no-op: 后续可在此清理 prop 关联的 tween handle
+        void propType;
+        void propRef;
     },
 };
 

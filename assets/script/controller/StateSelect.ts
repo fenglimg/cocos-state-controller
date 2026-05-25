@@ -42,7 +42,9 @@ import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
 import { listTrackableProps, TrackableProp } from "./PrefabIntrospection";
 import { cloneValueByType, eqValueByType } from "./NestedCtrlData";
-import { isEnumMappedPropRef } from "./EnumPropRefMap";
+import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM } from "./EnumPropRefMap";
+// W6-2b: capability dispatch (propRef 字段派发给 hooks)
+import { CapabilityRegistry } from "./CapabilityRegistry";
 
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
@@ -2428,9 +2430,18 @@ export class StateSelect extends cc.Component {
         return PropertyControlService.isPropertyAvailable(this.node, propType);
     }
 
-    /** 🔧 检查属性是否已被控制（使用新的controlledProps结构） */
-    public isPropertyControlled(propType: EnumPropName): boolean {
-        return PropertyControlService.isPropertyControlled(this.getPropData(), propType);
+    /**
+     * 🔧 检查属性是否已被控制（使用新的controlledProps结构）
+     *
+     * W6-2b: 公开 API 接受 EnumPropName | string 联合类型.
+     *   - number (EnumPropName): 走老路径 PropertyControlService.isPropertyControlled (内置 prop, number key)
+     *   - string (propRef): 走新路径 isPropertyControlledByPropRef (自定义 prop, string key)
+     */
+    public isPropertyControlled(propTypeOrRef: EnumPropName | string): boolean {
+        if (typeof propTypeOrRef === "string") {
+            return this.isPropertyControlledByPropRef(propTypeOrRef);
+        }
+        return PropertyControlService.isPropertyControlled(this.getPropData(), propTypeOrRef);
     }
 
     /**
@@ -2574,16 +2585,36 @@ export class StateSelect extends cc.Component {
         }
     }
 
-    /** 🔧 切换属性控制状态 */
-    public togglePropertyControl(propType: EnumPropName, enable: boolean) {
+    /**
+     * 🔧 切换属性控制状态
+     *
+     * W6-2b: 公开 API 接受 EnumPropName | string 联合类型.
+     *   - number (EnumPropName): 走老路径 (add/removePropertyControl, 写 number key)
+     *   - string (propRef): 走新路径 (togglePropertyControlByPropRef, 写 string key)
+     *
+     * Dispatch: 无论哪条路径, 完成后派发 onPropertyControlled / onPropertyReleased,
+     *   payload 含 propType (number, AMBIGUOUS / 自定义 prop 可能为 undefined) + propRef (string).
+     *   内置 prop 的 propRef 通过 ENUM_TO_PROPREF 派生 (AMBIGUOUS 项无映射 → undefined).
+     *   自定义 prop 的 propType 通过 PROPREF_TO_ENUM 反查 (无映射 → undefined).
+     */
+    public togglePropertyControl(propTypeOrRef: EnumPropName | string, enable: boolean) {
         if (!CC_EDITOR) {
             return;
         }
 
+        // W6-2b: string 路径 — 走 propRef 新路径 (写 string key)
+        if (typeof propTypeOrRef === "string") {
+            this.togglePropertyControlStringPath(propTypeOrRef, enable);
+            return;
+        }
+
+        const propType: EnumPropName = propTypeOrRef;
+        const propRef: string | undefined = ENUM_TO_PROPREF[propType];
+
         StateErrorManager.debug("切换属性控制状态", {
             component: "StateSelect",
             method: "togglePropertyControl",
-            params: { propType: EnumPropName[propType], enable },
+            params: { propType: EnumPropName[propType], propRef, enable },
         });
 
         if (enable) {
@@ -2598,8 +2629,17 @@ export class StateSelect extends cc.Component {
                 method: "togglePropertyControl",
                 params: {
                     propType: EnumPropName[propType],
+                    propRef,
                     currentDisplayProp: EnumPropName[this._currentDisplayProp],
                 },
+            });
+
+            // W6-2b: 派发 propRef-aware 事件 (双字段并存 propType + propRef)
+            CapabilityRegistry.dispatch("onPropertyControlled", {
+                ctrl: this.getCurrCtrl(),
+                select: this,
+                propType,
+                propRef,
             });
         }
         else {
@@ -2616,14 +2656,57 @@ export class StateSelect extends cc.Component {
                 method: "togglePropertyControl",
                 params: {
                     propType: EnumPropName[propType],
+                    propRef,
                     currentDisplayProp: EnumPropName[this._currentDisplayProp],
                 },
+            });
+
+            // W6-2b: 派发 propRef-aware 事件 (双字段并存 propType + propRef)
+            CapabilityRegistry.dispatch("onPropertyReleased", {
+                ctrl: this.getCurrCtrl(),
+                select: this,
+                propType,
+                propRef,
             });
         }
 
         // 嵌套 CCClass 的 setter 触发后，inspector 只刷新子对象区域
         // 需要强制刷新整个 inspector 以使可见性变更生效
         // this.forceRefreshInspector();
+    }
+
+    /**
+     * W6-2b: string propRef 路径分发. 调用方传入 "compName.propKey" 形式的 propRef.
+     *   - 自定义 prop (无 EnumPropName 映射): 走 togglePropertyControlByPropRef (写 string key)
+     *   - 内置 prop (能反查到 EnumPropName, e.g. "cc.Node.active"): 兼容性自动重定向到老路径,
+     *     避免内置 prop 同时出现 number key + string key 的双写混淆.
+     *
+     * 派发: 无论哪条路径, 完成后派发 onPropertyControlled / onPropertyReleased 含 propType + propRef.
+     */
+    private togglePropertyControlStringPath(propRef: string, enable: boolean): void {
+        const mappedEnum = PROPREF_TO_ENUM[propRef];
+        // 内置 propRef → 重定向到 number 路径 (避免双写)
+        if (mappedEnum !== undefined) {
+            this.togglePropertyControl(mappedEnum as EnumPropName, enable);
+            return;
+        }
+
+        // 自定义 propRef → 走 string key 路径
+        StateErrorManager.debug("切换属性控制状态 (propRef 路径)", {
+            component: "StateSelect",
+            method: "togglePropertyControlStringPath",
+            params: { propRef, enable },
+        });
+
+        this.togglePropertyControlByPropRef(propRef, enable);
+
+        // W6-2b: 派发 propRef-aware 事件 (自定义 prop, propType=undefined)
+        CapabilityRegistry.dispatch(enable ? "onPropertyControlled" : "onPropertyReleased", {
+            ctrl: this.getCurrCtrl(),
+            select: this,
+            propType: undefined,
+            propRef,
+        });
     }
 
     /** 🔧 智能属性推断：扫描节点所有可用的属性 */

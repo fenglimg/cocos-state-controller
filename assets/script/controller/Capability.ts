@@ -32,6 +32,13 @@ export interface CapabilityContext {
     /** prop apply 上下文 (onPropApply) */
     propType?: EnumPropName;
     propValue?: TPropValue;
+    /**
+     * W6-2b: prop 引用字符串 ("compName.propKey"), 与 propType 字段并存.
+     *  - 内置 prop (EnumPropName 数字调用): 从 EnumPropRefMap 派生 propRef. AMBIGUOUS 4 项 (Position/Anchor/Size/GrayScale) 无映射 → propRef=undefined
+     *  - 自定义 prop (string 调用): propRef = 调用方传入的字符串, propType = undefined 或 EnumPropName.Non
+     *  - capability 实现可优先用 propRef, 再 fallback propType + EnumPropRefMap 派生
+     */
+    propRef?: string;
     /** 自定义额外数据, capability 之间共享 (避免直接耦合) */
     extra?: { [key: string]: unknown };
     /**
@@ -76,6 +83,14 @@ export interface ICapability {
     /** 录制开始 / 结束 (Recording capability 内部用) */
     onRecordingStart?(ctx: CapabilityContext): void;
     onRecordingStop?(ctx: CapabilityContext): void;
+
+    /**
+     * W6-2b: prop 接入 / 解除 钩子. togglePropertyControl(on/off) 时派发.
+     *  - ctx.propType: EnumPropName 数字 (内置 prop) 或 undefined (自定义 prop)
+     *  - ctx.propRef: string 引用 (内置 propRef 派生自 EnumPropRefMap; 自定义 propRef 直接来自调用方)
+     */
+    onPropertyControlled?(ctx: CapabilityContext): void;
+    onPropertyReleased?(ctx: CapabilityContext): void;
 
     /**
      * 版本迁移 (用于 preset / migration capability).

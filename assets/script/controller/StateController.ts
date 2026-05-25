@@ -226,7 +226,9 @@ export class StateController extends cc.Component {
             // Wave 2: 切 state 前通知 (录制中需 commit diff 到 fromState)
             this.updateState(EnumUpdateType.StateWillChange, this._selectedIndex);
             // Wave 2 T25: capability 层广播 state 切换
-            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value });
+            // W6-2b: 留 propType / propRef 字段位 (state-change 事件本身不针对单 prop, 占位让下游 capability
+            //   读 ctx 不会 undefined 报错; per-prop 事件在 onPropertyControlled / onPropertyReleased 派发).
+            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value, propType: undefined, propRef: undefined });
 
             this._previousIndex = this._selectedIndex;
             this._selectedIndex = value;
@@ -234,7 +236,8 @@ export class StateController extends cc.Component {
             // 🔧 通知所有相关组件状态已改变
             this.updateState(EnumUpdateType.State);
             // Wave 2 T25: capability 层广播 state 已切
-            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value });
+            // W6-2b: 同 onStateWillChange, 留 propType / propRef 字段位
+            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value, propType: undefined, propRef: undefined });
 
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {

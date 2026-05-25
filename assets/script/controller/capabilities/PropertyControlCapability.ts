@@ -13,13 +13,18 @@
  */
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
-import { ICapability } from "../Capability";
+import { CapabilityContext, ICapability } from "../Capability";
 import { EnumPropName } from "../StateEnum";
 import { PropertyControlService } from "../StatePropertyControlService";
+import { ENUM_TO_PROPREF, PROPREF_TO_ENUM } from "../EnumPropRefMap";
 
 /**
  * PropertyControlCapability — 静态工具风格 (不持实例状态), 同时实现 ICapability 接口.
  * 暴露三个核心查询方法 (同 PropertyControlService); StateSelect 现有调用保持不变.
+ *
+ * W6-2b: 增加 propRef 解析工具 + onPropertyControlled / onPropertyReleased hook stub.
+ *   hook 当前仅做日志, 不写 ctrlData (实际数据写入仍在 StateSelect.addPropertyControl 路径).
+ *   propRef 优先, fallback propType + ENUM_TO_PROPREF 派生.
  */
 class _PropertyControlCapability implements ICapability {
     public readonly name = "propertyControl";
@@ -43,6 +48,31 @@ class _PropertyControlCapability implements ICapability {
     public static registerComponentProp(propType: EnumPropName, check: (node: cc.Node) => boolean): void {
         PropertyControlService.registerComponentProp(propType, check);
     }
+
+    /**
+     * W6-2b: 从 ctx 解析 propRef. 优先用 ctx.propRef, fallback ctx.propType + ENUM_TO_PROPREF.
+     * 返回 undefined 表示既无 propRef 又无可派生 propType (e.g. AMBIGUOUS Position/Anchor/Size/GrayScale).
+     */
+    public static resolvePropRef(ctx: CapabilityContext): string | undefined {
+        if (typeof ctx.propRef === "string" && ctx.propRef.length > 0) return ctx.propRef;
+        if (typeof ctx.propType === "number" && ctx.propType > 0) {
+            return ENUM_TO_PROPREF[ctx.propType];
+        }
+        return undefined;
+    }
+
+    /**
+     * W6-2b: 从 ctx 解析 propType (反向). 优先用 ctx.propType, fallback ctx.propRef + PROPREF_TO_ENUM.
+     * 返回 undefined 表示自定义 prop (无 EnumPropName 映射).
+     */
+    public static resolvePropType(ctx: CapabilityContext): EnumPropName | undefined {
+        if (typeof ctx.propType === "number" && ctx.propType > 0) return ctx.propType;
+        if (typeof ctx.propRef === "string") {
+            const mapped = PROPREF_TO_ENUM[ctx.propRef];
+            if (mapped !== undefined) return mapped as EnumPropName;
+        }
+        return undefined;
+    }
 }
 
 /**
@@ -50,18 +80,44 @@ class _PropertyControlCapability implements ICapability {
  * 避免 JS function.name 默认返回类名 "_PropertyControlCapability" 的陷阱.
  *
  * 该对象同时是 ICapability 单例 (注册到 Registry) 和静态工具命名空间.
+ *
+ * W6-2b: 加 resolvePropRef / resolvePropType 静态工具 + onPropertyControlled / onPropertyReleased
+ *   hook 占位 (优先用 ctx.propRef, fallback propType).
  */
 export const PropertyControlCapability: ICapability & {
     isPropertyAvailable: typeof _PropertyControlCapability.isPropertyAvailable,
     isPropertyControlled: typeof _PropertyControlCapability.isPropertyControlled,
     scanAvailableProperties: typeof _PropertyControlCapability.scanAvailableProperties,
     registerComponentProp: typeof _PropertyControlCapability.registerComponentProp,
+    resolvePropRef: typeof _PropertyControlCapability.resolvePropRef,
+    resolvePropType: typeof _PropertyControlCapability.resolvePropType,
 } = {
     name: "propertyControl",
     isPropertyAvailable: _PropertyControlCapability.isPropertyAvailable,
     isPropertyControlled: _PropertyControlCapability.isPropertyControlled,
     scanAvailableProperties: _PropertyControlCapability.scanAvailableProperties,
     registerComponentProp: _PropertyControlCapability.registerComponentProp,
+    resolvePropRef: _PropertyControlCapability.resolvePropRef,
+    resolvePropType: _PropertyControlCapability.resolvePropType,
+
+    // W6-2b: onPropertyControlled hook — 优先 propRef, fallback propType + ENUM_TO_PROPREF 派生
+    onPropertyControlled(ctx: CapabilityContext): void {
+        // hook 不做实际数据写入 (那是 StateSelect.addPropertyControl 的职责),
+        // 仅消费 ctx 验证 propRef + propType 双字段并存的契约 — 让下游 capability
+        // (e.g. Recording / Tween) 能用 propRef 做 propRef-aware 逻辑.
+        const propRef = _PropertyControlCapability.resolvePropRef(ctx);
+        const propType = _PropertyControlCapability.resolvePropType(ctx);
+        // no-op: 仅契约消费. 留出 propRef + propType 给 downstream capability 用.
+        void propRef;
+        void propType;
+    },
+
+    onPropertyReleased(ctx: CapabilityContext): void {
+        const propRef = _PropertyControlCapability.resolvePropRef(ctx);
+        const propType = _PropertyControlCapability.resolvePropType(ctx);
+        void propRef;
+        void propType;
+    },
 };
 
 // 自注册 — 模块被 require 即生效

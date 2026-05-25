@@ -20,8 +20,12 @@ type CapEvent =
     | "onPropApply"
     | "onRecordingStart"
     | "onRecordingStop"
+    | "onRecordingCancel"
     | "onCtrlDataMigrate"
-    | "onRuntimeInit";
+    | "onRuntimeInit"
+    // W6-2b: prop 接入 / 解除 dispatch (togglePropertyControl on/off 触发, payload 含 propType + propRef 双字段)
+    | "onPropertyControlled"
+    | "onPropertyReleased";
 
 /** namespace helper 注入. 给 propData 设置 / 读取 `$$<capName>$$` 子对象. */
 function namespaceHelper(propData: any, capName: string): { [key: string]: unknown } {
