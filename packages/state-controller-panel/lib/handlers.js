@@ -170,6 +170,17 @@ function addProperty(ctrl, select, propType) {
 }
 
 /**
+ * 移除 prop (TASK-003 panel "☐ 取消跟随" 按钮).
+ * 调 StateSelect.togglePropertyControl(false), 取消跟随 + 清 propData 中对应字段.
+ */
+function removeProperty(ctrl, select, propType) {
+    if (!ctrl || !select) return false;
+    if (typeof select.togglePropertyControl !== 'function') return false;
+    select.togglePropertyControl(propType, false);
+    return true;
+}
+
+/**
  * 把 ctrl 内部 state 切换 + setRecording 转成 IPC broadcast.
  *
  * jest 路径: 通过 EventCapability + ad-hoc capability 注册. 测试覆盖.
@@ -233,5 +244,6 @@ module.exports = {
     addState: addState,
     removeState: removeState,
     addProperty: addProperty,
+    removeProperty: removeProperty,
     installBroadcastBridge: installBroadcastBridge,
 };

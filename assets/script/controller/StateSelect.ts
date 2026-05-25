@@ -433,10 +433,76 @@ export class StateSelect extends cc.Component {
             this.refProp();
         }
 
+        // TASK-003: 挂载自动接入 — 新挂 StateSelect / 当前 ctrl 下从未有过任何 controlled prop 时,
+        // 遍历所有 applicable prop (节点自带 + 组件存在的) 一次性 togglePropertyControl(true).
+        // 用户不想要的在 inspector 手动 ☐ 取消即可.
+        //
+        // 守卫: 用 hasAnyControlledProps() 判断, 不能简单看 _ctrlData 是否为空 — getPropData 在
+        // __preload 内部路径中会自动创建 _ctrlData[ctrlId][state]={} 占位条目, 即使没任何 controlled
+        // 也会非空. hasAnyControlledProps 扫所有 state 的 $$controlledProps$$, 严格判定用户/迁移
+        // 是否真的接入过任何 prop. 存量用户主动 opt-out 后某个 prop $$controlledProps$$ 没有该 key,
+        // 但其它 controlled prop 还在 → hasAnyControlledProps=true → 跳过自动接入, 行为零变更.
+        if (this.currCtrlId && !this.hasAnyControlledProps()) {
+            this.autoOptInApplicableProps();
+        }
+
         StateErrorManager.info("StateSelect预加载完成", {
             component: "StateSelect",
             method: "__preload",
             params: { finalCtrlId: this.currCtrlId, propKey: EnumPropName[this._propKey] },
+        });
+    }
+
+    /**
+     * TASK-003: 当前 ctrl 下是否有任何 state 已接入过 controlled prop.
+     * 用来区分"新挂 / 迁移后 / 全部取消跟随后的零态" vs "存量用户已有接入".
+     * 仅看 $$controlledProps$$ 是否有非 Non 的 key, 不依赖 _ctrlData 是否为空 (getPropData
+     * 会创建空 propData 占位).
+     */
+    private hasAnyControlledProps(): boolean {
+        if (!this.currCtrlId) return false;
+        const ctrlPage = this._ctrlData[this.currCtrlId];
+        if (!ctrlPage) return false;
+        for (const stateKey of Object.keys(ctrlPage)) {
+            // 跳过 meta key ($$default$$ 等), 仅看数字 state index 的 propData
+            if (stateKey.startsWith("$$")) continue;
+            const propData = ctrlPage[stateKey as any];
+            if (!propData) continue;
+            const cp = propData.$$controlledProps$$ || propData.$$changedProp$$;
+            if (cp && Object.keys(cp).length > 0) return true;
+        }
+        return false;
+    }
+
+    /**
+     * TASK-003: 把节点上所有 applicable prop 一次性 togglePropertyControl(true).
+     * 仅 __preload 在零态 (hasAnyControlledProps()=false) 时调用, idempotent no-op 重复调.
+     * 不刷新 inspector (在 __preload 上下文调用, 调用方负责后续 refresh).
+     */
+    private autoOptInApplicableProps(): void {
+        if (!CC_EDITOR) return;
+        if (!this.node) return;
+        const applicable = PropertyControlService.scanAvailableProperties(this.node);
+        let enabled = 0;
+        for (const propType of applicable) {
+            if (propType === EnumPropName.Non) continue;
+            if (this.isPropertyControlled(propType)) continue;
+            try {
+                this.togglePropertyControl(propType, true);
+                enabled++;
+            }
+            catch (e) {
+                StateErrorManager.warn("autoOptIn: togglePropertyControl 失败", {
+                    component: "StateSelect",
+                    method: "autoOptInApplicableProps",
+                    params: { propType: EnumPropName[propType], error: (e as Error).message },
+                });
+            }
+        }
+        StateErrorManager.info("StateSelect 挂载自动接入完成", {
+            component: "StateSelect",
+            method: "autoOptInApplicableProps",
+            params: { enabledCount: enabled, applicableCount: applicable.length },
         });
     }
 
@@ -2008,6 +2074,15 @@ export class StateSelect extends cc.Component {
         return PropertyControlService.isPropertyAvailable(this.node, propType);
     }
 
+    /**
+     * TASK-003: 检查属性是否"适合自动接入"(applicable for opt-in).
+     * 语义等价于 isPropertyAvailable: 节点上能取到这个 prop (节点自带 / 组件存在),
+     * 就 applicable. 提供独立名字让 __preload 自动接入路径 + 外部调用方语义更清晰.
+     */
+    public isApplicableProp(propType: EnumPropName): boolean {
+        return PropertyControlService.isPropertyAvailable(this.node, propType);
+    }
+
     /** 🔧 检查属性是否已被控制（使用新的controlledProps结构） */
     public isPropertyControlled(propType: EnumPropName): boolean {
         return PropertyControlService.isPropertyControlled(this.getPropData(), propType);
@@ -2217,13 +2292,16 @@ export class StateSelect extends cc.Component {
         return availableProps;
     }
 
-    /** 🔧 智能属性推断：一键配置所有可用属性 */
+    /**
+     * 智能属性推断: 批量启用所有 applicable prop. TASK-003 之后 __preload 已自动接入,
+     * 此方法保留作为外部工具入口 (例: panel 命令 / 脚本批量配置 / 现有 jest 测试).
+     */
     public autoConfigureAllProperties(): { enabled: number; skipped: number; failed: number } {
         if (!CC_EDITOR) {
             return { enabled: 0, skipped: 0, failed: 0 };
         }
 
-        StateErrorManager.info("开始一键配置所有可用属性", {
+        StateErrorManager.info("开始批量启用所有可用属性", {
             component: "StateSelect",
             method: "autoConfigureAllProperties",
         });
@@ -2262,7 +2340,7 @@ export class StateSelect extends cc.Component {
         // 刷新编辑器界面
         this.forceRefreshInspector();
 
-        StateErrorManager.info("一键配置完成", {
+        StateErrorManager.info("批量启用完成", {
             component: "StateSelect",
             method: "autoConfigureAllProperties",
             params: result,

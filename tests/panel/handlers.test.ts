@@ -176,6 +176,19 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(propData[EnumPropName.Position]).toBeDefined();
     });
 
+    it("removeProperty handler 调用 select.togglePropertyControl(propType, false)", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const { ctrl, select } = setupCtrl();
+        // TASK-003: __preload 自动接入了 Color, 直接 removeProperty 即可
+        expect(select.isPropertyControlled(EnumPropName.Color)).toBe(true);
+        expect(h.removeProperty(ctrl, select, EnumPropName.Color)).toBe(true);
+        expect(select.isPropertyControlled(EnumPropName.Color)).toBe(false);
+        // null ctrl/select no-op
+        expect(h.removeProperty(null, select, EnumPropName.Color)).toBe(false);
+        expect(h.removeProperty(ctrl, null, EnumPropName.Color)).toBe(false);
+    });
+
     it("installBroadcastBridge: stateChanged → 通过 send(name, payload) 转发", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const h = require("../../packages/state-controller-panel/lib/handlers");

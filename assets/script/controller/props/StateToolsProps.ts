@@ -67,18 +67,6 @@ export class StateToolsProps {
         if (this.owner && CC_EDITOR && v) this.owner.manualReloadController();
     }
 
-    @property({
-        displayName: "⚡ 一键配置属性",
-        tooltip: "自动扫描节点所有可用属性并一键启用控制\n\n用途：快速配置所有可控制的属性，包括节点基础属性和组件属性",
-    })
-    public get autoConfigureProps() {
-        return false;
-    }
-
-    public set autoConfigureProps(v: boolean) {
-        if (this.owner && CC_EDITOR && v) {
-            const result = this.owner.autoConfigureAllProperties();
-            Editor.log(`[StateController] 一键配置完成: 启用=${result.enabled}, 跳过=${result.skipped}, 失败=${result.failed}`);
-        }
-    }
+    // TASK-003: 删 "⚡ 一键配置属性" 按钮 — StateSelect.__preload 已自动接入所有 applicable prop,
+    // 不再需要手动按钮触发. autoConfigureAllProperties() 方法本身保留 (兼容现有 jest 测试 + 工具调用).
 }

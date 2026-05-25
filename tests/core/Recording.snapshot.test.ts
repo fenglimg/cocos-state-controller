@@ -92,6 +92,12 @@ describe("StateSelect snapshot lifecycle (Wave 2 T05)", () => {
 
     it("未受控的 prop 不进 snapshot", () => {
         const { ctrl, select } = setup();
+        // TASK-003: __preload 自动接入 8 个节点 prop, 先全 opt-out 回到"无受控" 基线
+        for (const p of [EnumPropName.Active, EnumPropName.Position, EnumPropName.Euler,
+                         EnumPropName.Scale, EnumPropName.Anchor, EnumPropName.Size,
+                         EnumPropName.Color, EnumPropName.Opacity]) {
+            select.togglePropertyControl(p, false);
+        }
         // 不启用任何 prop, 直接 start
         ctrl.startRecording();
 

@@ -166,6 +166,19 @@ module.exports = {
         }
     },
 
+    /** TASK-003: 移除 prop 跟随. 跟 'add-property' 同模板, 调 handlers.removeProperty. */
+    'remove-property'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.ctrlUuid);
+        const select = getSelectByUuid(payload && payload.selectUuid);
+        if (!ctrl || !select) return event.reply('ctrl or select not found', false);
+        const ok = handlers.removeProperty(ctrl, select, payload.propType);
+        event.reply(null, ok);
+        if (ok) {
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        }
+    },
+
     /**
      * 列场景里所有 StateController. Panel 打开时调用, 拿 controller 树.
      * 返回 [{ uuid, ctrlId, ctrlName }].

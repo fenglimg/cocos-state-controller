@@ -184,6 +184,8 @@ describe("模型 Z: 手动 stopRecording 未跟随 prop 弹窗", () => {
         const { ctrl, select, selectNode } = setup();
         const ccL = (globalThis as any).cc;
         ctrl.selectedIndex = 0;
+        // TASK-003: __preload 自动接入了 Opacity, 测试需 Opacity 不勾, 显式 opt-out
+        select.togglePropertyControl(EnumPropName.Opacity, false);
         // 只勾 Color 跟随; Opacity 不勾
         select.togglePropertyControl(EnumPropName.Color, true);
         ctrl.startRecording();
@@ -226,6 +228,8 @@ describe("模型 Z: 手动 stopRecording 未跟随 prop 弹窗", () => {
         const { ctrl, select, selectNode } = setup();
         const ccL = (globalThis as any).cc;
         ctrl.selectedIndex = 0;
+        // TASK-003: __preload 自动接入了 Opacity, 测试需 Opacity 不勾, 显式 opt-out
+        select.togglePropertyControl(EnumPropName.Opacity, false);
         select.togglePropertyControl(EnumPropName.Color, true);
         ctrl.startRecording();
 

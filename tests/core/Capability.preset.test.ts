@@ -155,9 +155,11 @@ describe("PresetCapability (Wave 4 T02)", () => {
         const ok = PresetCapability.applyPreset(B.ctrl, 0, preset);
         expect(ok).toBe(true);
 
-        // B 的 _ctrlData 没新数据
+        // B 的 _ctrlData 没收到 preset 写入 (TASK-003 后 Position 自动接入有默认值, 但不应等于 A 提交的 11,22,0)
         const propData = (B.select as any)._ctrlData[B.ctrl.ctrlId][0];
-        expect(propData && propData[EnumPropName.Position]).toBeUndefined();
+        const bPos = propData && propData[EnumPropName.Position];
+        // preset 没匹配 → 不应写入 A 的 11,22,0
+        expect(bPos && bPos.x === 11 && bPos.y === 22).not.toBe(true);
     });
 
     it("serializePreset/deserializePreset round-trip", () => {

@@ -81,6 +81,8 @@ describe("StateSelect.isPropertyAvailable", () => {
 describe("StateSelect.togglePropertyControl + isPropertyControlled", () => {
     it("启用前 isPropertyControlled = false, 启用后 = true", () => {
         const { select } = setupCtrlAndSelect();
+        // TASK-003: __preload 自动接入 Opacity, 先 opt-out 验证 toggle 路径仍正常
+        select.togglePropertyControl(EnumPropName.Opacity, false);
         expect(select.isPropertyControlled(EnumPropName.Opacity)).toBe(false);
         select.togglePropertyControl(EnumPropName.Opacity, true);
         expect(select.isPropertyControlled(EnumPropName.Opacity)).toBe(true);

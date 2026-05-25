@@ -29,9 +29,11 @@ describe("scene-accessor.js (smoke)", () => {
             "set-selected-index",
             "set-state-by-id",
             "set-recording",
+            "cancel-recording",  // TASK-002
             "add-state",
             "remove-state",
             "add-property",
+            "remove-property",   // TASK-003
             "list-ctrls",
             "dispose-all-bridges",
         ];

@@ -100,6 +100,8 @@ describe("Props visibility 契约", () => {
         const np = new StateNodeProps();
         np.owner = select;
 
+        // TASK-003: __preload 自动接入 Active, 先 opt-out 验证 toggle 路径
+        select.togglePropertyControl(EnumPropName.Active, false);
         // 初始未控制
         expect(np.propActive).toBe(false);
         // set 后应触发 togglePropertyControl, 进而 isPropertyControlled === true

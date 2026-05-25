@@ -85,6 +85,12 @@ describe("StateSelect inspector 极简形态", () => {
 
         it("没勾任何 prop 时, currentStateProps 应为空数组", () => {
             const { select } = setup();
+            // TASK-003: __preload 自动接入 8 个节点 prop, 测试需"无勾选"基线, 逐个 opt-out
+            for (const p of [EnumPropName.Active, EnumPropName.Position, EnumPropName.Euler,
+                             EnumPropName.Scale, EnumPropName.Anchor, EnumPropName.Size,
+                             EnumPropName.Color, EnumPropName.Opacity]) {
+                select.togglePropertyControl(p, false);
+            }
             const list: string[] = (select as any).currentStateProps;
             expect(list).toEqual([]);
         });
