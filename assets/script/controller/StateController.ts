@@ -56,6 +56,13 @@ export class StateController extends cc.Component {
     private _recording: boolean = false;
 
     /**
+     * 录制开始时的 selectedIndex (TASK-002 cancelRecording 用).
+     * 在 _doStartRecording 中赋值; cancelRecording 用它定位需要回滚的 ctrlData state.
+     * 非 @property, 不序列化.
+     */
+    private _recordingStartState: number = -1;
+
+    /**
      * 标记当前 stopRecording 的触发来源 (模型 Z, 切 state 时自动停).
      *   "manual": 用户点录制按钮关 (默认), StateSelect.onRecordingStop 走完整路径 + 弹窗
      *   "auto":   selectedIndex setter 自动触发, StateSelect.onRecordingStop 走静默 + Editor.log
@@ -265,6 +272,15 @@ export class StateController extends cc.Component {
             return;
         }
 
+        // TASK-002: 录制中不能修改状态列表 (避免 ctrlData 索引错位).
+        if (this._recording) {
+            StateErrorManager.warn("录制中不能修改状态列表, 请先停止/撤销录制", {
+                component: "StateController",
+                method: "states.setter",
+            });
+            return;
+        }
+
         // 🔧 输入验证：确保数组有效
         if (!value || !Array.isArray(value)) {
             StateErrorManager.warn("states必须是有效的数组", {
@@ -422,6 +438,15 @@ export class StateController extends cc.Component {
             return;
         }
 
+        // TASK-002: 录制中不能调整状态顺序.
+        if (this._recording) {
+            StateErrorManager.warn("录制中不能调整状态顺序, 请先停止/撤销录制", {
+                component: "StateController",
+                method: "adjustSelectedStateOrder",
+            });
+            return;
+        }
+
         if (!this._states || this._states.length === 0) {
             StateErrorManager.warn("当前没有可调整的状态", {
                 component: "StateController",
@@ -516,6 +541,15 @@ export class StateController extends cc.Component {
             return;
         }
 
+        // TASK-002: 录制中不能复制状态.
+        if (this._recording) {
+            StateErrorManager.warn("录制中不能复制状态, 请先停止/撤销录制", {
+                component: "StateController",
+                method: "copySelectedState",
+            });
+            return;
+        }
+
         if (!this._states || this._states.length === 0) {
             StateErrorManager.warn("当前没有可复制的状态", {
                 component: "StateController",
@@ -560,6 +594,15 @@ export class StateController extends cc.Component {
     private removeSelectedState() {
         if (!CC_EDITOR) {
             StateErrorManager.error("仅在编辑器中删除状态", {
+                component: "StateController",
+                method: "removeSelectedState",
+            });
+            return;
+        }
+
+        // TASK-002: 录制中不能删除状态.
+        if (this._recording) {
+            StateErrorManager.warn("录制中不能删除状态, 请先停止/撤销录制", {
                 component: "StateController",
                 method: "removeSelectedState",
             });
@@ -1049,6 +1092,8 @@ export class StateController extends cc.Component {
     /** 真正进入录制态 (无 dirty 检查). dirty 弹窗 / 直接 startRecording 都走这一条. */
     private _doStartRecording(): void {
         this._recording = true;
+        // TASK-002: 记录录制开始时的 state, 供 cancelRecording 回滚定位.
+        this._recordingStartState = this._selectedIndex;
         StateErrorManager.info("开始录制", {
             component: "StateController",
             method: "_doStartRecording",
@@ -1183,6 +1228,68 @@ export class StateController extends cc.Component {
         }
         else {
             this.startRecording();
+        }
+    }
+
+    /**
+     * 撤销本次录制 (TASK-002, 模型 Z inspector 闭环).
+     *
+     * 把 ctrlData[_recordingStartState] 回滚到录制开始前的值 (复用 StateSelect.onRecordingStart
+     * 已拍的 _snapshot), 置 _recording=false, 不调 stopRecording (避免触发 commit / RecordingStop).
+     *
+     * 设计:
+     *   - 与 stopRecording 平行, 不复用 stopRecording 路径 (后者会 commit + dispatch RecordingStop, 是 cancel 要避免的)
+     *   - 录制是事务, cancel 必须完全回滚, 不留 commit 痕迹
+     *   - dispatch onRecordingCancel 让其它 capability (如 timeline / undo) 监听
+     */
+    public cancelRecording(): void {
+        if (!this._recording) {
+            return;
+        }
+        const fromState = this._recordingStartState;
+        this.rebuildStateSelectCache();
+        if (this._stateSelectCache) {
+            for (const select of this._stateSelectCache) {
+                if (!select || !select.node || !select.node.isValid) continue;
+                if (typeof (select as any).applyRecordingSnapshot === "function") {
+                    try { (select as any).applyRecordingSnapshot(this, fromState); }
+                    catch (e) {
+                        StateErrorManager.warn("cancelRecording: applyRecordingSnapshot 失败", {
+                            component: "StateController",
+                            method: "cancelRecording",
+                            params: { error: (e as Error).message },
+                        });
+                    }
+                }
+            }
+        }
+        this._recording = false;
+        StateErrorManager.info("撤销录制", {
+            component: "StateController",
+            method: "cancelRecording",
+            params: { ctrlName: this._ctrlName, fromState },
+        });
+        // 重新应用 state[fromState] 回节点, 让视觉与回滚后的 ctrlData 一致
+        this.updateState(EnumUpdateType.State);
+        // TASK-002: capability 层广播 cancel 事件 (与 stop 区分, 不发 RecordingStop)
+        CapabilityRegistry.dispatch("onRecordingCancel", { ctrl: this, fromState });
+    }
+
+    /**
+     * 撤销录制按钮 (TASK-002): 仅录制态下点击有效, 调 cancelRecording.
+     */
+    @property({
+        displayName: "⤺ 撤销本次录制",
+        tooltip: "丢弃本次录制改动, 回到录制开始前的状态",
+    })
+    public get cancelRecordTrigger() {
+        return false;
+    }
+
+    public set cancelRecordTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        if (this._recording) {
+            this.cancelRecording();
         }
     }
 

@@ -188,6 +188,16 @@ export class StateSelect extends cc.Component {
      */
     private _fullSnapshot: TProp | null = null;
 
+    /**
+     * 录制开始时的"不可变"snapshot (TASK-002 cancelRecording 用).
+     *
+     * 与 _snapshot 区别: _snapshot 在 commitRecordingDiff 中会被刷新成新值 (作为下一段 diff 起点),
+     * 不再代表"录制开始时的原值"; _initialSnapshot 拍完不变, 让 cancel 能精确回滚.
+     *
+     * 字段非 @property, 不序列化, onRecordingStart 拍, onRecordingStop/cancelRecording 清.
+     */
+    private _initialSnapshot: TProp | null = null;
+
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
@@ -1298,6 +1308,46 @@ export class StateSelect extends cc.Component {
     }
 
     /**
+     * 撤销录制时, 把 _initialSnapshot (录制开始时拍的不可变副本) 写回 ctrlData[fromState],
+     * 让 ctrlData 回到录制开始前的状态.
+     *
+     * 不调 applyPropDataToNode / setValue: StateController 在调用本方法后会触发 updateState(State),
+     * StateSelect.updateState 会把回滚后的 propData 重新应用到节点.
+     *
+     * 设计要点: 用 _initialSnapshot 而不是 _snapshot. _snapshot 在 commitRecordingDiff 中会被刷新
+     * 成节点新值 (作为下一段 diff 起点), 不再代表"录制开始时的原值"; _initialSnapshot 拍完不变.
+     *
+     * TASK-002 cancelRecording 路径专用. 调完清 _initialSnapshot / _snapshot / _fullSnapshot.
+     */
+    public applyRecordingSnapshot(ctrl: StateController, fromState: number): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
+        if (this._initialSnapshot == null) {
+            // 录制开始时没拍 snapshot (e.g. 控制器关联尚未建立), 直接清场, no-op 回滚
+            this._snapshot = null;
+            this._fullSnapshot = null;
+            return;
+        }
+        const propData = this.getPropData(fromState, ctrl.ctrlId);
+        if (propData) {
+            const snap = this._initialSnapshot as TPropDictionary;
+            for (const key of Object.keys(snap)) {
+                const propType = Number(key);
+                if (!Number.isFinite(propType) || propType === EnumPropName.Non) continue;
+                (propData as TPropDictionary)[propType] = snap[propType];
+            }
+        }
+        this._snapshot = null;
+        this._initialSnapshot = null;
+        this._fullSnapshot = null;
+        StateErrorManager.debug("撤销录制: snapshot 回滚到 ctrlData", {
+            component: "StateSelect",
+            method: "applyRecordingSnapshot",
+            params: { fromState, ctrlId: ctrl.ctrlId },
+        });
+    }
+
+    /**
      * 切 state 前 (录制中): commit diff 到 fromState.
      * 由 StateController.selectedIndex setter → updateState(StateWillChange, fromIdx) 派发。
      */
@@ -1338,6 +1388,8 @@ export class StateSelect extends cc.Component {
             return;
         }
         this._snapshot = this.readControlledPropsFromNode(ctrl);
+        // TASK-002: 拍一份独立的不可变 snapshot 给 cancel 用 (_snapshot 在 commit 路径会被刷新)
+        this._initialSnapshot = this.readControlledPropsFromNode(ctrl);
         this._fullSnapshot = this.readAllApplicablePropsFromNode();
         StateErrorManager.debug("录制双 snapshot 已拍", {
             component: "StateSelect",
@@ -1385,6 +1437,8 @@ export class StateSelect extends cc.Component {
 
         this._snapshot = null;
         this._fullSnapshot = null;
+        // TASK-002: 同步清初始 snapshot
+        this._initialSnapshot = null;
         StateErrorManager.debug("录制 snapshot 已清", {
             component: "StateSelect",
             method: "onRecordingStop",
@@ -2030,6 +2084,27 @@ export class StateSelect extends cc.Component {
         }
         else {
             ctrl.startRecording();
+        }
+    }
+
+    /**
+     * 撤销本次录制 (TASK-002): 镜像 StateController.cancelRecordTrigger.
+     * 让用户在 StateSelect inspector 上也能撤销, 与 StateController inspector 共享同一录制态。
+     */
+    @property({
+        displayName: "⤺ 撤销本次录制",
+        tooltip: "丢弃本次录制改动, 回到录制开始前的状态",
+    })
+    public get cancelRecordTrigger() {
+        return false;
+    }
+
+    public set cancelRecordTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        const ctrl = this.getCurrCtrl();
+        if (!ctrl) return;
+        if (ctrl.isRecording) {
+            ctrl.cancelRecording();
         }
     }
 

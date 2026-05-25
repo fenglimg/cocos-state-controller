@@ -53,10 +53,23 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(typeof h.setSelectedIndex).toBe("function");
         expect(typeof h.setStateById).toBe("function");
         expect(typeof h.setRecording).toBe("function");
+        expect(typeof h.cancelRecording).toBe("function");
         expect(typeof h.addState).toBe("function");
         expect(typeof h.removeState).toBe("function");
         expect(typeof h.addProperty).toBe("function");
         expect(typeof h.installBroadcastBridge).toBe("function");
+    });
+
+    it("cancelRecording handler 调用 ctrl.cancelRecording", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const { ctrl } = setupCtrl();
+        ctrl.startRecording();
+        expect(ctrl.isRecording).toBe(true);
+        expect(h.cancelRecording(ctrl)).toBe(true);
+        expect(ctrl.isRecording).toBe(false);
+        // null ctrl no-op
+        expect(h.cancelRecording(null)).toBe(false);
     });
 
     it("getCtrlSnapshot(ctrl) 返回 ctrlId/ctrlName/selectedIndex/isRecording/states 列表", () => {

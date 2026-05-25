@@ -122,6 +122,18 @@ module.exports = {
         broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
     },
 
+    /**
+     * TASK-002: 撤销本次录制. 调 ctrl.cancelRecording, ctrlData 回滚 + 视觉同步回滚.
+     * 同时广播 data-changed 让 panel 刷新; onRecordingCancelled 由 broadcast bridge 自动转发.
+     */
+    'cancel-recording'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        event.reply(null, handlers.cancelRecording(ctrl));
+        broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+        if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+    },
+
     'add-state'(event, payload) {
         const ctrl = getCtrlByUuid(payload && payload.uuid);
         if (!ctrl) return event.reply('ctrl not found', -1);

@@ -100,6 +100,16 @@ function setRecording(ctrl, isRecording) {
 }
 
 /**
+ * 撤销本次录制 (TASK-002): 调 ctrl.cancelRecording, ctrlData 回滚到录制开始前.
+ * 非录制态调是 no-op (ctrl 端幂等).
+ */
+function cancelRecording(ctrl) {
+    if (!ctrl) return false;
+    if (typeof ctrl.cancelRecording === 'function') ctrl.cancelRecording();
+    return true;
+}
+
+/**
  * 新增 state. 走 StateController.states setter (复用 smart-name + stateId 分配逻辑).
  * 返回新 stateId, 失败返回 -1.
  *
@@ -197,6 +207,14 @@ function installBroadcastBridge(ctrl, send) {
         onRecordingStop: function (ctx) {
             if (ctx.ctrl === ctrl) send('onRecordingChanged', { ctrlId: safeCtrlId(ctrl), isRecording: false });
         },
+        // TASK-002: cancelRecording 也广播 onRecordingChanged → isRecording=false,
+        // 同时单独广播 onRecordingCancelled 让 panel 区分 "停止" 与 "撤销" (撤销需要刷数据)
+        onRecordingCancel: function (ctx) {
+            if (ctx.ctrl === ctrl) {
+                send('onRecordingChanged', { ctrlId: safeCtrlId(ctrl), isRecording: false });
+                send('onRecordingCancelled', { ctrlId: safeCtrlId(ctrl), fromState: ctx.fromState });
+            }
+        },
     };
     _CapabilityRegistry.register(recBridge);
 
@@ -211,6 +229,7 @@ module.exports = {
     setSelectedIndex: setSelectedIndex,
     setStateById: setStateById,
     setRecording: setRecording,
+    cancelRecording: cancelRecording,
     addState: addState,
     removeState: removeState,
     addProperty: addProperty,
