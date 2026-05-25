@@ -157,6 +157,18 @@ export class StateSelect extends cc.Component {
     private _ctrlData: TCtrl = {};
 
     /**
+     * W6-1 用户排除清单 (inspector 隐藏, panel 接管).
+     *
+     * 用 propRef ("cc.Sprite.spriteFrame" / "MyComp.heat") 标记用户在 inspector
+     * 手动取消的 prop. W6-4 将在 inspector 加 UI 维护此列表, W6-2 把它合并到
+     * PrefabIntrospection.listTrackableProps 的过滤里.
+     *
+     * 当前 W6-1 仅占位, 默认空数组, 不破任何老路径.
+     */
+    @property({ visible: false })
+    private _userExcludedProps: string[] = [];
+
+    /**
      * 录制中的 snapshot (Wave 2 prefab diff 路径).
      *
      * onRecordingStart 时, 拍下当前节点上所有 controlled prop 的当前值,
