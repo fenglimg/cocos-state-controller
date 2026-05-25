@@ -52,7 +52,6 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(typeof h.getCtrlSnapshot).toBe("function");
         expect(typeof h.setSelectedIndex).toBe("function");
         expect(typeof h.setStateById).toBe("function");
-        expect(typeof h.setHomePage).toBe("function");
         expect(typeof h.setRecording).toBe("function");
         expect(typeof h.addState).toBe("function");
         expect(typeof h.removeState).toBe("function");
@@ -60,7 +59,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(typeof h.installBroadcastBridge).toBe("function");
     });
 
-    it("getCtrlSnapshot(ctrl) 返回 ctrlId/ctrlName/selectedIndex/homePageStateId/isRecording/states 列表", () => {
+    it("getCtrlSnapshot(ctrl) 返回 ctrlId/ctrlName/selectedIndex/isRecording/states 列表", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const h = require("../../packages/state-controller-panel/lib/handlers");
         const { ctrl } = setupCtrl();
@@ -68,20 +67,10 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(snap.ctrlId).toBe(ctrl.ctrlId);
         expect(typeof snap.ctrlName).toBe("string");
         expect(snap.selectedIndex).toBe(0);
-        expect(snap.homePageStateId).toBe(-1);
         expect(snap.isRecording).toBe(false);
         expect(Array.isArray(snap.states)).toBe(true);
         expect(snap.states.length).toBe(2);
         expect(snap.states[0]).toEqual({ index: 0, stateId: ctrl._states[0].stateId, name: "1" });
-    });
-
-    it("getCtrlSnapshot.states 反映动态变化 (homePage 设置后)", () => {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
-        const { ctrl } = setupCtrl();
-        h.setHomePage(ctrl, ctrl._states[1].stateId);
-        const snap = h.getCtrlSnapshot(ctrl);
-        expect(snap.homePageStateId).toBe(ctrl._states[1].stateId);
     });
 
     it("setSelectedIndex(ctrl, idx) 切到指定 index, 返回 true", () => {
@@ -110,21 +99,6 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(h.setStateById(ctrl, target.stateId)).toBe(true);
         expect(ctrl.selectedIndex).toBe(1);
         expect(h.setStateById(ctrl, 9999)).toBe(false);
-    });
-
-    it("setHomePage(ctrl, stateIdOrName | -1) 走 HomePageCapability", () => {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
-        const { ctrl } = setupCtrl();
-        const target = ctrl._states[1];
-        expect(h.setHomePage(ctrl, target.stateId)).toBe(true);
-        expect((ctrl as any)._homePageStateId).toBe(target.stateId);
-
-        expect(h.setHomePage(ctrl, -1)).toBe(true);
-        expect((ctrl as any)._homePageStateId).toBe(-1);
-
-        // 不存在的 → false
-        expect(h.setHomePage(ctrl, 9999)).toBe(false);
     });
 
     it("setRecording(ctrl, true) → ctrl.startRecording; setRecording(ctrl, false) → stopRecording", () => {
@@ -234,7 +208,6 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         const h = require("../../packages/state-controller-panel/lib/handlers");
         expect(() => h.getCtrlSnapshot(null)).not.toThrow();
         expect(h.setSelectedIndex(null, 0)).toBe(false);
-        expect(h.setHomePage(null, 0)).toBe(false);
         expect(h.setRecording(null, true)).toBe(false);
         expect(h.addState(null, "X")).toBe(-1);
         expect(h.removeState(null, 0)).toBe(false);

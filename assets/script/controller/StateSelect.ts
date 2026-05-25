@@ -133,38 +133,6 @@ export class StateSelect extends cc.Component {
     })
     public toolsProps = new StateToolsProps();
 
-    // #region 属性值
-    // 注: getter @property 不要加 editorOnly / serializable: false,
-    // 因为 cc 引擎里 getter 本身就不会参与序列化, 加了 cc 会报多余警告。
-    @property({
-        tooltip: "当前状态属性值\n\n🔸 这里显示当前选中属性的值 (panel 接管, inspector 隐藏)",
-        visible: false,
-        displayName: "🔸 当前属性值",
-    })
-    public get propValue() {
-        return this._propValue;
-    }
-
-    private set propValue(value: TPropValue) {
-        if (!CC_EDITOR) {
-            return;
-        }
-        StateErrorManager.debug("设置属性值", {
-            component: "StateSelect",
-            method: "propValue.setter",
-            params: {
-                propKey: EnumPropName[this.propKey],
-                valueType: typeof value,
-                oldValue: this._propValue,
-            },
-        });
-
-        this._propValue = value;
-        const propData = this.getPropData();
-        propData[this.propKey] = value;
-        this.updateState(this.getCurrCtrl());
-    }
-
     /** 节点基础属性分组 (Active/Position/Scale/Color/Size/Euler/Anchor/Opacity). */
     @property({
         type: StateNodeProps,
@@ -225,7 +193,7 @@ export class StateSelect extends cc.Component {
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
 
     // #region 控制器当前状态 (StateSelect 上的切 state 快捷入口, 镜像 ctrl.selectedIndex)
-    @property({ type: EnumStateName, displayName: "selectedState", tooltip: "切到指定 state (镜像 controller.selectedIndex, 改这里 = 改 ctrl)" })
+    @property({ type: EnumStateName, displayName: "state", tooltip: "切到指定 state (镜像 controller.selectedIndex, 改这里 = 改 ctrl)" })
     public get ctrlState() {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
@@ -1675,12 +1643,8 @@ export class StateSelect extends cc.Component {
     private setPropValue(type: EnumPropName) {
         const value = this.handleValue(type);
         if (value == void 0) {
-            // @ts-expect-error cc.Class.Attr.setClassAttr is not typed
-            cc.Class.Attr.setClassAttr(this, "propValue", "visible", false);
             return void 0;
         }
-        // @ts-expect-error cc.Class.Attr.setClassAttr is not typed
-        cc.Class.Attr.setClassAttr(this, "propValue", "visible", true);
         this._propValue = value;
         return value;
     }
@@ -2005,7 +1969,7 @@ export class StateSelect extends cc.Component {
      * Wave 1 panel 未实装期间, 这是用户在 inspector 中唯一能看到的 state 内容摘要。
      */
     @property({
-        displayName: "当前状态属性",
+        displayName: "已跟随属性",
         tooltip: "当前 state 已勾选 prop 的人类可读列表 (readonly, panel 接管后会更丰富)",
         readonly: true,
     })
@@ -2043,7 +2007,7 @@ export class StateSelect extends cc.Component {
      * 让用户在 StateSelect inspector 上也能起停录制, 与 StateController inspector 共享同一录制态。
      */
     @property({
-        displayName: "🔴 录制状态 (select)",
+        displayName: "🔴 录制",
         tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
     })
     public get recordTrigger() {
@@ -2066,26 +2030,6 @@ export class StateSelect extends cc.Component {
         }
         else {
             ctrl.startRecording();
-        }
-    }
-
-    /**
-     * 打开 State Controller Panel.
-     */
-    @property({
-        displayName: "⚙️ 打开 Panel (select)",
-        tooltip: "打开 State Controller Panel",
-    })
-    public get openPanelTrigger() {
-        return false;
-    }
-
-    public set openPanelTrigger(value: boolean) {
-        if (value && CC_EDITOR) {
-            const ed = (globalThis as any).Editor;
-            if (ed && ed.Panel && typeof ed.Panel.open === "function") {
-                ed.Panel.open("state-controller-panel");
-            }
         }
     }
 
@@ -2183,7 +2127,7 @@ export class StateSelect extends cc.Component {
         }
 
         // 嵌套 CCClass 的 setter 触发后，inspector 只刷新子对象区域
-        // 需要强制刷新整个 inspector 以使 propValue 可见性变更生效
+        // 需要强制刷新整个 inspector 以使可见性变更生效
         // this.forceRefreshInspector();
     }
 
@@ -2477,7 +2421,7 @@ export class StateSelect extends cc.Component {
      *
      * 用于在数据 / inspector 显示走样时手动恢复:
      *   - $$controlledProps$$ 从 $$changedProp$$ 兼容性重建
-     *   - $$lastProp$$ 恢复 _propKey / _currentDisplayProp / propValue 显示
+     *   - $$lastProp$$ 恢复 _propKey / _currentDisplayProp / _propValue 内存
      *   - 刷新一次 inspector
      */
     public syncDataFromMemory() {
@@ -2505,7 +2449,7 @@ export class StateSelect extends cc.Component {
                 }
             }
 
-            // 恢复 lastProp 选中状态 + propValue 显示
+            // 恢复 lastProp 选中状态 + _propValue 内存
             const lastProp = propData.$$lastProp$$;
             if (lastProp !== undefined && lastProp !== EnumPropName.Non) {
                 this._propKey = lastProp;

@@ -12,7 +12,6 @@
 import "./AutoSyncCapability";
 import "./CodeGenCapability";
 import "./EventCapability";
-import "./HomePageCapability";
 import "./MigrationCapability";
 import "./MultiCtrlBindingCapability";
 import "./PresetCapability";

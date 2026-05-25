@@ -100,15 +100,6 @@ describe("被动路径都不应触发 inspector 刷新", () => {
 });
 
 describe("唯一允许的刷新入口: 用户主动按按钮", () => {
-    it("ctrl 上的 manualRefreshTrigger 按钮触发刷新", () => {
-        const { ctrl, ctrlNode } = setupCtrlAndSelect();
-        refreshSpy.mockClear();
-
-        (ctrl as any).manualRefreshTrigger = true;
-
-        expect(refreshSpy).toHaveBeenCalledWith("node", ctrlNode.uuid);
-    });
-
     it("select 上的 forceRefreshInspector() 显式调用触发刷新", () => {
         const { select, selectNode } = setupCtrlAndSelect();
         refreshSpy.mockClear();

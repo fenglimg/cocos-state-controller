@@ -10,7 +10,6 @@
  *   state-controller-panel:get-ctrl-snapshot
  *   state-controller-panel:set-selected-index
  *   state-controller-panel:set-state-by-id
- *   state-controller-panel:set-home-page
  *   state-controller-panel:set-recording
  *   state-controller-panel:add-state
  *   state-controller-panel:remove-state
@@ -113,12 +112,6 @@ module.exports = {
         const ctrl = getCtrlByUuid(payload && payload.uuid);
         if (!ctrl) return event.reply('ctrl not found', false);
         event.reply(null, handlers.setStateById(ctrl, payload.stateId));
-    },
-
-    'set-home-page'(event, payload) {
-        const ctrl = getCtrlByUuid(payload && payload.uuid);
-        if (!ctrl) return event.reply('ctrl not found', false);
-        event.reply(null, handlers.setHomePage(ctrl, payload.stateIdOrName));
     },
 
     'set-recording'(event, payload) {

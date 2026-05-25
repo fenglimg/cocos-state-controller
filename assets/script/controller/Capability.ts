@@ -62,8 +62,8 @@ export interface ICapability {
 
     /**
      * Runtime 启动初始化钩子 (Wave 3).
-     * StateController.onLoad runtime path 调用. 用于 HomePageCapability 等
-     * 在 runtime 启动时自动跳到指定 state. 编辑期不触发.
+     * StateController.onLoad runtime path 调用. 用于 runtime 启动时
+     * 自动跳到指定 state 等场景. 编辑期不触发.
      */
     onRuntimeInit?(ctx: CapabilityContext): void;
 

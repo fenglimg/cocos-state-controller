@@ -46,16 +46,6 @@ function findIndexByStateId(ctrl, stateId) {
     return -1;
 }
 
-function findStateByName(ctrl, name) {
-    const states = ctrl && ctrl._states;
-    if (!states) return null;
-    for (let i = 0; i < states.length; i++) {
-        const s = states[i];
-        if (s && s.name === name) return { index: i, stateId: s.stateId };
-    }
-    return null;
-}
-
 function listAllStates(ctrl) {
     const out = [];
     if (!ctrl || !ctrl._states) return out;
@@ -80,7 +70,6 @@ function getCtrlSnapshot(ctrl) {
         ctrlName: ctrl.ctrlName || '',
         selectedIndex: idx,
         selectedStateId: sel ? sel.stateId : -1,
-        homePageStateId: (typeof ctrl._homePageStateId === 'number') ? ctrl._homePageStateId : -1,
         isRecording: !!ctrl.isRecording,
         states: states,
     };
@@ -99,25 +88,6 @@ function setStateById(ctrl, stateId) {
     const idx = findIndexByStateId(ctrl, stateId);
     if (idx < 0) return false;
     ctrl.selectedIndex = idx;
-    return true;
-}
-
-function setHomePage(ctrl, stateIdOrName) {
-    if (!ctrl) return false;
-    if (stateIdOrName === -1) {
-        ctrl._homePageStateId = -1;
-        return true;
-    }
-    let found = null;
-    if (typeof stateIdOrName === 'number') {
-        const idx = findIndexByStateId(ctrl, stateIdOrName);
-        if (idx >= 0) found = { stateId: stateIdOrName };
-    }
-    else if (typeof stateIdOrName === 'string') {
-        found = findStateByName(ctrl, stateIdOrName);
-    }
-    if (!found) return false;
-    ctrl._homePageStateId = found.stateId;
     return true;
 }
 
@@ -240,7 +210,6 @@ module.exports = {
     getCtrlSnapshot: getCtrlSnapshot,
     setSelectedIndex: setSelectedIndex,
     setStateById: setStateById,
-    setHomePage: setHomePage,
     setRecording: setRecording,
     addState: addState,
     removeState: removeState,

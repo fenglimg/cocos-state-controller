@@ -40,45 +40,6 @@ export class StateController extends cc.Component {
     @property({ visible: false })
     public ctrlId = Date.now();
 
-    /**
-     * runtime 启动时跳转的"主页"state 的 stateId (Wave 3, HomePageCapability 管理).
-     * -1 表示未设 (runtime noop, 停在 selectedIndex 默认). 用 stateId 而非 index, 跨 reorder/delete 稳定.
-     */
-    @property({ visible: false })
-    public _homePageStateId: number = -1;
-
-    /**
-     * homepage inspector 入口. 下拉项 = "(无)" + 所有 state. value=-1 表示未设.
-     *
-     * 存储是 stateId (稳定), 显示是 stateId (enumList value=stateId). 选项注入见
-     * setClassAttr("homePageState", "enumList", ...) — 总是把 "(无)" unshift 到列表首.
-     */
-    @property({ type: EnumStateName, displayName: "homePageState", tooltip: "runtime 启动时跳转的状态. (无)=不跳, 停在默认" })
-    public get homePageState(): EnumStateName {
-        return this._homePageStateId as EnumStateName;
-    }
-
-    public set homePageState(value: EnumStateName) {
-        const stateId = value as number;
-        if (stateId === -1) {
-            this._homePageStateId = -1;
-            return;
-        }
-        // 校验 stateId 真存在 (防御性: enumList 注入失误时也不写脏数据)
-        const exists = this._states.some(s => s && s.stateId === stateId);
-        if (exists) {
-            this._homePageStateId = stateId;
-        }
-        else {
-            this._homePageStateId = -1;
-            StateErrorManager.warn("homePageState: 选中的 stateId 不存在, 已重置 -1", {
-                component: "StateController",
-                method: "homePageState.setter",
-                params: { stateId },
-            });
-        }
-    }
-
     /** 历史状态名字 */
     @property({ visible: false })
     private _historyStateName: { [key: number]: string } = {};
@@ -119,7 +80,7 @@ export class StateController extends cc.Component {
     @property({ visible: false })
     private _ctrlName: string = "";
 
-    @property({ displayName: "name", tooltip: "控制器唯一名称" })
+    @property({ displayName: "控制器 id", tooltip: "控制器唯一名称" })
     public get ctrlName() {
         return this._ctrlName;
     }
@@ -211,7 +172,7 @@ export class StateController extends cc.Component {
     }
 
     /** 选择的状态下标 */
-    @property({ type: EnumStateName, displayName: "selectedState", tooltip: "当前选中的状态" })
+    @property({ type: EnumStateName, displayName: "state", tooltip: "当前选中的状态" })
     public get selectedIndex() {
         return this._selectedIndex;
     }
@@ -426,11 +387,6 @@ export class StateController extends cc.Component {
 
         // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
-        // homePageState 下拉同步: value=stateId (稳定), 首项 "(无)" 表示未设.
-        const homePageArray = ([{ name: "(无)", value: -1 }] as Array<{ name: string, value: number }>)
-            .concat(value.map(v => ({ name: v.name, value: v.stateId })));
-        // @ts-expect-error 允许使用该方法
-        cc.Class.Attr.setClassAttr(this, "homePageState", "enumList", homePageArray);
         this._selectedIndex = applyIndex;
 
         // 刻意不调 forceRefreshInspector: 自动强刷会打断当前操作 (焦点丢失 / 抖动),
@@ -703,11 +659,6 @@ export class StateController extends cc.Component {
 
         // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
-        // homePageState 下拉同步: value=stateId, 首项 "(无)"=-1.
-        const homePageArray = ([{ name: "(无)", value: -1 }] as Array<{ name: string, value: number }>)
-            .concat(this.states.map(v => ({ name: v.name, value: v.stateId })));
-        // @ts-expect-error 允许使用该方法
-        cc.Class.Attr.setClassAttr(this, "homePageState", "enumList", homePageArray);
 
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
         if (this._states.length > 0 && (this._selectedIndex < 0 || this._selectedIndex >= this._states.length)) {
@@ -816,8 +767,7 @@ export class StateController extends cc.Component {
      * 触发 selectedPage 变更通知 (仅日志, 不再自动刷新 inspector).
      *
      * 历史: 这里曾在切状态后 setTimeout 强刷 inspector, 体验上会打断当前操作
-     * (焦点丢失 / 滚动跳动). 现在去掉, selectedPage 的陈旧显示由用户主动点
-     * inspector 上的 "刷新检查器" 按钮 (manualRefreshTrigger) 解决.
+     * (焦点丢失 / 滚动跳动). 现在去掉, selectedPage 的陈旧显示由 panel 主动接管.
      */
     private _emitSelectedPageChanged(): void {
         if (!CC_EDITOR) {
@@ -1015,9 +965,7 @@ export class StateController extends cc.Component {
                     (stateSelect as any).onStateChanged(this);
                 }
                 // 刻意不调 stateSelect.forceRefreshInspector(): 全量刷新 inspector
-                // 会丢焦点 / 抖动. propValue 等 getter @property 在切 state 后显示
-                // 陈旧由用户主动按 "刷新检查器" 按钮解决 (跟 werewolf 项目默认
-                // ManualRefresh 模式一致).
+                // 会丢焦点 / 抖动. inspector 陈旧显示由 panel 主动接管 (无插件闭环).
             }
             else if (type == EnumUpdateType.Name) {
                 // 🔧 名称更新：通知StateSelect组件控制器名称已更改
@@ -1067,45 +1015,6 @@ export class StateController extends cc.Component {
                     (stateSelect as any).onStateWillChange(this, value as number);
                 }
             }
-        }
-    }
-
-    /**
-     * 当前 state 的格式化标签 (readonly, inspector 极简形态展示)
-     * 格式: "`${index}. ${stateName}`", e.g. "1. hover"
-     * 越界时返回 "-" fallback (不抛错)。
-     */
-    @property({
-        displayName: "当前状态",
-        tooltip: "当前选中 state 的 index + 名称",
-        readonly: true,
-    })
-    public get currentStateLabel(): string {
-        const idx = this._selectedIndex;
-        if (!this._states || this._states.length === 0) {
-            return "-";
-        }
-        if (idx < 0 || idx >= this._states.length) {
-            return "-";
-        }
-        const s = this._states[idx];
-        const name = s && s.name ? s.name : "";
-        return `${idx}. ${name}`;
-    }
-
-    /** 手动刷新属性检查器按钮 (panel 接管, inspector 隐藏) */
-    @property({
-        visible: false,
-        displayName: "刷新检查器",
-        tooltip: "点击刷新属性检查器 (状态列表 / selectedIndex 下拉等)",
-    })
-    public get manualRefreshTrigger() {
-        return false;
-    }
-
-    public set manualRefreshTrigger(value: boolean) {
-        if (value && CC_EDITOR) {
-            this.forceRefreshInspector();
         }
     }
 
@@ -1260,7 +1169,7 @@ export class StateController extends cc.Component {
      * 录制按钮: 切换 isRecording (Wave 2 实装).
      */
     @property({
-        displayName: "🔴 录制状态",
+        displayName: "🔴 录制",
         tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
     })
     public get recordTrigger() {
@@ -1274,26 +1183,6 @@ export class StateController extends cc.Component {
         }
         else {
             this.startRecording();
-        }
-    }
-
-    /**
-     * 打开 State Controller Panel.
-     */
-    @property({
-        displayName: "⚙️ 打开 Panel",
-        tooltip: "打开 State Controller Panel",
-    })
-    public get openPanelTrigger() {
-        return false;
-    }
-
-    public set openPanelTrigger(value: boolean) {
-        if (value && CC_EDITOR) {
-            const ed = (globalThis as any).Editor;
-            if (ed && ed.Panel && typeof ed.Panel.open === "function") {
-                ed.Panel.open("state-controller-panel");
-            }
         }
     }
 

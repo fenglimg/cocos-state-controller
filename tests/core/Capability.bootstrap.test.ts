@@ -2,7 +2,7 @@
  * Capability 自动注册契约 (Wave 3 T07)
  *
  * 生产 runtime 里, 用户只 import StateController, capability 文件们没有被 import,
- * 静态注册的 side effect 不会触发. 这会让 EventCapability / HomePageCapability 等
+ * 静态注册的 side effect 不会触发. 这会让 EventCapability / SelectedPageIdCapability 等
  * 在 build 后失效.
  *
  * 修法: 加 capabilities/index.ts 聚合所有内置 capability + StateController 顶部 import.
@@ -41,7 +41,6 @@ describe("Capability 自动注册 (Wave 3 T07)", () => {
         expect(names).toEqual(expect.arrayContaining([
             "autoSync",
             "event",
-            "homePage",
             "migration",
             "propertyControl",
             "recording",

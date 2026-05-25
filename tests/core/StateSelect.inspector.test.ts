@@ -2,11 +2,10 @@
  * StateSelect inspector 极简形态契约 (T19 of PLN-001 Wave 1)
  *
  * Wave 1 后 StateSelect inspector 只保留:
- *   - currentStateProps (readonly string[], 美化值列表 "Color: ...")
- *   - recordTrigger (T21 占位按钮)
- *   - openPanelTrigger (T21 占位按钮)
+ *   - currentStateProps (readonly string[], 美化值列表 "Color: ...", displayName "已跟随属性")
+ *   - recordTrigger (录制按钮, displayName "🔴 录制")
  *
- * 此文件先暴露 T19 (currentStateProps) 红用例; T21 会追加按钮 stub describe。
+ * (openPanelTrigger 已删, panel 自带入口)
  */
 
 declare global {
@@ -91,7 +90,7 @@ describe("StateSelect inspector 极简形态", () => {
         });
     });
 
-    describe("[T21] 录制 / Panel 按钮 stub", () => {
+    describe("[T21] 录制按钮", () => {
         // Wave 2 T15: recordTrigger 已从 cc.warn stub 升级为镜像 ctrl._recording.
         // 此处保留 stub 时代的 "不抛" 形状检查, 行为校验交给 Recording.* test。
         it("recordTrigger setter 不抛错 (Wave 2 改为镜像 ctrl._recording, 不再 cc.warn)", () => {
@@ -103,20 +102,6 @@ describe("StateSelect inspector 极简形态", () => {
             // 再 toggle 退出
             expect(() => { (select as any).recordTrigger = false; }).not.toThrow();
             expect((select as any).recordTrigger).toBe(false);
-        });
-
-        it("openPanelTrigger setter 调 Editor.Panel.open('state-controller-panel')", () => {
-            const { select } = setup();
-            const openMock = jest.fn();
-            const prev = (globalThis as any).Editor;
-            (globalThis as any).Editor = { Panel: { open: openMock } };
-            try {
-                expect(() => { (select as any).openPanelTrigger = true; }).not.toThrow();
-                expect(openMock).toHaveBeenCalledWith("state-controller-panel");
-            }
-            finally {
-                (globalThis as any).Editor = prev;
-            }
         });
     });
 

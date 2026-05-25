@@ -28,7 +28,6 @@ describe("scene-accessor.js (smoke)", () => {
             "get-ctrl-snapshot",
             "set-selected-index",
             "set-state-by-id",
-            "set-home-page",
             "set-recording",
             "add-state",
             "remove-state",
