@@ -1609,16 +1609,54 @@ export class StateSelect extends cc.Component {
         });
     }
 
-    /** Editor.Dialog 兼容封装 (jest 环境可 mock). */
-    private showDialog(opts: any, cb: (idx: number) => void): void {
+    /**
+     * 弹窗封装 — 见 StateController.showDialog 同步注释.
+     * cocos 2.x Editor.Dialog 仅 main process 可达, component renderer 用 window.confirm 兜底.
+     */
+    private showDialog(opts: { title: string, message: string, buttons: string[], defaultId?: number, cancelId?: number, type?: string }, cb: (idx: number) => void): void {
         try {
             const Ed = (globalThis as any).Editor;
             if (Ed && Ed.Dialog && typeof Ed.Dialog.messageBox === "function") {
-                Ed.Dialog.messageBox(opts, cb);
-                return;
+                let resolved = false;
+                const sync = Ed.Dialog.messageBox(opts, (idx: number) => {
+                    if (!resolved) {
+                        resolved = true;
+                        cb(typeof idx === "number" ? idx : (opts.defaultId || 0));
+                    }
+                });
+                if (!resolved && typeof sync === "number") {
+                    resolved = true;
+                    cb(sync);
+                }
+                if (resolved) return;
             }
-        } catch (_) { /* 静默降级 */ }
-        // 编辑器不可用 — 走默认 (defaultId), 与 cocos 真实弹窗一致
+        }
+        catch (_) { /* fall through */ }
+
+        const nav = (globalThis as any).navigator;
+        const isJsdom = !!(nav && nav.userAgent && nav.userAgent.indexOf("jsdom") >= 0);
+        if (!isJsdom) {
+            try {
+                const w = (globalThis as any).window;
+                if (w && typeof w.confirm === "function") {
+                    const head = `${opts.title}\n\n${opts.message}`;
+                    if (opts.buttons.length === 2) {
+                        const ok = w.confirm(`${head}\n\n确定 = ${opts.buttons[0]}\n取消 = ${opts.buttons[1]}`);
+                        cb(ok ? 0 : 1);
+                        return;
+                    }
+                    if (opts.buttons.length === 3) {
+                        const first = w.confirm(`${head}\n\n确定 = ${opts.buttons[0]}\n取消 = (进入下一选项)`);
+                        if (first) { cb(0); return; }
+                        const second = w.confirm(`继续选择:\n\n确定 = ${opts.buttons[1]}\n取消 = ${opts.buttons[2]}`);
+                        cb(second ? 1 : 2);
+                        return;
+                    }
+                }
+            }
+            catch (_) { /* fall through */ }
+        }
+
         cb(typeof opts.defaultId === "number" ? opts.defaultId : 0);
     }
 

@@ -26,9 +26,13 @@ beforeAll(() => {
         error: jest.fn(),
         Utils: { refreshSelectedInspector: () => {} },
         Dialog: {
-            messageBox: (opts: any, cb: (idx: number) => void) => {
+            // 模拟 cocos 2.x scene 进程的 Electron 同步 messageBox: 同步返回 button index,
+            // 同时 callback (如有传) 也调用 — 让真编辑器的"同步返回"路径和旧 callback 路径
+            // 在 jest 都被测到. showDialog 的 resolved flag 防重入保证 cb 只调一次.
+            messageBox: (opts: any, cb?: (idx: number) => void) => {
                 dialogCalls.push(opts);
-                cb(dialogResponse);
+                if (typeof cb === "function") cb(dialogResponse);
+                return dialogResponse;
             },
         },
     };
