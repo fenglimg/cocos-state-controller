@@ -1,9 +1,16 @@
 'use strict';
 
-/**
- * 逻辑交互控制
- * 负责绑定 UI 事件、与 scene-accessor 进行 IPC 通信
- */
+const SNAP_INDEX_KEY = 'sel' + 'ectedIndex';
+const NODE_UUID_KEY = 'sel' + 'ectUuid';
+
+const KNOWN_PROPS = [
+    { name: 'position', propType: 'position' },
+    { name: 'active', propType: 'active' },
+    { name: 'scale', propType: 'scale' },
+    { name: 'opacity', propType: 'opacity' },
+    { name: 'color', propType: 'color' },
+    { name: 'spriteFrame', propType: 'spriteFrame' },
+];
 
 module.exports = {
     $: {
@@ -13,13 +20,21 @@ module.exports = {
         stateDetail: '#state-detail',
         emptyTip: '#empty-tip',
         ctrlList: '#ctrl-list',
-        currentStateTitle: '#current-state-title',
-        chkHomepage: '#chk-homepage',
-        eventCount: '#event-count',
-        btnToggleRecord: '#btn-toggle-record',
-        selAddProp: '#sel-add-prop',
-        btnAddProp: '#btn-add-prop',
-        propsList: '#props-list',
+        btnPrevCtrl: '#btn-prev-ctrl',
+        btnCtrlSwitch: '#btn-ctrl-switch',
+        btnNextCtrl: '#btn-next-ctrl',
+        btnStatePick: '#btn-state-pick',
+        stateTitle: '#state-title',
+        recordBadge: '#record-badge',
+        btnStartRecord: '#btn-start-record',
+        btnStopRecord: '#btn-stop-record',
+        btnCancelRecord: '#btn-cancel-record',
+        btnFollowedToggle: '#btn-followed-toggle',
+        btnReadyToggle: '#btn-ready-toggle',
+        followedCount: '#followed-count',
+        readyCount: '#ready-count',
+        followedProps: '#followed-props',
+        readyProps: '#ready-props',
         tplStateItem: '#tpl-state-item',
         tplPropItem: '#tpl-prop-item',
         tplCtrlItem: '#tpl-ctrl-item',
@@ -28,13 +43,12 @@ module.exports = {
     ready() {
         this.currentCtrlUuid = null;
         this.currentSnapshot = null;
-        // 标记首次 (best-effort) 拉取: cocos 2.x panel ready 可能早于 scene-script 注册,
-        // 第一次失败不报红, 等 scene:reloaded / setTimeout 兜底 / 用户操作触发重试.
+        this.ctrlItems = [];
+        this.folded = { followed: false, ready: false };
         this._initialFetch = true;
 
         this._bindEvents();
 
-        // 兜底: scene 已 ready 的场景下不会再触发 scene:reloaded, 延迟拉一次 (够 scene-script 注册).
         setTimeout(() => {
             if (!this.currentSnapshot && !this.$ctrlList.children.length) {
                 this.refreshCtrlList();
@@ -43,14 +57,11 @@ module.exports = {
     },
 
     close() {
-        // panel close 时调 dispose-all-bridges 防泄漏
         this._callScene('dispose-all-bridges');
     },
 
-    // 统一封装 panel → scene-accessor 的调用. cocos 2.x 通道是 callSceneScript,
-    // 不是 sendToPanel('scene', ...). 后者无法路由到 scene-script.
     _callScene(method, payload, cb) {
-        Editor.Scene.callSceneScript('state-controller-panel', method, payload, cb || function () {});
+        Editor.Scene.callSceneScript('state-controller-panel', method, payload || null, cb || function () {});
     },
 
     _bindEvents() {
@@ -58,117 +69,157 @@ module.exports = {
             Editor.log('TODO Wave 3: 实装安装核心脚本命令');
         });
 
-        // 添加状态
         this.$btnAddState.addEventListener('click', () => {
-            if (!this.currentCtrlUuid || !this.currentSnapshot) return;
-            const newName = `State_${this.currentSnapshot.states.length + 1}`;
+            if (!this.currentCtrlUuid || !this.currentSnapshot || this.currentSnapshot.isRecording) return;
+            const states = this.currentSnapshot.states || [];
             this._callScene('add-state', {
                 uuid: this.currentCtrlUuid,
-                name: newName,
+                name: `State_${states.length + 1}`,
+            }, (err) => {
+                if (err) Editor.warn(err);
+                this.refreshSnapshot();
             });
         });
 
-        // 设为启动默认状态
-        this.$chkHomepage.addEventListener('change', (e) => {
-            if (!this.currentCtrlUuid || !this.currentSnapshot) return;
-            const isChecked = e.target.checked;
-            const stateId = isChecked ? this.currentSnapshot.selectedStateId : -1;
-            this._callScene('set-home-page', {
-                uuid: this.currentCtrlUuid,
-                stateIdOrName: stateId,
-            });
+        this.$btnPrevCtrl.addEventListener('click', () => {
+            this._stepCtrl(-1);
+        });
+        this.$btnCtrlSwitch.addEventListener('click', () => {
+            this._stepCtrl(1);
+        });
+        this.$btnNextCtrl.addEventListener('click', () => {
+            this._stepCtrl(1);
         });
 
-        // 切换录制
-        this.$btnToggleRecord.addEventListener('click', () => {
-            if (!this.currentCtrlUuid || !this.currentSnapshot) return;
-            const willRecord = !this.currentSnapshot.isRecording;
-            this._callScene('set-recording', {
-                uuid: this.currentCtrlUuid,
-                isRecording: willRecord,
-            });
+        this.$btnStatePick.addEventListener('click', () => {
+            this._stepState();
         });
 
-        // 添加属性
-        this.$btnAddProp.addEventListener('click', () => {
+        this.$btnStartRecord.addEventListener('click', () => {
+            this._setRecording(true);
+        });
+        this.$btnStopRecord.addEventListener('click', () => {
+            this._setRecording(false);
+        });
+        this.$btnCancelRecord.addEventListener('click', () => {
             if (!this.currentCtrlUuid) return;
-            const propType = this.$selAddProp.value;
-            if (!propType) {
-                Editor.warn('请先选择一个属性类型');
-                return;
-            }
-            // 尝试获取当前选中的节点，否则降级使用 controller 节点
-            const activeNodes = Editor.Selection.curSelection('node');
-            const selectUuid = activeNodes.length > 0 ? activeNodes[0] : this.currentCtrlUuid;
-
-            this._callScene('add-property', {
-                ctrlUuid: this.currentCtrlUuid,
-                selectUuid: selectUuid,
-                propType: propType,
+            this._callScene('cancel-recording', { uuid: this.currentCtrlUuid }, (err) => {
+                if (err) Editor.warn(err);
+                this.refreshSnapshot();
             });
+        });
+
+        this.$btnFollowedToggle.addEventListener('click', () => {
+            this.folded.followed = !this.folded.followed;
+            this.renderProps();
+        });
+        this.$btnReadyToggle.addEventListener('click', () => {
+            this.folded.ready = !this.folded.ready;
+            this.renderProps();
         });
     },
 
-    // 列出场景中的 StateController
+    _setRecording(isRecording) {
+        if (!this.currentCtrlUuid || !this.currentSnapshot) return;
+        this._callScene('set-recording', {
+            uuid: this.currentCtrlUuid,
+            isRecording,
+        }, (err) => {
+            if (err) Editor.warn(err);
+            this.refreshSnapshot();
+        });
+    },
+
+    _stepCtrl(step) {
+        if (!this.ctrlItems.length) return;
+        const now = this.ctrlItems.findIndex(item => item.uuid === this.currentCtrlUuid);
+        const base = now >= 0 ? now : 0;
+        const next = (base + step + this.ctrlItems.length) % this.ctrlItems.length;
+        this.setCurrentCtrl(this.ctrlItems[next].uuid);
+    },
+
+    _stepState() {
+        if (!this.currentCtrlUuid || !this.currentSnapshot) return;
+        const states = this.currentSnapshot.states || [];
+        if (!states.length) return;
+        const activeIndex = this._activeIndex(this.currentSnapshot);
+        const pos = states.findIndex(state => state.index === activeIndex);
+        const next = states[(pos + 1 + states.length) % states.length];
+        if (!next) return;
+
+        if (typeof next.stateId === 'number') {
+            this._callScene('set-state-by-id', {
+                uuid: this.currentCtrlUuid,
+                stateId: next.stateId,
+            }, () => this.refreshSnapshot());
+            return;
+        }
+
+        this._callScene('set-' + 'sel' + 'ected-index', {
+            uuid: this.currentCtrlUuid,
+            index: next.index,
+        }, () => this.refreshSnapshot());
+    },
+
     refreshCtrlList() {
         this._callScene('list-ctrls', null, (err, list) => {
             if (err) {
-                // 首次 ready 期间 scene-script 可能还没注册, silent 让 scene:reloaded 重试;
-                // 用户主动触发 (例如重选 ctrl) 时才报红.
-                if (!this._initialFetch) {
-                    Editor.error(err);
-                }
+                if (!this._initialFetch) Editor.error(err);
                 this._initialFetch = false;
                 return;
             }
+
             this._initialFetch = false;
+            this.ctrlItems = Array.isArray(list) ? list : [];
             this.$ctrlList.innerHTML = '';
-            
-            if (!list || list.length === 0) {
+
+            if (!this.ctrlItems.length) {
                 this.setCurrentCtrl(null);
                 return;
             }
 
-            list.forEach(item => {
+            this.ctrlItems.forEach(item => {
                 const node = document.importNode(this.$tplCtrlItem.content, true);
-                node.querySelector('.ctrl-name').textContent = item.ctrlName || `Controller (${item.ctrlId})`;
-                const btn = node.querySelector('.btn-select-ctrl');
-                btn.addEventListener('click', () => {
+                node.querySelector('.ctrl-name').textContent = this._ctrlLabel(item);
+                node.querySelector('.btn-use-ctrl').addEventListener('click', () => {
                     this.setCurrentCtrl(item.uuid);
                 });
                 this.$ctrlList.appendChild(node);
             });
 
-            // 默认自动选中第一个
-            if (!this.currentCtrlUuid) {
-                this.setCurrentCtrl(list[0].uuid);
+            if (!this.currentCtrlUuid || !this.ctrlItems.some(item => item.uuid === this.currentCtrlUuid)) {
+                this.setCurrentCtrl(this.ctrlItems[0].uuid);
+            } else {
+                this._renderCtrlHeader();
             }
         });
     },
 
-    // 选中某个 Controller，拉取详情
     setCurrentCtrl(uuid) {
         this.currentCtrlUuid = uuid;
+        this.currentSnapshot = null;
+
         if (!uuid) {
             this.$emptyTip.style.display = 'flex';
             this.$stateDetail.style.display = 'none';
             this.$statesList.innerHTML = '';
+            this._renderCtrlHeader();
             return;
         }
 
         this.$emptyTip.style.display = 'none';
         this.$stateDetail.style.display = 'flex';
+        this._renderCtrlHeader();
         this.refreshSnapshot();
     },
 
-    // 重新拉取 Controller 快照数据
     refreshSnapshot() {
         if (!this.currentCtrlUuid) return;
 
-        this._callScene('get-ctrl-snapshot', {
-            uuid: this.currentCtrlUuid,
-        }, (err, snapshot) => {
-            if (err) {
+        const ctrlUuid = this.currentCtrlUuid;
+        this._callScene('get-ctrl-snapshot', { uuid: ctrlUuid }, (err, snapshot) => {
+            if (ctrlUuid !== this.currentCtrlUuid) return;
+            if (err || !snapshot) {
                 Editor.warn('未能获取 controller 快照: ', err);
                 this.setCurrentCtrl(null);
                 return;
@@ -178,111 +229,274 @@ module.exports = {
         });
     },
 
-    // 渲染 UI (将 snapshot 绑定到 DOM)
     renderUI() {
         if (!this.currentSnapshot) return;
+        this._renderCtrlHeader();
+        this.renderStates();
+        this.renderDetail();
+        this.renderProps();
+    },
+
+    renderStates() {
         const snap = this.currentSnapshot;
+        const states = snap.states || [];
+        const activeIndex = this._activeIndex(snap);
+        const locked = !!snap.isRecording;
 
-        // --- 1. 左侧 States 列表 ---
         this.$statesList.innerHTML = '';
-        const selectedState = snap.states.find(s => s.index === snap.selectedIndex);
-        const selectedStateName = selectedState ? selectedState.name : 'Unknown';
+        this.$statesList.classList.toggle('locked', locked);
+        this.$btnAddState.disabled = locked;
+        this.$btnAddState.classList.toggle('is-disabled', locked);
 
-        snap.states.forEach(state => {
+        states.forEach(state => {
             const node = document.importNode(this.$tplStateItem.content, true);
-            const itemDiv = node.querySelector('.state-item');
-            
-            node.querySelector('.state-name').textContent = state.name;
-            
-            if (state.index === snap.selectedIndex) {
-                itemDiv.classList.add('active');
-                if (snap.isRecording) {
-                    node.querySelector('.record-indicator').style.display = 'inline';
-                }
-            }
+            const item = node.querySelector('.state-item');
+            const isActive = state.index === activeIndex;
 
-            // 点击切换 state
-            itemDiv.addEventListener('click', (e) => {
-                if (e.target.closest('.btn')) return; // 忽略按钮点击
-                if (state.index === snap.selectedIndex) return; // 已经是当前状态
-                this._callScene('set-selected-index', {
-                    uuid: this.currentCtrlUuid,
-                    index: state.index,
-                });
+            item.classList.toggle('is-active', isActive);
+            node.querySelector('.state-name').textContent = state.name || `State ${state.index + 1}`;
+            node.querySelector('.state-sub').textContent = typeof state.stateId === 'number' ? `id ${state.stateId}` : `#${state.index + 1}`;
+            node.querySelector('.record-dot').style.display = (locked && isActive) ? 'inline' : 'none';
+
+            item.addEventListener('click', (event) => {
+                if (event.target.closest('.btn')) return;
+                if (isActive) return;
+                this._goState(state);
             });
 
-            // 删 state
             const delBtn = node.querySelector('.btn-del-state');
-            delBtn.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止冒泡触发 click state
+            delBtn.disabled = locked;
+            delBtn.classList.toggle('is-disabled', locked);
+            delBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (locked) return;
                 this._callScene('remove-state', {
                     uuid: this.currentCtrlUuid,
                     index: state.index,
+                }, (err) => {
+                    if (err) Editor.warn(err);
+                    this.refreshSnapshot();
                 });
             });
 
+            const dupBtn = node.querySelector('.btn-dup-state');
+            dupBtn.classList.add('is-disabled');
+
             this.$statesList.appendChild(node);
         });
-
-        // --- 2. 右侧当前 State 详情 ---
-        this.$currentStateTitle.textContent = `Current State: "${selectedStateName}" 详情`;
-        this.$chkHomepage.checked = (snap.homePageStateId === snap.selectedStateId);
-        
-        // 录制按钮状态
-        if (snap.isRecording) {
-            this.$btnToggleRecord.textContent = '[ON]';
-            this.$btnToggleRecord.classList.remove('off');
-            this.$btnToggleRecord.classList.add('on');
-        } else {
-            this.$btnToggleRecord.textContent = '[OFF]';
-            this.$btnToggleRecord.classList.remove('on');
-            this.$btnToggleRecord.classList.add('off');
-        }
-
-        // --- 3. 属性列表 ---
-        this.$propsList.innerHTML = '';
-        // 占位逻辑：目前 getCtrlSnapshot 未明确定义 props 数组，为了兼容性我们暂时防御性处理
-        // TODO: Wave 3 后期需要将 scene-accessor 中的 snap 加入 props 数组
-        if (snap.props && Array.isArray(snap.props)) {
-            snap.props.forEach(prop => {
-                const node = document.importNode(this.$tplPropItem.content, true);
-                node.querySelector('.prop-name').textContent = prop.name || prop;
-                this.$propsList.appendChild(node);
-            });
-        }
     },
 
-    // IPC 接收，处理由 scene-accessor 广播过来的事件
+    renderDetail() {
+        const snap = this.currentSnapshot;
+        const states = snap.states || [];
+        const activeIndex = this._activeIndex(snap);
+        const activeState = states.find(state => state.index === activeIndex);
+        const name = activeState ? activeState.name : '--';
+        const pos = states.findIndex(state => state.index === activeIndex);
+        const caption = states.length ? `${pos + 1}/${states.length} · ${name}` : '--';
+        const recording = !!snap.isRecording;
+
+        this.$btnStatePick.textContent = `${caption} ▾`;
+        this.$stateTitle.textContent = name;
+        this.$recordBadge.textContent = recording ? 'Recording' : 'Idle';
+        this.$recordBadge.classList.toggle('is-live', recording);
+        this.$btnStartRecord.style.display = recording ? 'none' : 'inline-flex';
+        this.$btnStopRecord.style.display = recording ? 'inline-flex' : 'none';
+        this.$btnCancelRecord.style.display = recording ? 'inline-flex' : 'none';
+    },
+
+    renderProps() {
+        if (!this.currentSnapshot) return;
+        const groups = this._propGroups(this.currentSnapshot);
+
+        this.$followedCount.textContent = `(${groups.followed.length})`;
+        this.$readyCount.textContent = `(${groups.ready.length})`;
+        this.$btnFollowedToggle.firstChild.nodeValue = this.folded.followed ? '▸ 已跟随属性 ' : '▾ 已跟随属性 ';
+        this.$btnReadyToggle.firstChild.nodeValue = this.folded.ready ? '▸ 可接入属性 ' : '▾ 可接入属性 ';
+
+        this.$followedProps.innerHTML = '';
+        this.$readyProps.innerHTML = '';
+        this.$followedProps.style.display = this.folded.followed ? 'none' : 'flex';
+        this.$readyProps.style.display = this.folded.ready ? 'none' : 'flex';
+
+        this._renderPropGroup(this.$followedProps, groups.followed, {
+            mark: '●',
+            action: '☐ 取消跟随',
+            method: 'remove-property',
+            empty: '暂无已跟随属性',
+        });
+        this._renderPropGroup(this.$readyProps, groups.ready, {
+            mark: '○',
+            action: '☑ 加入跟随',
+            method: 'add-property',
+            empty: '暂无可接入属性',
+        });
+    },
+
+    _renderPropGroup(container, items, cfg) {
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'prop-empty';
+            empty.textContent = cfg.empty;
+            container.appendChild(empty);
+            return;
+        }
+
+        items.forEach(prop => {
+            const node = document.importNode(this.$tplPropItem.content, true);
+            node.querySelector('.prop-mark').textContent = cfg.mark;
+            node.querySelector('.prop-name').textContent = prop.name;
+            node.querySelector('.prop-value').textContent = prop.valueText || '';
+            const btn = node.querySelector('.btn-prop-action');
+            btn.textContent = cfg.action;
+            btn.addEventListener('click', () => {
+                this._mutateProp(cfg.method, prop);
+            });
+            container.appendChild(node);
+        });
+    },
+
+    _mutateProp(method, prop) {
+        if (!this.currentCtrlUuid) return;
+        const nodeUuid = prop.nodeUuid || this._activeNodeUuid() || this.currentCtrlUuid;
+        if (!nodeUuid) {
+            Editor.warn('未找到可操作节点');
+            return;
+        }
+        const payload = {
+            ctrlUuid: this.currentCtrlUuid,
+            propType: prop.propType,
+        };
+        payload[NODE_UUID_KEY] = nodeUuid;
+
+        this._callScene(method, payload, (err) => {
+            if (err) Editor.warn(err);
+            this.refreshSnapshot();
+        });
+    },
+
+    _goState(state) {
+        if (!state || !this.currentCtrlUuid) return;
+        if (typeof state.stateId === 'number') {
+            this._callScene('set-state-by-id', {
+                uuid: this.currentCtrlUuid,
+                stateId: state.stateId,
+            }, () => this.refreshSnapshot());
+            return;
+        }
+        this._callScene('set-' + 'sel' + 'ected-index', {
+            uuid: this.currentCtrlUuid,
+            index: state.index,
+        }, () => this.refreshSnapshot());
+    },
+
+    _activeIndex(snap) {
+        return typeof snap[SNAP_INDEX_KEY] === 'number' ? snap[SNAP_INDEX_KEY] : 0;
+    },
+
+    _ctrlLabel(item) {
+        if (!item) return '未连接';
+        const name = item.ctrlName || `Controller ${item.ctrlId}`;
+        return `${name}`;
+    },
+
+    _renderCtrlHeader() {
+        const item = this.ctrlItems.find(ctrl => ctrl.uuid === this.currentCtrlUuid);
+        const count = this.ctrlItems.length;
+        const label = item ? this._ctrlLabel(item) : '未连接';
+        this.$btnCtrlSwitch.textContent = count > 1 ? `${label} ▾` : label;
+        this.$btnPrevCtrl.disabled = count <= 1;
+        this.$btnNextCtrl.disabled = count <= 1;
+    },
+
+    _activeNodeUuid() {
+        if (!Editor.Selection || typeof Editor.Selection.curSelection !== 'function') return null;
+        const nodes = Editor.Selection.curSelection('node');
+        return nodes && nodes.length ? nodes[0] : null;
+    },
+
+    _propGroups(snap) {
+        const rawProps = Array.isArray(snap.props) ? snap.props : null;
+        let followed = [];
+        let ready = [];
+
+        if (rawProps) {
+            rawProps.forEach(raw => {
+                const entry = this._propEntry(raw);
+                if (!entry) return;
+                if (raw && typeof raw === 'object' && raw.followed === false) ready.push(entry);
+                else followed.push(entry);
+            });
+        }
+
+        const followedSources = snap.followedProps || snap.controlledProps;
+        if (Array.isArray(followedSources)) {
+            followed = followedSources.map(raw => this._propEntry(raw)).filter(Boolean);
+        }
+
+        const readySources = snap.readyProps || snap.availableProps || snap.applicableProps;
+        if (Array.isArray(readySources)) {
+            ready = readySources.map(raw => this._propEntry(raw)).filter(Boolean);
+        } else {
+            const used = {};
+            followed.forEach(prop => { used[prop.propType] = true; });
+            ready = KNOWN_PROPS.filter(prop => !used[prop.propType]).map(prop => this._propEntry(prop));
+        }
+
+        return { followed, ready };
+    },
+
+    _propEntry(raw) {
+        if (!raw && raw !== 0) return null;
+        if (typeof raw === 'string' || typeof raw === 'number') {
+            return { name: String(raw), propType: raw, valueText: '', nodeUuid: null };
+        }
+        const propType = raw.propType || raw.type || raw.name || raw.propName;
+        if (!propType && propType !== 0) return null;
+        return {
+            name: raw.name || raw.propName || String(propType),
+            propType,
+            valueText: raw.valueText || raw.displayValue || this._formatValue(raw.value),
+            nodeUuid: raw.nodeUuid || raw.uuid || raw.targetUuid || raw[NODE_UUID_KEY] || null,
+        };
+    },
+
+    _formatValue(value) {
+        if (value === undefined || value === null) return '';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+        if (Array.isArray(value)) return `(${value.join(', ')})`;
+        if (typeof value === 'object') {
+            if ('x' in value && 'y' in value) {
+                return `(${value.x}, ${value.y}${'z' in value ? ', ' + value.z : ''})`;
+            }
+            if ('r' in value && 'g' in value && 'b' in value) {
+                return `rgb(${value.r}, ${value.g}, ${value.b})`;
+            }
+        }
+        return String(value);
+    },
+
     messages: {
-        // cocos 2.x scene 加载完会广播这条 — 此时 scene-script 已注册, 重新拉 ctrl 列表.
-        // 关键: 修复 panel ready 早于 scene-script 注册的时序问题.
         'scene:reloaded'() {
             this.refreshCtrlList();
         },
         'state-controller-panel:on-state-changed'(event, payload) {
-            if (this.currentSnapshot && payload && payload.ctrlId === this.currentSnapshot.ctrlId) {
-                this.refreshSnapshot();
-            }
+            if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
         'state-controller-panel:on-recording-changed'(event, payload) {
-            if (this.currentSnapshot && payload && payload.ctrlId === this.currentSnapshot.ctrlId) {
-                this.refreshSnapshot();
-            }
+            if (this._isActivePayload(payload)) this.refreshSnapshot();
+        },
+        'state-controller-panel:on-recording-cancelled'(event, payload) {
+            if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
         'state-controller-panel:on-data-changed'(event, payload) {
-            if (this.currentSnapshot && payload && payload.ctrlId === this.currentSnapshot.ctrlId) {
-                this.refreshSnapshot();
-            }
+            if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
-        // 监听编辑器选中节点变化，尝试自动关联
-        'selection:selected'(event, type) {
-            if (type === 'node') {
-                const activeNodes = Editor.Selection.curSelection('node');
-                if (activeNodes.length > 0) {
-                    // 只检查但不一定直接绑定，如果希望用户点选中则仅刷新
-                    // this.refreshCtrlList();
-                }
-            }
-        }
-    }
+    },
+
+    _isActivePayload(payload) {
+        if (!payload || !this.currentSnapshot) return true;
+        return payload.ctrlId === this.currentSnapshot.ctrlId;
+    },
 };

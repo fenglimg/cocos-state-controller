@@ -1,129 +1,103 @@
-<div class="panel-container">
-    <!-- 左侧侧边栏 (States 列表) -->
-    <div class="sidebar">
-        <!-- 顶部菜单 Slot (TopToolbarSlot) -->
-        <div class="toolbar">
-            <button id="btn-install-core" class="btn">[📥 W3:安装核心]</button>
-            <div class="spacer"></div>
-            <!-- TODO Wave 5: CodeGen -->
-            <button id="btn-codegen" class="btn disabled" disabled title="TODO W5: CodeGen">[TODO W5: CodeGen]</button>
-            <!-- 占位: 设置 -->
-            <button id="btn-settings" class="btn disabled" disabled title="设置">[🔍 设置]</button>
+<div class="panel-shell">
+    <aside class="sidebar">
+        <div class="sidebar-toolbar">
+            <button id="btn-install-core" class="btn btn-primary" title="安装核心脚本">📥 W3:安装核心</button>
+            <button id="btn-codegen" class="btn btn-ghost" disabled title="TODO W5:CodeGen">TODO W5:CodeGen</button>
+            <button id="btn-capabilities" class="btn btn-ghost" disabled title="TODO W4:Capabilities">TODO W4:Capabilities</button>
+            <button id="btn-settings" class="btn btn-icon" disabled title="设置">🔍</button>
         </div>
 
-        <!-- 状态列表区 -->
-        <div id="states-list" class="states-list">
-            <!-- 动态注入 .state-item -->
-        </div>
+        <div id="states-list" class="states-list"></div>
 
-        <!-- 侧边栏底部 Slot (SidebarFooterSlot) -->
         <div class="sidebar-footer">
-            <button id="btn-add-state" class="btn btn-primary">[ + Add New State ]</button>
-            <!-- TODO Wave 4: Save/Apply Preset -->
-            <button class="btn disabled" disabled>[TODO W4: Save Preset]</button>
-            <!-- TODO Wave 5: Compare States Diff -->
-            <button class="btn disabled" disabled>[TODO W5: Compare States]</button>
-            <!-- TODO Wave 5: Scene 组合预览入口 -->
-            <button class="btn disabled" disabled>[TODO W5: 场景组合预览]</button>
+            <button id="btn-add-state" class="btn btn-wide btn-primary">+ Add New State</button>
+            <button class="btn btn-wide btn-ghost" disabled>TODO W4:Save Preset</button>
+            <button class="btn btn-wide btn-ghost" disabled>TODO W5:Compare</button>
+            <button class="btn btn-wide btn-ghost" disabled>TODO W5:场景组合</button>
         </div>
-    </div>
+    </aside>
 
-    <!-- 右侧主区 (当前 State 详情) -->
-    <div class="main-content">
-        <!-- 顶部右侧 Tab Slot (MainTabContainer) -->
-        <div class="toolbar right-toolbar">
-            <div class="spacer"></div>
-            <!-- TODO Wave 4: Capabilities Tab -->
-            <button class="btn disabled" disabled>[TODO W4: Capabilities]</button>
+    <main class="main-content">
+        <div class="main-toolbar">
+            <span class="field-label">控制器 id</span>
+            <div id="ctrl-switch-wrap" class="ctrl-switch-wrap">
+                <button id="btn-prev-ctrl" class="btn btn-icon" title="上一个控制器">‹</button>
+                <button id="btn-ctrl-switch" class="btn ctrl-switch" title="切换控制器">未连接 ▾</button>
+                <button id="btn-next-ctrl" class="btn btn-icon" title="下一个控制器">›</button>
+            </div>
         </div>
 
-        <!-- State 详情区 -->
-        <div id="state-detail" class="state-detail" style="display: none;">
-            <h2 id="current-state-title" class="section-title">Current State: "" 详情</h2>
-            
-            <div class="card state-options">
-                <label class="checkbox-label">
-                    <input type="radio" name="homePage" id="chk-homepage">
-                    <span class="label-text">[W3: HomePage] 设为启动默认状态</span>
-                </label>
-                <div class="info-text">
-                    [W3: Event] 💡 当前已注册 <span id="event-count" class="highlight">0</span> 个 stateChanged 监听
+        <section id="state-detail" class="state-detail" style="display: none;">
+            <div class="shared-strip">
+                <div class="strip-field">
+                    <span class="field-label">state</span>
+                    <button id="btn-state-pick" class="btn state-pick">-- ▾</button>
+                </div>
+                <div class="record-actions">
+                    <button id="btn-start-record" class="btn btn-record">🔴 录制</button>
+                    <button id="btn-stop-record" class="btn btn-stop" style="display: none;">⏹ 停止并保存</button>
+                    <button id="btn-cancel-record" class="btn btn-cancel" style="display: none;">⤺ 撤销本次录制</button>
                 </div>
             </div>
 
-            <div class="card recording-control">
-                <span class="record-label">🔴 全局录制:</span>
-                <button id="btn-toggle-record" class="btn btn-record off">[OFF]</button>
+            <div class="detail-head">
+                <div>
+                    <div class="eyebrow">当前详情</div>
+                    <h2 id="state-title" class="state-title">--</h2>
+                </div>
+                <div id="record-badge" class="record-badge">Idle</div>
             </div>
 
-            <div class="card props-section">
-                <div class="props-header">
-                    <h3 class="section-subtitle">[属性列表 (Props)]</h3>
-                    <div class="add-prop-container">
-                        <select id="sel-add-prop" class="select-prop">
-                            <option value="">-- 选择属性 --</option>
-                            <option value="position">position</option>
-                            <option value="active">active</option>
-                            <option value="scale">scale</option>
-                            <option value="opacity">opacity</option>
-                            <option value="color">color</option>
-                            <option value="spriteFrame">spriteFrame (cc.Sprite)</option>
-                        </select>
-                        <button id="btn-add-prop" class="btn">[+ 添加属性]</button>
-                    </div>
-                </div>
-                
-                <div id="props-list" class="props-list">
-                    <!-- 动态注入 prop item -->
-                </div>
-            </div>
-        </div>
+            <div class="prop-grid">
+                <section class="prop-panel">
+                    <button id="btn-followed-toggle" class="prop-panel-title" type="button">▾ 已跟随属性 <span id="followed-count">(0)</span></button>
+                    <div id="followed-props" class="prop-list"></div>
+                </section>
 
-        <!-- 空状态提示 -->
-        <div id="empty-tip" class="empty-tip">
-            <h3>未选中 StateController</h3>
-            <p>请在场景中选中一个带有 StateController 组件的节点，或在下方列表中选择：</p>
-            <div id="ctrl-list" class="ctrl-list">
-                <!-- 场景中的所有 StateController 会列在这里 -->
+                <section class="prop-panel">
+                    <button id="btn-ready-toggle" class="prop-panel-title" type="button">▾ 可接入属性 <span id="ready-count">(0)</span></button>
+                    <div id="ready-props" class="prop-list"></div>
+                </section>
             </div>
-        </div>
-    </div>
+        </section>
+
+        <section id="empty-tip" class="empty-tip">
+            <h3>请在场景中选中带 StateController 的节点</h3>
+            <p>或从下方列表选择：</p>
+            <div id="ctrl-list" class="ctrl-list"></div>
+        </section>
+    </main>
 </div>
 
-<!-- 缩略图模板 (隐藏) -->
 <template id="tpl-state-item">
     <div class="state-item">
-        <div class="state-item-header">
-            <!-- TODO Wave 3 后期: 实装缩略图，目前仅灰底占位 -->
-            <div class="state-thumbnail">Img</div>
+        <div class="state-thumb">Img</div>
+        <div class="state-meta">
             <div class="state-name">State_Name</div>
-            <div class="state-actions">
-                <span class="record-indicator" style="display:none; color:red; font-size:12px;">[REC]</span>
-                <button class="btn btn-icon btn-del-state" title="删除">[Del]</button>
-                <button class="btn btn-icon disabled" disabled title="TODO W4">[Dupl]</button>
-            </div>
+            <div class="state-sub">state</div>
         </div>
-        <div class="state-item-footer">
-            <!-- TODO Wave 4: Tween 实时预览 -->
-            <button class="btn btn-small disabled" disabled>[TODO W4: ▶ 预览过渡]</button>
+        <div class="state-actions">
+            <span class="record-dot" title="录制中">●</span>
+            <button class="btn btn-icon btn-del-state" title="删除">Del</button>
+            <button class="btn btn-icon btn-dup-state" disabled title="TODO W4">Dup</button>
         </div>
     </div>
 </template>
 
 <template id="tpl-prop-item">
     <div class="prop-item">
-        <div class="prop-name">propName</div>
-        <div class="prop-info">
-            <span class="prop-source">[录制]</span>
+        <div class="prop-main">
+            <span class="prop-mark">●</span>
+            <span class="prop-name">propName</span>
+            <span class="prop-value">--</span>
         </div>
-        <div class="prop-actions">
-            <button class="btn btn-icon disabled" disabled>[Del]</button>
-        </div>
+        <button class="btn btn-small btn-prop-action">☐ 取消跟随</button>
     </div>
 </template>
+
 <template id="tpl-ctrl-item">
     <div class="ctrl-item">
         <span class="ctrl-name">CtrlName</span>
-        <button class="btn btn-small btn-select-ctrl">选择</button>
+        <button class="btn btn-small btn-use-ctrl">选择</button>
     </div>
 </template>
