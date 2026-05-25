@@ -88,7 +88,7 @@ describe("PresetCapability (Wave 4 T02)", () => {
         const src0 = preset.sources[0];
         expect(src0.selectName).toBe("SelectChild");
         expect(src0.propData).toBeDefined();
-        expect(src0.propData[EnumPropName.Position]).toBeDefined();
+        expect(src0.propData["cc.Node.position"]).toBeDefined();
     });
 
     it("applyPreset 同 ctrl 复制到另一 state", () => {
@@ -109,8 +109,8 @@ describe("PresetCapability (Wave 4 T02)", () => {
         expect(ok).toBe(true);
         const propDataS1 = (select as any)._ctrlData[ctrl.ctrlId][1];
         expect(propDataS1).toBeDefined();
-        expect(propDataS1[EnumPropName.Position]).toBeDefined();
-        expect(propDataS1[EnumPropName.Position].x).toBe(50);
+        expect(propDataS1["cc.Node.position"]).toBeDefined();
+        expect(propDataS1["cc.Node.position"].x).toBe(50);
     });
 
     it("applyPreset 跨 ctrl 按 selectName 匹配", () => {
@@ -131,8 +131,8 @@ describe("PresetCapability (Wave 4 T02)", () => {
         expect(ok).toBe(true);
 
         const propData = (B.select as any)._ctrlData[B.ctrl.ctrlId][0];
-        expect(propData[EnumPropName.Position]).toBeDefined();
-        expect(propData[EnumPropName.Position].x).toBe(11);
+        expect(propData["cc.Node.position"]).toBeDefined();
+        expect(propData["cc.Node.position"].x).toBe(11);
     });
 
     it("applyPreset 找不到匹配 selectName → 静默跳过该 source, 仍返回 true", () => {
@@ -157,7 +157,7 @@ describe("PresetCapability (Wave 4 T02)", () => {
 
         // B 的 _ctrlData 没收到 preset 写入 (TASK-003 后 Position 自动接入有默认值, 但不应等于 A 提交的 11,22,0)
         const propData = (B.select as any)._ctrlData[B.ctrl.ctrlId][0];
-        const bPos = propData && propData[EnumPropName.Position];
+        const bPos = propData && propData["cc.Node.position"];
         // preset 没匹配 → 不应写入 A 的 11,22,0
         expect(bPos && bPos.x === 11 && bPos.y === 22).not.toBe(true);
     });

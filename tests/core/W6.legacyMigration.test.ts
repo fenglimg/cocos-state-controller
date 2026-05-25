@@ -74,7 +74,7 @@ describe("W6-2c1 LEGACY_DROPPED_ENUMS export (framework 锚点)", () => {
 });
 
 describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
-    it("GrayScale 数字 key 静默丢, 其它 key 保留", () => {
+    it("W6-2c2: GrayScale 数字 key 静默丢, 内置 prop number key 迁 string", () => {
         const { ctrl, select } = setup();
         const ctrlId = ctrl.ctrlId;
 
@@ -89,11 +89,13 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
         (select as any).migrateLegacyCtrlData();
 
         const state1 = (select as any)._ctrlData[ctrlId][1];
-        // GrayScale 静默丢
+        // GrayScale 静默丢 (W6-2c1)
         expect(state1[EnumPropName.GrayScale]).toBeUndefined();
-        // 内置 prop 保留 (c2 才迁)
-        expect(state1[EnumPropName.Active]).toBe(true);
-        expect(state1[EnumPropName.Color]).toBe("stub-color");
+        // W6-2c2: 内置 prop 迁 string propRef key, 数字 key 清
+        expect(state1[EnumPropName.Active]).toBeUndefined();
+        expect(state1[EnumPropName.Color]).toBeUndefined();
+        expect(state1["cc.Node.active"]).toBe(true);
+        expect(state1["cc.Node.color"]).toBe("stub-color");
     });
 
     it("idempotent: 重复调形状不变", () => {
@@ -118,7 +120,7 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
         expect(snapshot3).toBe(snapshot1);
     });
 
-    it("AMBIGUOUS 数字 key (Position/Anchor/Size) 保留 (c2 决定)", () => {
+    it("W6-2c2: AMBIGUOUS 数字 key (Position/Anchor/Size) 迁 string propRef key", () => {
         const { ctrl, select } = setup();
         const ctrlId = ctrl.ctrlId;
         (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
@@ -132,15 +134,18 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
         (select as any).migrateLegacyCtrlData();
 
         const state1 = (select as any)._ctrlData[ctrlId][1];
-        // AMBIGUOUS 全保留
-        expect(state1[EnumPropName.Position]).toBe("stub-pos");
-        expect(state1[EnumPropName.Anchor]).toBe("stub-anchor");
-        expect(state1[EnumPropName.Size]).toBe("stub-size");
-        // GrayScale 丢
+        // W6-2c2: AMBIGUOUS 数字 key 迁 string propRef key (整体存)
+        expect(state1[EnumPropName.Position]).toBeUndefined();
+        expect(state1[EnumPropName.Anchor]).toBeUndefined();
+        expect(state1[EnumPropName.Size]).toBeUndefined();
+        expect(state1["cc.Node.position"]).toBe("stub-pos");
+        expect(state1["cc.Node.anchorPoint"]).toBe("stub-anchor");
+        expect(state1["cc.Node.contentSize"]).toBe("stub-size");
+        // GrayScale 丢 (W6-2c1)
         expect(state1[EnumPropName.GrayScale]).toBeUndefined();
     });
 
-    it("自定义 string propRef key 完全不动 + $$xxx$$ 元数据 key 不动", () => {
+    it("W6-2c2: 自定义 string propRef key 完全不动 + $$xxx$$ 元数据 key 不动 + 内置 prop 迁 string", () => {
         const { ctrl, select } = setup();
         const ctrlId = ctrl.ctrlId;
         (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
@@ -150,7 +155,6 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
             "MyComp.heat": 99,
             "MyComp.label": "foo",
             $$controlledProps$$: { Active: EnumPropName.Active, "MyComp.heat": EnumPropName.Non },
-            $$propertyData$$: { [EnumPropName.Active]: true },
             $$lastProp$$: EnumPropName.Active,
         };
 
@@ -159,18 +163,18 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
         const state1 = (select as any)._ctrlData[ctrlId][1];
         // GrayScale 丢
         expect(state1[EnumPropName.GrayScale]).toBeUndefined();
-        // 内置数字 key 保留
-        expect(state1[EnumPropName.Active]).toBe(true);
+        // W6-2c2: 内置 prop 迁 string
+        expect(state1[EnumPropName.Active]).toBeUndefined();
+        expect(state1["cc.Node.active"]).toBe(true);
         // 自定义 string key 完全不动
         expect(state1["MyComp.heat"]).toBe(99);
         expect(state1["MyComp.label"]).toBe("foo");
-        // $$xxx$$ 元数据完全不动
+        // $$xxx$$ 元数据 key 完全不动 ($$controlledProps$$ 内层 value 是 EnumPropName 数字, 是合法语义)
         expect(state1.$$controlledProps$$).toEqual({ Active: EnumPropName.Active, "MyComp.heat": EnumPropName.Non });
-        expect(state1.$$propertyData$$).toEqual({ [EnumPropName.Active]: true });
         expect(state1.$$lastProp$$).toBe(EnumPropName.Active);
     });
 
-    it("$$propertyData$$ 内层 GrayScale 数字 key 也清 + 其它内置 prop 保留", () => {
+    it("W6-2c2: $$propertyData$$ 内层 GrayScale 清 + 其它内置 prop 迁 string", () => {
         const { ctrl, select } = setup();
         const ctrlId = ctrl.ctrlId;
         (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
@@ -185,14 +189,16 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
         (select as any).migrateLegacyCtrlData();
 
         const inner = (select as any)._ctrlData[ctrlId][1].$$propertyData$$;
-        // 内层 GrayScale 也丢
+        // 内层 GrayScale 也丢 (W6-2c1)
         expect(inner[EnumPropName.GrayScale]).toBeUndefined();
-        // 内层其它内置 prop 保留
-        expect(inner[EnumPropName.Active]).toBe(true);
-        expect(inner[EnumPropName.Color]).toBe("stub-color-inner");
+        // W6-2c2: 内层其它内置 prop 迁 string
+        expect(inner[EnumPropName.Active]).toBeUndefined();
+        expect(inner[EnumPropName.Color]).toBeUndefined();
+        expect(inner["cc.Node.active"]).toBe(true);
+        expect(inner["cc.Node.color"]).toBe("stub-color-inner");
     });
 
-    it("$$default$$ state 内也按同规则清 GrayScale", () => {
+    it("W6-2c2: $$default$$ state 内 GrayScale 清 + 内置 prop 迁 string", () => {
         const { ctrl, select } = setup();
         const ctrlId = ctrl.ctrlId;
         (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
@@ -205,6 +211,151 @@ describe("W6-2c1 migrateLegacyCtrlData 私有方法 (极简实装)", () => {
 
         const dft = (select as any)._ctrlData[ctrlId].$$default$$;
         expect(dft[EnumPropName.GrayScale]).toBeUndefined();
-        expect(dft[EnumPropName.Active]).toBe(false);
+        // W6-2c2: Active 迁 string propRef
+        expect(dft[EnumPropName.Active]).toBeUndefined();
+        expect(dft["cc.Node.active"]).toBe(false);
+    });
+});
+
+describe("W6-2c2 migrateLegacyCtrlData: ENUM_TO_PROPREF 36 项 number→string 迁移", () => {
+    it("内置 prop (Active/Color/Opacity/Euler/Scale) 数字 key 迁 string propRef key", () => {
+        const { ctrl, select } = setup();
+        const ctrlId = ctrl.ctrlId;
+        (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
+        (select as any)._ctrlData[ctrlId][1] = {
+            [EnumPropName.Active]: true,
+            [EnumPropName.Color]: "stub-color",
+            [EnumPropName.Opacity]: 128,
+            [EnumPropName.Euler]: "stub-euler",
+            [EnumPropName.Scale]: 2,
+        };
+
+        (select as any).migrateLegacyCtrlData();
+
+        const state1 = (select as any)._ctrlData[ctrlId][1];
+        // 数字 key 全删
+        expect(state1[EnumPropName.Active]).toBeUndefined();
+        expect(state1[EnumPropName.Color]).toBeUndefined();
+        expect(state1[EnumPropName.Opacity]).toBeUndefined();
+        expect(state1[EnumPropName.Euler]).toBeUndefined();
+        expect(state1[EnumPropName.Scale]).toBeUndefined();
+        // string propRef key 全写入
+        expect(state1["cc.Node.active"]).toBe(true);
+        expect(state1["cc.Node.color"]).toBe("stub-color");
+        expect(state1["cc.Node.opacity"]).toBe(128);
+        expect(state1["cc.Node.eulerAngles"]).toBe("stub-euler");
+        expect(state1["cc.Node.scale"]).toBe(2);
+    });
+
+    it("组件 prop (LabelString/WidgetTop/SpriteFrame) 数字 key 迁 string propRef key", () => {
+        const { ctrl, select } = setup();
+        const ctrlId = ctrl.ctrlId;
+        (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
+        (select as any)._ctrlData[ctrlId][1] = {
+            [EnumPropName.LabelString]: "hello",
+            [EnumPropName.WidgetTop]: 10,
+            [EnumPropName.SpriteFrame]: "stub-frame",
+        };
+
+        (select as any).migrateLegacyCtrlData();
+
+        const state1 = (select as any)._ctrlData[ctrlId][1];
+        expect(state1[EnumPropName.LabelString]).toBeUndefined();
+        expect(state1[EnumPropName.WidgetTop]).toBeUndefined();
+        expect(state1[EnumPropName.SpriteFrame]).toBeUndefined();
+        expect(state1["cc.Label.string"]).toBe("hello");
+        expect(state1["cc.Widget.top"]).toBe(10);
+        expect(state1["cc.Sprite.spriteFrame"]).toBe("stub-frame");
+    });
+
+    it("$$propertyData$$ 内层 number key 也按 ENUM_TO_PROPREF 迁 string + 内层 GrayScale 仍清", () => {
+        const { ctrl, select } = setup();
+        const ctrlId = ctrl.ctrlId;
+        (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
+        (select as any)._ctrlData[ctrlId][1] = {
+            $$propertyData$$: {
+                [EnumPropName.GrayScale]: "stub-gray-inner",
+                [EnumPropName.Active]: true,
+                [EnumPropName.Color]: "stub-color-inner",
+                [EnumPropName.Position]: "stub-pos-inner",
+            },
+        };
+
+        (select as any).migrateLegacyCtrlData();
+
+        const inner = (select as any)._ctrlData[ctrlId][1].$$propertyData$$;
+        expect(inner[EnumPropName.GrayScale]).toBeUndefined();
+        expect(inner[EnumPropName.Active]).toBeUndefined();
+        expect(inner[EnumPropName.Color]).toBeUndefined();
+        expect(inner[EnumPropName.Position]).toBeUndefined();
+        expect(inner["cc.Node.active"]).toBe(true);
+        expect(inner["cc.Node.color"]).toBe("stub-color-inner");
+        expect(inner["cc.Node.position"]).toBe("stub-pos-inner");
+    });
+
+    it("idempotent: 第二次扫已无数字 key, no-op", () => {
+        const { ctrl, select } = setup();
+        const ctrlId = ctrl.ctrlId;
+        (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
+        (select as any)._ctrlData[ctrlId][1] = {
+            [EnumPropName.Active]: true,
+            [EnumPropName.Position]: "stub-pos",
+        };
+
+        (select as any).migrateLegacyCtrlData();
+        const snap1 = JSON.stringify((select as any)._ctrlData[ctrlId][1]);
+        (select as any).migrateLegacyCtrlData();
+        const snap2 = JSON.stringify((select as any)._ctrlData[ctrlId][1]);
+        expect(snap2).toBe(snap1);
+    });
+
+    it("自定义 string propRef key 和 $$xxx$$ 元数据 key 完全不动", () => {
+        const { ctrl, select } = setup();
+        const ctrlId = ctrl.ctrlId;
+        (select as any)._ctrlData[ctrlId] = (select as any)._ctrlData[ctrlId] || {};
+        (select as any)._ctrlData[ctrlId][1] = {
+            [EnumPropName.Active]: true,
+            "MyComp.heat": 99,
+            $$controlledProps$$: { Active: EnumPropName.Active, "MyComp.heat": EnumPropName.Non },
+            $$lastProp$$: EnumPropName.Active,
+        };
+
+        (select as any).migrateLegacyCtrlData();
+
+        const state1 = (select as any)._ctrlData[ctrlId][1];
+        expect(state1["MyComp.heat"]).toBe(99);
+        expect(state1.$$controlledProps$$).toEqual({ Active: EnumPropName.Active, "MyComp.heat": EnumPropName.Non });
+        expect(state1.$$lastProp$$).toBe(EnumPropName.Active);
+        // 内置 prop 已迁
+        expect(state1[EnumPropName.Active]).toBeUndefined();
+        expect(state1["cc.Node.active"]).toBe(true);
+    });
+});
+
+describe("W6-2c2 production 写路径: togglePropertyControl 写 string propRef key", () => {
+    it("togglePropertyControl(EnumPropName.Active, true) → propData 内层 key 是 string 不是数字", () => {
+        const { select } = setup();
+        // TASK-003: __preload 自动接入 Opacity, 先 opt-out 让范围干净
+        select.togglePropertyControl(EnumPropName.Opacity, false);
+
+        select.togglePropertyControl(EnumPropName.Active, true);
+
+        const propData = (select as any).getPropData();
+        // W6-2c2: 写 string key, 不写数字 key
+        expect(propData["cc.Node.active"]).not.toBeUndefined();
+        expect(propData[EnumPropName.Active]).toBeUndefined();
+        // $$controlledProps$$ 仍按 EnumPropName name 写 ("Active" → propType 数字), 与历史一致
+        expect(propData.$$controlledProps$$.Active).toBe(EnumPropName.Active);
+    });
+
+    it("togglePropertyControl(EnumPropName.Color, true) → 内置 prop 也走 string key", () => {
+        const { select } = setup();
+        select.togglePropertyControl(EnumPropName.Opacity, false);
+
+        select.togglePropertyControl(EnumPropName.Color, true);
+
+        const propData = (select as any).getPropData();
+        expect(propData["cc.Node.color"]).not.toBeUndefined();
+        expect(propData[EnumPropName.Color]).toBeUndefined();
     });
 });

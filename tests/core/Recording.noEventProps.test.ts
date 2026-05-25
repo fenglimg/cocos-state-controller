@@ -78,7 +78,7 @@ describe("Recording no-event props (Wave 2 T12 long-standing bug fix)", () => {
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
         expect(ctrlData[0]).toBeDefined();
-        expect(ctrlData[0][EnumPropName.ButtonInteractable]).toBe(false);
+        expect(ctrlData[0]["cc.Button.interactable"]).toBe(false);
     });
 
     it("Label.string: 录制中切 state, fromState 应 commit string", () => {
@@ -96,7 +96,7 @@ describe("Recording no-event props (Wave 2 T12 long-standing bug fix)", () => {
         ctrl.stopRecording();
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
-        expect(ctrlData[0][EnumPropName.LabelString]).toBe("recorded");
+        expect(ctrlData[0]["cc.Label.string"]).toBe("recorded");
     });
 
     it("Widget.top: 录制中改 number 字段, stopRecording 时 commit", () => {
@@ -113,6 +113,6 @@ describe("Recording no-event props (Wave 2 T12 long-standing bug fix)", () => {
         ctrl.stopRecording();
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
-        expect(ctrlData[0][EnumPropName.WidgetTop]).toBe(99);
+        expect(ctrlData[0]["cc.Widget.top"]).toBe(99);
     });
 });

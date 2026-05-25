@@ -85,7 +85,7 @@ describe("Capability core baseline (Wave 2 T29)", () => {
         // commitPropFromNode 是 StateSelect 公共方法, 不依赖 capability
         expect(() => (select as any).commitPropFromNode(EnumPropName.Color)).not.toThrow();
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
-        expect(propData[EnumPropName.Color]).toBeDefined();
+        expect(propData["cc.Node.color"]).toBeDefined();
 
         // 重注册回内置 capability
         require("../../assets/script/controller/capabilities/PropertyControlCapability");
@@ -111,8 +111,8 @@ describe("Capability core baseline (Wave 2 T29)", () => {
         expect(() => ctrl.stopRecording()).not.toThrow();
 
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
-        expect(propData[EnumPropName.Position]).toBeDefined();
-        expect(propData[EnumPropName.Position].x).toBe(100);
+        expect(propData["cc.Node.position"]).toBeDefined();
+        expect(propData["cc.Node.position"].x).toBe(100);
 
         // 重注册回内置 capability
         require("../../assets/script/controller/capabilities/PropertyControlCapability");

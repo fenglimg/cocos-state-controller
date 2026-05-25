@@ -90,7 +90,7 @@ describe("StateController deleteState data cleanup", () => {
         // _ctrlData[ctrlId][1] 应是原 state 2 的数据 (active=true, 前移过来)
         const pageData = (select as any)._ctrlData[ctrl.ctrlId];
         expect(pageData).toBeDefined();
-        expect(pageData[1]?.[EnumPropName.Active]).toBe(true);
+        expect(pageData[1]?.["cc.Node.active"]).toBe(true);
 
         // _ctrlData[ctrlId][2] 应已被清掉
         expect(pageData[2]).toBeUndefined();
@@ -127,7 +127,7 @@ describe("StateController deleteState data cleanup", () => {
 
         // 容忍两种情况: pageData[1] 整个不存在, 或存在但没有 Active key
         const hasStaleActive = newState1 != null
-            && newState1[EnumPropName.Active] !== undefined;
+            && newState1["cc.Node.active"] !== undefined;
         expect(hasStaleActive).toBe(false);
     });
 

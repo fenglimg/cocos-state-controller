@@ -118,7 +118,7 @@ describe("模型 Z: 切 state 自动 stopRecording", () => {
 
         // fromState=0 应该有新的 Color 值
         const propData = (select as any).getPropData(0, ctrl.ctrlId);
-        const storedColor = propData[EnumPropName.Color];
+        const storedColor = propData["cc.Node.color"];
         expect(storedColor).toBeDefined();
         expect(storedColor.r).toBe(99);
         expect(storedColor.g).toBe(88);
@@ -133,7 +133,7 @@ describe("模型 Z: startRecording dirty 弹窗 (controlled prop ≠ ctrlData)",
         // 勾上 Color 跟随 + commit 当前蓝色到 ctrlData
         select.togglePropertyControl(EnumPropName.Color, true);
         const propData = (select as any).getPropData(0, ctrl.ctrlId);
-        propData[EnumPropName.Color] = ccL.color(0, 0, 255, 255); // 存的: 蓝
+        propData["cc.Node.color"] = ccL.color(0, 0, 255, 255); // 存的: 蓝
         // 节点改成红 (没录, 直接改 — 形成 dirty)
         selectNode.color = ccL.color(255, 0, 0, 255);
         return { ctrl, select, selectNode };
@@ -153,7 +153,7 @@ describe("模型 Z: startRecording dirty 弹窗 (controlled prop ≠ ctrlData)",
         dialogResponse = 0;
         ctrl.startRecording();
         const propData = (select as any).getPropData(0, ctrl.ctrlId);
-        expect(propData[EnumPropName.Color].r).toBe(255); // 节点的红色被保存
+        expect(propData["cc.Node.color"].r).toBe(255); // 节点的红色被保存
         expect(ctrl.isRecording).toBe(true);
     });
 

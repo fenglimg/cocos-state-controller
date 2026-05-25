@@ -42,7 +42,7 @@ import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
 import { listTrackableProps, TrackableProp } from "./PrefabIntrospection";
 import { cloneValueByType, eqValueByType } from "./NestedCtrlData";
-import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM, LEGACY_DROPPED_ENUMS } from "./EnumPropRefMap";
+import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM, LEGACY_DROPPED_ENUMS, enumToPropRef } from "./EnumPropRefMap";
 // W6-2b: capability dispatch (propRef 字段派发给 hooks)
 import { CapabilityRegistry } from "./CapabilityRegistry";
 
@@ -338,8 +338,8 @@ export class StateSelect extends cc.Component {
     private updatePropData(propKey: EnumPropName, propValue: TPropValue) {
         const propData = this.getPropData();
 
-        // 🔧 设置属性值
-        propData[propKey] = propValue;
+        // W6-2c2: 写 string propRef key (内置 36 + AMBIGUOUS 3 项), fallback number key.
+        this.writePropByEnum(propData, propKey, propValue);
 
         // 🔧 记录上次选择的属性
         propData.$$lastProp$$ = propKey;
@@ -773,48 +773,63 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * W6-2c1: 极简 ctrlData migration — 仅静默丢 LEGACY_DROPPED_ENUMS 中的数字 key
-     * (当前只有 GrayScale=15, cocos 2.x 走材质 stub, 已无单字段映射).
+     * W6-2c2: ctrlData number key → string propRef key 迁移 (扩 c1 framework).
      *
-     * 严格不动:
-     *   - ENUM_TO_PROPREF 36 项内置 prop 数字 key (Active=1 / Color=10 / LabelString=3 / ...) — c2 才迁
-     *   - AMBIGUOUS 数字 key (Position=2 / Anchor=8 / Size=9) — c2 决定
-     *   - 自定义 string propRef key (e.g. "MyComp.heat") — 一律保留
-     *   - $$xxx$$ 元数据 key ($$controlledProps$$ / $$propertyData$$ / $$lastProp$$ / $$changedProp$$)
+     * 规则 (按 key 处理顺序):
+     *   1) $$xxx$$ 元数据 key ($$controlledProps$$ / $$propertyData$$ / $$lastProp$$ / $$changedProp$$ / $$default$$):
+     *      完全不动 (其内层值仍可能含 EnumPropName 数字, 是合法语义)
+     *   2) 自定义 string propRef key (e.g. "MyComp.heat", 含 "." 的字符串): 完全不动
+     *   3) 数字 key (propType):
+     *      a) LEGACY_DROPPED_ENUMS 命中 (e.g. GrayScale=15) → delete (W6-2c1 行为)
+     *      b) enumToPropRef() 命中 (ENUM_TO_PROPREF 36 项 + AMBIGUOUS 3 项 = 39 项) → 迁 string propRef key
+     *      c) 未命中 (无对应映射, 保守保留): 不动 + warn (理论上不应发生, 39+1 已覆盖所有 EnumPropName 实例)
      *
-     * 同步扫 $$propertyData$$ 内层 ({[propType:number]: TPropValue} 形状, 与外层一致规则).
+     * 内层 $$propertyData$$ 是 {[propType:number]: TPropValue} 形状, 按同规则扫 (c2 一并迁 string key).
+     * $$default$$ state 是外层 propData 的 sibling, 按同规则递归 (Object.keys(ctrlPage) 已含 $$default$$).
      *
-     * idempotent — 第二次扫已无 LEGACY_DROPPED_ENUMS 数字 key, no-op.
+     * idempotent — 第二次扫已无数字 key, no-op. 老 .fire 加载后 __preload 跑一次, 之后 ctrlData
+     * 内层 key 全是 string, c3 删 EnumPropName 后整体一致.
      */
     private migrateLegacyCtrlData(): void {
-        const dropSet = LEGACY_DROPPED_ENUMS;
-        if (!dropSet || dropSet.length === 0) {
-            return;
-        }
         const ctrlData = this._ctrlData;
         if (!ctrlData) {
             return;
         }
-        const shouldDrop = (propKey: string): boolean => {
-            // 跳过 $$xxx$$ 元数据 key
-            if (propKey.startsWith("$$")) {
-                return false;
-            }
-            // JS object key 都是 string, 仅数字串才是 propType 数字 key
-            if (!/^\d+$/.test(propKey)) {
-                return false;
-            }
+        const dropSet = LEGACY_DROPPED_ENUMS || [];
+        // 处理单一 propType 数字 key: drop | migrate | keep-with-warn
+        // 返回 'dropped' / 'migrated' / 'kept', 调用方对外层 propData 用此结果更新形状
+        const handleNumericKey = (dict: any, propKey: string): "dropped" | "migrated" | "kept" => {
             const numKey = Number(propKey);
-            return dropSet.indexOf(numKey) !== -1;
+            if (dropSet.indexOf(numKey) !== -1) {
+                delete dict[propKey];
+                return "dropped";
+            }
+            const propRef = enumToPropRef(numKey);
+            if (propRef !== undefined) {
+                // 迁移: 若 string propRef key 已存在, 优先保留已有 (W6-2a 写路径已迁的情况)
+                if (dict[propRef] === undefined) {
+                    dict[propRef] = dict[propKey];
+                }
+                delete dict[propKey];
+                return "migrated";
+            }
+            // 保守保留: 理论上 39+1 已覆盖所有 EnumPropName 实例
+            return "kept";
         };
         const sweepPropDictionary = (dict: any): void => {
             if (!dict || typeof dict !== "object") {
                 return;
             }
             for (const propKey of Object.keys(dict)) {
-                if (shouldDrop(propKey)) {
-                    delete dict[propKey];
+                // 跳过 $$xxx$$ 元数据 key
+                if (propKey.startsWith("$$")) {
+                    continue;
                 }
+                // 仅 /^\d+$/ 才是 propType 数字 key; string propRef key 不动
+                if (!/^\d+$/.test(propKey)) {
+                    continue;
+                }
+                handleNumericKey(dict, propKey);
             }
         };
         for (const ctrlIdKey of Object.keys(ctrlData)) {
@@ -829,11 +844,52 @@ export class StateSelect extends cc.Component {
                 }
                 // 外层 propData: 扫数字 key (跳过 $$xxx$$ 元数据)
                 sweepPropDictionary(propData);
-                // 内层 $$propertyData$$: {[propType:number]: TPropValue}, 同规则扫
+                // 内层 $$propertyData$$: 同规则扫 (number key 也迁 string key)
                 if (propData.$$propertyData$$) {
                     sweepPropDictionary(propData.$$propertyData$$);
                 }
             }
+        }
+    }
+
+    /**
+     * W6-2c2: 按 EnumPropName 读 propData, 优先 string propRef key, fallback number key.
+     *
+     * 双 key 兼容期 helper — 解决 production 写路径 (W6-2a) 仍可能在 ctrlData 内层写过 number key 的历史数据.
+     * c2 完成后, 编辑器加载老 .fire __preload 会跑 migrateLegacyCtrlData 把 number key 迁 string,
+     * 但 in-memory 路径 (如 commit/snapshot 前后) 可能短暂双 key 共存, 用本 helper 保证读到正确值.
+     *
+     * 公开 internal: StateController.promptDirtyAndStart 在外部 commit 时也走此 helper, 否则
+     * 老 number key 写入会绕过 c2 数据规范, 导致 ctrlData 出现 number + string 双 key 不一致.
+     */
+    public readPropByEnum(propData: any, propType: EnumPropName): TPropValue {
+        if (!propData) return undefined;
+        const propRef = enumToPropRef(propType);
+        if (propRef !== undefined && propData[propRef] !== undefined) {
+            return propData[propRef];
+        }
+        return (propData as TPropDictionary)[propType];
+    }
+
+    /**
+     * W6-2c2: 按 EnumPropName 写 propData, 优先写 string propRef key + 清掉同义 number key.
+     *
+     * - propRef 命中 (内置 36 + AMBIGUOUS 3 = 39 项) → propData[propRef] = value; delete propData[number]
+     * - propRef 未命中 (理论不发生) → 回退老路径 propData[number] = value
+     *
+     * 双写清理保证: 老 number key 数据立即清, 不会出现"已迁 string + 残留 number" 的双 key 状态.
+     *
+     * 公开 internal: StateController.promptDirtyAndStart "保存到当前 state" 路径也走此 helper.
+     */
+    public writePropByEnum(propData: any, propType: EnumPropName, value: TPropValue): void {
+        if (!propData) return;
+        const propRef = enumToPropRef(propType);
+        if (propRef !== undefined) {
+            propData[propRef] = value;
+            delete (propData as TPropDictionary)[propType];
+        }
+        else {
+            (propData as TPropDictionary)[propType] = value;
         }
     }
 
@@ -1500,6 +1556,38 @@ export class StateSelect extends cc.Component {
             .filter(key => !Number.isNaN(key));
     }
 
+    /**
+     * W6-2c2: 提取 propData 中所有 EnumPropName 数字 propType.
+     *   - string propRef key 反查 PROPREF_TO_ENUM 命中 → 返回对应 EnumPropName
+     *   - number key (老数据未迁) → 直接返回
+     *   - 自定义 propRef (不在反查表) / $$xxx$$ 元数据 → 跳过
+     *
+     * 去重后返回. updateState 用这个把内置 prop 数据桥回 EnumPropName 老路径派发.
+     */
+    private extractEnumPropTypes(data: TProp): EnumPropName[] {
+        const seen = new Set<number>();
+        const out: EnumPropName[] = [];
+        if (!data) return out;
+        for (const key of Object.keys(data)) {
+            if (key.startsWith("$$")) continue;
+            if (/^\d+$/.test(key)) {
+                const num = Number(key);
+                if (Number.isFinite(num) && !seen.has(num)) {
+                    seen.add(num);
+                    out.push(num as EnumPropName);
+                }
+                continue;
+            }
+            // string propRef → 反查 EnumPropName
+            const enumNum = PROPREF_TO_ENUM[key];
+            if (enumNum !== undefined && !seen.has(enumNum)) {
+                seen.add(enumNum);
+                out.push(enumNum as EnumPropName);
+            }
+        }
+        return out;
+    }
+
     // #endregion 4.
 
     // #region 5. 属性同步与应用 (state 切换 → node/component apply)
@@ -1556,10 +1644,14 @@ export class StateSelect extends cc.Component {
         const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
         const processedKeys = new Set<number>();
 
-        const defaultKeys = this.extractNumericPropKeys(defaultData);
-        for (const key of defaultKeys) {
-            const propType = key as EnumPropName;
-            const value = propData[propType] != void 0 ? propData[propType] : defaultData[propType];
+        // W6-2c2: ENUM_TO_PROPREF 36 + AMBIGUOUS 3 = 39 项内置 prop 数据存在 string propRef key 下.
+        // 但 PropHandler 体系按 EnumPropName 数字派发, updateBatch 仍按 propType 走老路径.
+        // 用 PROPREF_TO_ENUM 反查 string propRef → EnumPropName, 把 updateBatch 桥到老路径.
+        const defaultPropTypes = this.extractEnumPropTypes(defaultData);
+        for (const propType of defaultPropTypes) {
+            const stateValue = this.readPropByEnum(propData, propType);
+            const defaultValue = this.readPropByEnum(defaultData, propType);
+            const value = stateValue != void 0 ? stateValue : defaultValue;
             if (value == void 0) {
                 continue;
             }
@@ -1567,13 +1659,12 @@ export class StateSelect extends cc.Component {
             processedKeys.add(propType);
         }
 
-        const stateKeys = this.extractNumericPropKeys(propData);
-        for (const key of stateKeys) {
-            if (processedKeys.has(key)) {
+        const statePropTypes = this.extractEnumPropTypes(propData);
+        for (const propType of statePropTypes) {
+            if (processedKeys.has(propType)) {
                 continue;
             }
-            const propType = key as EnumPropName;
-            const value = propData[propType];
+            const value = this.readPropByEnum(propData, propType);
             if (value == void 0) {
                 continue;
             }
@@ -1635,11 +1726,12 @@ export class StateSelect extends cc.Component {
         if (!CC_EDITOR) return;
         if (type === EnumPropName.Non) return;
         const propData = this.getPropData();
-        // 仅 controlled props 接受 commit (与原 setDefaultProp 的 propData[type]==void 0 提前 return 等价)
-        if (propData[type] === undefined) return;
+        // W6-2c2: 仅 controlled props 接受 commit (双 key 读: string propRef 优先, number fallback)
+        if (this.readPropByEnum(propData, type) === undefined) return;
         const value = PropHandlerManager.getValue(type, this.node);
         if (value === undefined) return;
-        (propData as TPropDictionary)[type] = value;
+        // W6-2c2: 写 string propRef key (写路径切 helper)
+        this.writePropByEnum(propData, type, value);
         if (type === this.propKey) {
             this._propValue = value;
         }
@@ -1716,10 +1808,12 @@ export class StateSelect extends cc.Component {
         const propData = this.getPropData(fromState, ctrl.ctrlId);
         if (propData) {
             const snap = this._initialSnapshot as TPropDictionary;
+            // W6-2c2: snapshot 内层仍按 EnumPropName 数字 key 存 (readControlledPropsFromNode 路径),
+            // 写回 propData 时按 writePropByEnum 切到 string propRef key.
             for (const key of Object.keys(snap)) {
                 const propType = Number(key);
                 if (!Number.isFinite(propType) || propType === EnumPropName.Non) continue;
-                (propData as TPropDictionary)[propType] = snap[propType];
+                this.writePropByEnum(propData, propType as EnumPropName, snap[propType]);
             }
         }
         this._snapshot = null;
@@ -1847,7 +1941,8 @@ export class StateSelect extends cc.Component {
             if (propType === EnumPropName.Non) continue;
             const current = PropHandlerManager.getValue(propType, this.node);
             if (current === undefined) continue;
-            const stored = (propData as TPropDictionary)[propType];
+            // W6-2c2: 双 key 读
+            const stored = this.readPropByEnum(propData, propType);
             if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
             if (!PropHandlerManager.isEqual(propType, stored, current)) {
                 out.push({ propType, current, stored });
@@ -1910,7 +2005,8 @@ export class StateSelect extends cc.Component {
                 const current = PropHandlerManager.getValue(propType, this.node);
                 if (current !== undefined) {
                     const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-                    (propData as TPropDictionary)[propType] = current;
+                    // W6-2c2: 写 string propRef key
+                    this.writePropByEnum(propData, propType, current);
                 }
             }
             this.editorLog(`[StateSelect "${this.node && this.node.name}"] 追加跟随 + 保存: ${names.join(", ")} 到 state[${ctrl.selectedIndex}]`);
@@ -2016,7 +2112,8 @@ export class StateSelect extends cc.Component {
                 if (currentValue === undefined) continue;
                 const snapValue = (snap as TPropDictionary)[propType];
                 if (!PropHandlerManager.isEqual(propType as EnumPropName, snapValue, currentValue)) {
-                    (propData as TPropDictionary)[propType] = currentValue;
+                    // W6-2c2: 写 string propRef key (snapshot 仍按 number key 索引, 是 in-memory 临时态)
+                    this.writePropByEnum(propData, propType as EnumPropName, currentValue);
                     (snap as TPropDictionary)[propType] = currentValue;
                     committed.push(propType as EnumPropName);
                     StateErrorManager.debug("录制 diff 提交 (enum)", {
@@ -2137,7 +2234,8 @@ export class StateSelect extends cc.Component {
         const pageData = this.getPageData();
         for (let index = 0, len = ctrl.states.length; index < len; index++) {
             const propData = pageData[index];
-            if (propData && propData[prop] != void 0) {
+            // W6-2c2: 双 key 读
+            if (propData && this.readPropByEnum(propData, prop as EnumPropName) != void 0) {
                 return true;
             }
         }
@@ -2253,7 +2351,8 @@ export class StateSelect extends cc.Component {
 
         for (const state in pageData) {
             const propData = pageData[state];
-            const pos = propData[EnumPropName.Position] as cc.Vec3;
+            // W6-2c2: Position 走 AMBIGUOUS_ENUM_TO_PROPREF ('cc.Node.position') 整体存
+            const pos = this.readPropByEnum(propData, EnumPropName.Position) as cc.Vec3;
             if (pos) {
                 try {
                     // 在 2.x 中，需要手动计算坐标转换
@@ -2318,9 +2417,9 @@ export class StateSelect extends cc.Component {
             }
             const statePropData = pageData[stateIndex];
 
-            // 如果该状态还没有这个属性，则添加（使用当前节点的值）
-            if (statePropData[propKey] == void 0) {
-                statePropData[propKey] = currentStateValue;
+            // W6-2c2: 双 key 读 (优先 string propRef, fallback number)
+            if (this.readPropByEnum(statePropData, propKey) === undefined) {
+                this.writePropByEnum(statePropData, propKey, currentStateValue);
                 syncedStates++;
 
                 // 🔧 修复：同步属性时，只在该状态没有lastProp时才设置，避免覆盖用户的选择
@@ -2336,8 +2435,8 @@ export class StateSelect extends cc.Component {
 
         // 同时更新默认状态
         const defaultData = this.getDefaultData();
-        if (defaultData[propKey] == void 0) {
-            defaultData[propKey] = currentStateValue;
+        if (this.readPropByEnum(defaultData, propKey) === undefined) {
+            this.writePropByEnum(defaultData, propKey, currentStateValue);
         }
 
         StateErrorManager.info("属性同步完成", {
@@ -2382,15 +2481,17 @@ export class StateSelect extends cc.Component {
         const name = EnumPropName[propKey];
         let deletedFromStates = 0;
 
+        // W6-2c2: 删时双 key 一起删 (string propRef + number, 兼容老数据)
+        const propRef = enumToPropRef(propKey);
         // 遍历所有状态，删除指定属性
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
             const statePropData = pageData[stateIndex];
             if (statePropData) {
-                // 删除属性值
-                if (statePropData[propKey] !== undefined) {
-                    delete statePropData[propKey];
-                    deletedFromStates++;
-                }
+                // 删除属性值 (string + number 双删)
+                const hadValue = this.readPropByEnum(statePropData, propKey) !== undefined;
+                if (propRef !== undefined) delete (statePropData as any)[propRef];
+                delete (statePropData as TPropDictionary)[propKey];
+                if (hadValue) deletedFromStates++;
 
                 // 删除changedProp记录
                 const $$changedProp$$ = statePropData.$$changedProp$$ || {};
@@ -2403,9 +2504,10 @@ export class StateSelect extends cc.Component {
             }
         }
 
-        // 删除默认状态的属性
+        // 删除默认状态的属性 (双删)
         const defaultData = this.getDefaultData();
-        delete defaultData[propKey];
+        if (propRef !== undefined) delete (defaultData as any)[propRef];
+        delete (defaultData as TPropDictionary)[propKey];
 
         StateErrorManager.info("属性删除完成", {
             component: "StateSelect",
@@ -2547,7 +2649,8 @@ export class StateSelect extends cc.Component {
             if (!this.isPropertyControlled(propType)) {
                 continue;
             }
-            const value = propData[propType];
+            // W6-2c2: 双 key 读
+            const value = this.readPropByEnum(propData, propType);
             if (value === undefined) {
                 continue;
             }
@@ -2868,8 +2971,12 @@ export class StateSelect extends cc.Component {
         // 🔧 第二步：添加到受控属性列表
         propData.$$controlledProps$$[propName] = propType;
 
+        // W6-2c2: $$propertyData$$ 内层也切 string propRef key (与外层 propData 一致)
+        const propRef = enumToPropRef(propType);
+        const dataKey = propRef !== undefined ? propRef : propType;
+
         // 🔧 第三步：检查是否需要创建属性数据
-        if (propData.$$propertyData$$[propType] === undefined) {
+        if ((propData.$$propertyData$$ as any)[dataKey] === undefined) {
             // 获取当前属性值
             const currentValue = this.handleValue(propType);
             if (currentValue === undefined) {
@@ -2881,13 +2988,16 @@ export class StateSelect extends cc.Component {
                 return;
             }
 
-            // 创建属性数据
-            propData.$$propertyData$$[propType] = currentValue;
+            // W6-2c2: 创建属性数据 (string propRef key, 删 number key)
+            (propData.$$propertyData$$ as any)[dataKey] = currentValue;
+            if (propRef !== undefined) {
+                delete (propData.$$propertyData$$ as any)[propType];
+            }
 
             StateErrorManager.debug("创建新的属性数据", {
                 component: "StateSelect",
                 method: "addPropertyControl",
-                params: { propType: propName, value: currentValue },
+                params: { propType: propName, dataKey, value: currentValue },
             });
         }
 
@@ -2902,7 +3012,7 @@ export class StateSelect extends cc.Component {
 
         // 🔧 第六步：设置为当前选中的属性
         this._propKey = propType;
-        this._propValue = propData.$$propertyData$$[propType];
+        this._propValue = (propData.$$propertyData$$ as any)[dataKey];
 
         // 🔧 修复：调用setPropValue显示属性值字段
         this.setPropValue(propType);
@@ -2917,7 +3027,7 @@ export class StateSelect extends cc.Component {
             method: "addPropertyControl",
             params: {
                 propType: propName,
-                hasData: propData.$$propertyData$$[propType] !== undefined,
+                hasData: (propData.$$propertyData$$ as any)[dataKey] !== undefined,
                 isControlled: !!propData.$$controlledProps$$[propName],
             },
         });
@@ -3104,7 +3214,8 @@ export class StateSelect extends cc.Component {
             const lastProp = propData.$$lastProp$$;
             if (lastProp !== undefined && lastProp !== EnumPropName.Non) {
                 this._propKey = lastProp;
-                this._propValue = propData[lastProp];
+                // W6-2c2: 双 key 读
+                this._propValue = this.readPropByEnum(propData, lastProp);
                 this._currentDisplayProp = lastProp;
                 this.setPropValue(lastProp);
             }
@@ -3236,6 +3347,9 @@ export class StateSelect extends cc.Component {
         const propName = EnumPropName[propType];
 
         try {
+            // W6-2c2: 双 key 删 (string propRef + number, 兼容老数据)
+            const propRef = enumToPropRef(propType);
+
             // 🔧 第一步：从当前状态删除所有相关数据
             const propData = this.getPropData();
             if (propData) {
@@ -3244,8 +3358,9 @@ export class StateSelect extends cc.Component {
                     delete propData.$$controlledProps$$[propName];
                 }
 
-                // 删除属性数据
+                // W6-2c2: 删属性数据 (string + number 双删)
                 if (propData.$$propertyData$$) {
+                    if (propRef !== undefined) delete (propData.$$propertyData$$ as any)[propRef];
                     delete propData.$$propertyData$$[propType];
                 }
 
@@ -3253,7 +3368,9 @@ export class StateSelect extends cc.Component {
                 if (propData.$$changedProp$$) {
                     delete propData.$$changedProp$$[propName];
                 }
-                delete propData[propType]; // 删除直接存储的属性
+                // W6-2c2: 直接存储的属性 (string + number 双删)
+                if (propRef !== undefined) delete (propData as any)[propRef];
+                delete (propData as TPropDictionary)[propType];
             }
 
             // 🔧 第二步：从所有状态删除
@@ -3267,13 +3384,15 @@ export class StateSelect extends cc.Component {
                     delete pageData.$$default$$.$$controlledProps$$[propName];
                 }
                 if (pageData.$$default$$.$$propertyData$$) {
+                    if (propRef !== undefined) delete (pageData.$$default$$.$$propertyData$$ as any)[propRef];
                     delete pageData.$$default$$.$$propertyData$$[propType];
                 }
                 // 兼容性：删除旧结构中的数据
                 if (pageData.$$default$$.$$changedProp$$) {
                     delete pageData.$$default$$.$$changedProp$$[propName];
                 }
-                delete pageData.$$default$$[propType];
+                if (propRef !== undefined) delete (pageData.$$default$$ as any)[propRef];
+                delete (pageData.$$default$$ as TPropDictionary)[propType];
             }
 
             // 🔧 第四步：清除当前选择

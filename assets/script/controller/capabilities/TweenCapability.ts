@@ -216,15 +216,25 @@ export const TweenCapability: ICapability & {
             const targetState = ctrlBucket[toIdx];
             if (!targetState) continue;
 
-            for (const propTypeStr in targetState) {
-                if (!Object.prototype.hasOwnProperty.call(targetState, propTypeStr)) continue;
+            for (const propKeyStr in targetState) {
+                if (!Object.prototype.hasOwnProperty.call(targetState, propKeyStr)) continue;
                 // 跳过 $$xxx$$ namespace 字段 (capability 数据)
-                if (propTypeStr.charAt(0) === "$") continue;
-                const propType = parseInt(propTypeStr, 10);
-                if (isNaN(propType)) continue;
+                if (propKeyStr.charAt(0) === "$") continue;
+                // W6-2c2: 双 key 兼容 — 数字 key 直接 parseInt (老 in-memory 路径),
+                // string propRef key 反查 PROPREF_TO_ENUM 拿 EnumPropName.
+                let propType: number;
+                if (/^\d+$/.test(propKeyStr)) {
+                    propType = parseInt(propKeyStr, 10);
+                    if (isNaN(propType)) continue;
+                }
+                else {
+                    const mapped = PROPREF_TO_ENUM[propKeyStr];
+                    if (mapped === undefined) continue; // 自定义 propRef, tween 不支持
+                    propType = mapped;
+                }
                 if (!supportedSet.has(propType)) continue;
 
-                const toValue = targetState[propTypeStr];
+                const toValue = targetState[propKeyStr];
                 if (toValue === undefined || toValue === null) continue;
 
                 try {

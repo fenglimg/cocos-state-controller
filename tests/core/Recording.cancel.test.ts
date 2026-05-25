@@ -74,7 +74,7 @@ describe("cancelRecording 契约 (TASK-002)", () => {
 
         // 把 RED commit 到 state[0] (模拟录制开始前的稳态)
         const propData0Before = (select as any).getPropData(0, ctrl.ctrlId);
-        propData0Before[EnumPropName.Color] = ccLocal.color(255, 0, 0, 255);
+        propData0Before["cc.Node.color"] = ccLocal.color(255, 0, 0, 255);
         const redCopy = ccLocal.color(255, 0, 0, 255);
 
         // 进入录制态
@@ -88,16 +88,16 @@ describe("cancelRecording 契约 (TASK-002)", () => {
 
         // 验证 state[0] 此刻是 GREEN
         const propData0Mid = (select as any).getPropData(0, ctrl.ctrlId);
-        expect(propData0Mid[EnumPropName.Color].g).toBe(255);
+        expect(propData0Mid["cc.Node.color"].g).toBe(255);
 
         // ★ cancelRecording: 应把 ctrlData[0] 回滚到 RED
         (ctrl as any).cancelRecording();
 
         expect(ctrl.isRecording).toBe(false);
         const propData0After = (select as any).getPropData(0, ctrl.ctrlId);
-        expect(propData0After[EnumPropName.Color].r).toBe(redCopy.r);
-        expect(propData0After[EnumPropName.Color].g).toBe(redCopy.g);
-        expect(propData0After[EnumPropName.Color].b).toBe(redCopy.b);
+        expect(propData0After["cc.Node.color"].r).toBe(redCopy.r);
+        expect(propData0After["cc.Node.color"].g).toBe(redCopy.g);
+        expect(propData0After["cc.Node.color"].b).toBe(redCopy.b);
     });
 
     it("cancelRecording 不触发 onRecordingStop 路径 (不发 CapabilityRegistry.dispatch onRecordingStop)", () => {

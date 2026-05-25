@@ -69,12 +69,46 @@ export const ENUM_TO_PROPREF: { [enumVal: number]: string } = {
     [EnumPropName.WidgetHorizontalCenter]: "cc.Widget.horizontalCenter",
     [EnumPropName.WidgetVerticalCenter]: "cc.Widget.verticalCenter",
 
-    // ---- AMBIGUOUS — 不在映射表 ----
-    // EnumPropName.Position (2): cc.Vec3 持有 (x/y/z), __props__ 是 x/y/z 三个独立 prop
-    // EnumPropName.Anchor (8): cc.Vec2 持有 (anchorX/anchorY), __props__ 是两个分开
-    // EnumPropName.Size (9): cc.Size 持有 (width/height), __props__ 是两个分开
-    // EnumPropName.GrayScale (15): cocos 2.x 走材质 stub, 无单一字段
+    // ---- AMBIGUOUS — 不在主映射表 (W6-2c2: 改走 AMBIGUOUS_ENUM_TO_PROPREF 单一 propRef 整体存) ----
+    // EnumPropName.Position (2): 老 PropHandler 行为 n.position = vec3 整体写, 用单一 propRef 'cc.Node.position'
+    // EnumPropName.Anchor (8): 老 PropHandler 行为 n.setAnchorPoint(vec2) 整体写, 用 'cc.Node.anchorPoint'
+    // EnumPropName.Size (9): 老 PropHandler 行为 n.setContentSize(size) 整体写, 用 'cc.Node.contentSize'
+    // EnumPropName.GrayScale (15): cocos 2.x 走材质 stub, 无单一字段, 进 LEGACY_DROPPED_ENUMS 静默丢
 };
+
+/**
+ * W6-2c2: AMBIGUOUS 复合 prop → propRef 整体存映射 (Position/Anchor/Size 三项).
+ *
+ * 设计依据 (StatePropHandler.ts): 老 PropHandler 对这三项都是整体读写
+ *   - Position handler: `n.position = vec3` (整 Vec3)
+ *   - Anchor handler:   `n.setAnchorPoint(vec2)` (整 Vec2)
+ *   - Size handler:     `n.setContentSize(size)` (整 Size)
+ * 所以 W6-2c2 把这三项数据以"单一 propRef 整体存"方式落到 ctrlData, 跟老行为一致.
+ *
+ * 与 ENUM_TO_PROPREF 的区别: 内置 prop 36 项可以从 cc.Node[fieldName] 直接读,
+ * AMBIGUOUS 3 项是 cocos 复合字段无法走 fieldName 路径但能整体读写.
+ * 两表合并由 enumToPropRef() 提供.
+ */
+export const AMBIGUOUS_ENUM_TO_PROPREF: { [enumVal: number]: string } = {
+    [EnumPropName.Position]: "cc.Node.position",
+    [EnumPropName.Anchor]: "cc.Node.anchorPoint",
+    [EnumPropName.Size]: "cc.Node.contentSize",
+};
+
+/**
+ * W6-2c2: 合并 helper — ENUM_TO_PROPREF 36 项 + AMBIGUOUS 3 项 = 39 项 EnumPropName → propRef 映射.
+ *
+ * 用于:
+ *   - migrateLegacyCtrlData: 数字 key → string propRef key 迁移
+ *   - StateSelect.readPropByEnum / writePropByEnum: 双 key 读写桥
+ *
+ * 未命中 (e.g. GrayScale=15) 返回 undefined, 调用方按需处理.
+ */
+export function enumToPropRef(propType: number): string | undefined {
+    return ENUM_TO_PROPREF[propType] !== undefined
+        ? ENUM_TO_PROPREF[propType]
+        : AMBIGUOUS_ENUM_TO_PROPREF[propType];
+}
 
 /**
  * propRef 字符串 → EnumPropName 数字 (反向). 用于 W6-2c 删 EnumPropName 时把老 number key
@@ -87,6 +121,11 @@ export const PROPREF_TO_ENUM: { [propRef: string]: number } = (function () {
     for (const k of Object.keys(ENUM_TO_PROPREF)) {
         const num = Number(k);
         if (Number.isFinite(num)) out[ENUM_TO_PROPREF[num]] = num;
+    }
+    // W6-2c2: AMBIGUOUS 3 项也加入反查 ('cc.Node.position' → Position 等)
+    for (const k of Object.keys(AMBIGUOUS_ENUM_TO_PROPREF)) {
+        const num = Number(k);
+        if (Number.isFinite(num)) out[AMBIGUOUS_ENUM_TO_PROPREF[num]] = num;
     }
     return out;
 })();

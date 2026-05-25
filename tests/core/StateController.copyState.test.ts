@@ -100,8 +100,8 @@ describe("StateController copySelectedState", () => {
         (select as any).setDefaultProp(EnumPropName.Color);
 
         const pageDataBefore = (select as any)._ctrlData[ctrl.ctrlId];
-        expect(pageDataBefore[0][EnumPropName.Color].r).toBe(255); // state 0 = RED
-        expect(pageDataBefore[1][EnumPropName.Color].b).toBe(255); // state 1 = BLUE
+        expect(pageDataBefore[0]["cc.Node.color"].r).toBe(255); // state 0 = RED
+        expect(pageDataBefore[1]["cc.Node.color"].b).toBe(255); // state 1 = BLUE
 
         // 复制 state 1 (BLUE). 末尾插入, Bug A 不触发
         ctrl.duplicateCurrentState = true;
@@ -113,8 +113,8 @@ describe("StateController copySelectedState", () => {
         // 新 state 必须携带 state 1 的 BLUE, 而不是 default 的 RED 或 sync 副作用值
         const pageData = (select as any)._ctrlData[ctrl.ctrlId];
         expect(pageData[2]).toBeDefined();
-        expect(pageData[2][EnumPropName.Color]).toBeDefined();
-        expect(pageData[2][EnumPropName.Color].b).toBe(255); // BLUE
-        expect(pageData[2][EnumPropName.Color].r).toBe(0);   // 不是 RED
+        expect(pageData[2]["cc.Node.color"]).toBeDefined();
+        expect(pageData[2]["cc.Node.color"].b).toBe(255); // BLUE
+        expect(pageData[2]["cc.Node.color"].r).toBe(0);   // 不是 RED
     });
 });

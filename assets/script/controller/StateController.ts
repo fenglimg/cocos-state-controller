@@ -1150,7 +1150,8 @@ export class StateController extends cc.Component {
             for (const d of dirty) {
                 try {
                     const propData = (d.select as any).getPropData(this._selectedIndex, this.ctrlId);
-                    if (propData) propData[d.propType] = d.current;
+                    // W6-2c2: 走 StateSelect.writePropByEnum 保证写 string propRef key (跟 production 一致)
+                    if (propData) (d.select as any).writePropByEnum(propData, d.propType, d.current);
                 }
                 catch (_) { /* noop */ }
             }

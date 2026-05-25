@@ -77,10 +77,10 @@ describe("StateSelect.active regression", () => {
         expect(propData.$$controlledProps$$?.Active).toBe(EnumPropName.Active);
 
         // 契约 2: $$propertyData$$ 已写入初始值
-        expect(propData.$$propertyData$$?.[EnumPropName.Active]).toBeDefined();
+        expect(propData.$$propertyData$$?.["cc.Node.active"]).toBeDefined();
 
         // 契约 3: legacy 数字 key 也必须有值 (兼容期, updateState/setDefaultProp 走这条路径)
-        expect(propData[EnumPropName.Active]).toBeDefined();
+        expect(propData["cc.Node.active"]).toBeDefined();
     });
 
     it("跨状态切换时 active 值应正确还原 (即使被切到 false 之后)", () => {

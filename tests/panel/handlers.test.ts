@@ -173,7 +173,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
         expect(h.addProperty(ctrl, select, EnumPropName.Position)).toBe(true);
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
-        expect(propData[EnumPropName.Position]).toBeDefined();
+        expect(propData["cc.Node.position"]).toBeDefined();
     });
 
     it("removeProperty handler 调用 select.togglePropertyControl(propType, false)", () => {

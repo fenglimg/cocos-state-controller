@@ -82,9 +82,9 @@ describe("Recording diff commit on state switch (Wave 2 T07 e2e)", () => {
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
         expect(ctrlData[0]).toBeDefined();
-        expect(ctrlData[0][EnumPropName.Color]).toBeDefined();
-        expect(ctrlData[0][EnumPropName.Color].r).toBe(255);
-        expect(ctrlData[0][EnumPropName.Color].g).toBe(0);
+        expect(ctrlData[0]["cc.Node.color"]).toBeDefined();
+        expect(ctrlData[0]["cc.Node.color"].r).toBe(255);
+        expect(ctrlData[0]["cc.Node.color"].g).toBe(0);
 
         // step 3: 在 state1 把节点改成 BLUE
         selectNode.color = ccLocal.color(0, 0, 255, 255);
@@ -94,8 +94,8 @@ describe("Recording diff commit on state switch (Wave 2 T07 e2e)", () => {
 
         const ctrlDataNow = (select as any)._ctrlData[ctrl.ctrlId];
         expect(ctrlDataNow[1]).toBeDefined();
-        expect(ctrlDataNow[1][EnumPropName.Color]).toBeDefined();
-        expect(ctrlDataNow[1][EnumPropName.Color].b).toBe(255);
+        expect(ctrlDataNow[1]["cc.Node.color"]).toBeDefined();
+        expect(ctrlDataNow[1]["cc.Node.color"].b).toBe(255);
 
         // 切回 state0 后, 节点应 apply RED (现有 updateState 链路保证)
         expect(selectNode.color.r).toBe(255);
@@ -119,8 +119,8 @@ describe("Recording diff commit on state switch (Wave 2 T07 e2e)", () => {
         ctrl.stopRecording();
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
-        expect(ctrlData[0][EnumPropName.Position]).toBeDefined();
-        expect(ctrlData[0][EnumPropName.Position].x).toBe(100);
-        expect(ctrlData[0][EnumPropName.Position].y).toBe(200);
+        expect(ctrlData[0]["cc.Node.position"]).toBeDefined();
+        expect(ctrlData[0]["cc.Node.position"].x).toBe(100);
+        expect(ctrlData[0]["cc.Node.position"].y).toBe(200);
     });
 });
