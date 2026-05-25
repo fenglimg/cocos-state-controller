@@ -42,7 +42,7 @@ import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
 import { listTrackableProps, TrackableProp } from "./PrefabIntrospection";
 import { cloneValueByType, eqValueByType } from "./NestedCtrlData";
-import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM } from "./EnumPropRefMap";
+import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM, LEGACY_DROPPED_ENUMS } from "./EnumPropRefMap";
 // W6-2b: capability dispatch (propRef 字段派发给 hooks)
 import { CapabilityRegistry } from "./CapabilityRegistry";
 
@@ -386,6 +386,11 @@ export class StateSelect extends cc.Component {
             return;
         }
         this._isPreloaded = true;
+
+        // W6-2c1: 极简 migration framework, 当前只丢 GrayScale (LEGACY_DROPPED_ENUMS),
+        // c2 扩 ENUM_TO_PROPREF 36 项 number→string key 迁移. 在所有 __preload 主逻辑之前
+        // 跑一次, 确保后续 updateCtrlName / autoOptIn / dispatch 看到的 _ctrlData 已清理.
+        this.migrateLegacyCtrlData();
 
         // 初始化嵌套 CCClass 的 owner 引用
         this.nodeProps.owner = this;
@@ -765,6 +770,71 @@ export class StateSelect extends cc.Component {
         this.notifyControllerCacheDirty();
 
         // Wave 2 T10: 8 个 cc 事件 hook 已删, 这里不再需要 off。
+    }
+
+    /**
+     * W6-2c1: 极简 ctrlData migration — 仅静默丢 LEGACY_DROPPED_ENUMS 中的数字 key
+     * (当前只有 GrayScale=15, cocos 2.x 走材质 stub, 已无单字段映射).
+     *
+     * 严格不动:
+     *   - ENUM_TO_PROPREF 36 项内置 prop 数字 key (Active=1 / Color=10 / LabelString=3 / ...) — c2 才迁
+     *   - AMBIGUOUS 数字 key (Position=2 / Anchor=8 / Size=9) — c2 决定
+     *   - 自定义 string propRef key (e.g. "MyComp.heat") — 一律保留
+     *   - $$xxx$$ 元数据 key ($$controlledProps$$ / $$propertyData$$ / $$lastProp$$ / $$changedProp$$)
+     *
+     * 同步扫 $$propertyData$$ 内层 ({[propType:number]: TPropValue} 形状, 与外层一致规则).
+     *
+     * idempotent — 第二次扫已无 LEGACY_DROPPED_ENUMS 数字 key, no-op.
+     */
+    private migrateLegacyCtrlData(): void {
+        const dropSet = LEGACY_DROPPED_ENUMS;
+        if (!dropSet || dropSet.length === 0) {
+            return;
+        }
+        const ctrlData = this._ctrlData;
+        if (!ctrlData) {
+            return;
+        }
+        const shouldDrop = (propKey: string): boolean => {
+            // 跳过 $$xxx$$ 元数据 key
+            if (propKey.startsWith("$$")) {
+                return false;
+            }
+            // JS object key 都是 string, 仅数字串才是 propType 数字 key
+            if (!/^\d+$/.test(propKey)) {
+                return false;
+            }
+            const numKey = Number(propKey);
+            return dropSet.indexOf(numKey) !== -1;
+        };
+        const sweepPropDictionary = (dict: any): void => {
+            if (!dict || typeof dict !== "object") {
+                return;
+            }
+            for (const propKey of Object.keys(dict)) {
+                if (shouldDrop(propKey)) {
+                    delete dict[propKey];
+                }
+            }
+        };
+        for (const ctrlIdKey of Object.keys(ctrlData)) {
+            const ctrlPage = ctrlData[ctrlIdKey];
+            if (!ctrlPage || typeof ctrlPage !== "object") {
+                continue;
+            }
+            for (const stateKey of Object.keys(ctrlPage)) {
+                const propData = (ctrlPage as any)[stateKey];
+                if (!propData || typeof propData !== "object") {
+                    continue;
+                }
+                // 外层 propData: 扫数字 key (跳过 $$xxx$$ 元数据)
+                sweepPropDictionary(propData);
+                // 内层 $$propertyData$$: {[propType:number]: TPropValue}, 同规则扫
+                if (propData.$$propertyData$$) {
+                    sweepPropDictionary(propData.$$propertyData$$);
+                }
+            }
+        }
     }
 
     // #endregion 2.

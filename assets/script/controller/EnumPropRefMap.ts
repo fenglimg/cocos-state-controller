@@ -99,3 +99,14 @@ export const PROPREF_TO_ENUM: { [propRef: string]: number } = (function () {
 export function isEnumMappedPropRef(propRef: string): boolean {
     return PROPREF_TO_ENUM[propRef] !== undefined;
 }
+
+/**
+ * W6-2c1: 已废弃的 EnumPropName 数字常量列表 (无对应 propRef, 老 .fire 内若有该 enum 的数据应静默丢).
+ *
+ * - GrayScale (15): cocos 2.x 走材质 stub, 无单一字段; 已无运行时支持. 老场景里若历史误设的
+ *   GrayScale 数据存在 _ctrlData 中, __preload 时由 migrateLegacyCtrlData 静默清掉.
+ *
+ * c2 加 ENUM_TO_PROPREF 36 项迁移路径 (number → string key) 时, 也优先检查此列表
+ * (避免误迁废弃 enum). c1 范围: 仅此一项, 不动 ENUM_TO_PROPREF / AMBIGUOUS.
+ */
+export const LEGACY_DROPPED_ENUMS: number[] = [EnumPropName.GrayScale];
