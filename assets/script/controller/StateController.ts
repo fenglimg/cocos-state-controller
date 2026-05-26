@@ -1,5 +1,6 @@
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { CapabilityRegistry } from "./CapabilityRegistry";
+import { cloneValueByType } from "./NestedCtrlData";
 // Wave 3 T07: 让所有 L0 内置 capability 跟着 StateController 一起被打入产出 (side-effect 自注册).
 // 显式 /index: cocos 2.x ts 编译路径不做 folder→index 解析, 写 "./capabilities" 会报
 // "Cannot find module './capabilities'" (jest 用 node resolver 能解出, 编辑器不行).
@@ -1109,10 +1110,13 @@ export class StateController extends cc.Component {
 
     /**
      * 扫所有受控 StateSelect 上的 controlled prop, 节点当前值 vs ctrlData[currentState] 不一致
-     * 即 dirty. 返回 [{ select, propType, current, stored }, ...].
+     * 即 dirty. 返回 [{ select, propType?, propRef?, current, stored }, ...].
+     *
+     * W6-2a-fixup: schema 升级 - dirty entry 含双 key (内置 propType / 自定义 propRef).
+     * 调用方 promptDirtyAndStart 显示与写回路径同步兼容.
      */
-    private collectControlledDirty(): Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }> {
-        const out: Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }> = [];
+    private collectControlledDirty(): Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> {
+        const out: Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> = [];
         this.rebuildStateSelectCache();
         if (!this._stateSelectCache) return out;
         for (const select of this._stateSelectCache) {
@@ -1139,10 +1143,14 @@ export class StateController extends cc.Component {
      *  1 = 丢弃恢复存储值          → 应用 ctrlData 回节点 (updateState) + _doStartRecording
      *  2 = 取消                    → 不进入录制态
      */
-    private promptDirtyAndStart(dirty: Array<{ select: StateSelect, propType: EnumPropName, current: unknown, stored: unknown }>): void {
+    private promptDirtyAndStart(dirty: Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }>): void {
         const lines = dirty.map(d => {
             const nodeName = d.select.node && d.select.node.name || "?";
-            return `  [${nodeName}] ${EnumPropName[d.propType]}`;
+            // W6-2a-fixup: 显示兼容 - 自定义走 propRef, 内置走 EnumPropName[propType]
+            const label = d.propRef !== undefined
+                ? d.propRef
+                : (d.propType !== undefined ? EnumPropName[d.propType] : "(unknown)");
+            return `  [${nodeName}] ${label}`;
         });
         const message = `节点上以下已跟随的 prop 与 state[${this._selectedIndex}] 存储不一致:\n${lines.join("\n")}\n\n如何处理后再进入录制态?`;
         const onSave = () => {
@@ -1150,8 +1158,21 @@ export class StateController extends cc.Component {
             for (const d of dirty) {
                 try {
                     const propData = (d.select as any).getPropData(this._selectedIndex, this.ctrlId);
-                    // W6-2c2: 走 StateSelect.writePropByEnum 保证写 string propRef key (跟 production 一致)
-                    if (propData) (d.select as any).writePropByEnum(propData, d.propType, d.current);
+                    if (!propData) continue;
+                    if (d.propRef !== undefined) {
+                        // W6-2a-fixup: 自定义 propRef 走直写 propData[propRef].
+                        // 注: dirty 来源已用 cloneValueByType 拍快照 (snapshot 已 clone),
+                        // 这里再 clone 一次保证 ctrlData 不与节点共享引用.
+                        const tp = (d.select as any).resolveTrackableProp
+                            ? (d.select as any).resolveTrackableProp(d.propRef)
+                            : undefined;
+                        (propData as any)[d.propRef] = tp
+                            ? cloneValueByType(d.current, tp.cocosType)
+                            : d.current;
+                    } else if (d.propType !== undefined) {
+                        // W6-2c2: 走 StateSelect.writePropByEnum 保证写 string propRef key (跟 production 一致)
+                        (d.select as any).writePropByEnum(propData, d.propType, d.current);
+                    }
                 }
                 catch (_) { /* noop */ }
             }

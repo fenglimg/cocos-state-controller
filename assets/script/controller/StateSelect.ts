@@ -863,12 +863,45 @@ export class StateSelect extends cc.Component {
     /**
      * W6-2a: 按 propRef 从节点上读当前值. cc.Node.* 走 node[propKey], 其它走 component[propKey].
      * 返回 undefined 表示组件不存在或 prop 不存在.
+     *
+     * 注意: 用 indexOf('.') (第一个点) 分隔. 这里仅服务于 W6-2a 自动接入路径 (filter
+     * out compName==='cc.Node' 之外的自定义组件), 自定义组件 compName 不含 '.', 所以正确.
+     * 如果要覆盖 'cc.Node.active' / 'cc.Label.string' 等内置 propRef, 必须用
+     * readPropFromNodeByPropRef (W6-2a-fixup 新增, lastIndexOf 分隔).
      */
     private readNodeValueByPropRef(propRef: string): any {
         const dotIdx = propRef.indexOf(".");
         if (dotIdx <= 0) return undefined;
         const compName = propRef.substring(0, dotIdx);
         const propKey = propRef.substring(dotIdx + 1);
+        if (compName === "cc.Node") {
+            return (this.node as any)[propKey];
+        }
+        const comp = this.node.getComponent(compName as any);
+        if (!comp) return undefined;
+        return (comp as any)[propKey];
+    }
+
+    /**
+     * W6-2a-fixup: 按 propRef 从节点上读当前值 (Recording 路径专用, 支持所有 propRef).
+     *
+     * 与 readNodeValueByPropRef 区别: 用 lastIndexOf('.') 分隔, 正确处理含多个 '.' 的内置
+     * propRef (e.g. 'cc.Node.active' / 'cc.Label.string' / 'cc.Widget.alignMode'). 不依赖
+     * compName !== 'cc.Node' 的过滤前提.
+     *
+     * 调用方:
+     *   - readAllApplicablePropsFromNode (扫所有 trackable 写 _fullSnapshot)
+     *   - collectDirtyControlled (string propRef 分支读当前值)
+     *   - detectUntrackedDirty (string key 分支读当前值)
+     *
+     * 返回 undefined 表示组件不存在或 prop 不存在.
+     */
+    private readPropFromNodeByPropRef(propRef: string): any {
+        if (typeof propRef !== "string") return undefined;
+        const lastDot = propRef.lastIndexOf(".");
+        if (lastDot <= 0 || lastDot >= propRef.length - 1) return undefined;
+        const compName = propRef.substring(0, lastDot);
+        const propKey = propRef.substring(lastDot + 1);
         if (compName === "cc.Node") {
             return (this.node as any)[propKey];
         }
@@ -2074,7 +2107,8 @@ export class StateSelect extends cc.Component {
                 this.editorLog(`[StateSelect "${this.node && this.node.name}"] 已保存 ${names} 到 state[${targetState}]`);
             }
             if (untracked.length > 0) {
-                const names = untracked.map(p => EnumPropName[p]).join(", ");
+                // W6-2a-fixup: untracked 是 union 数组 (EnumPropName | propRef string), 兼容显示
+                const names = untracked.map(p => typeof p === "string" ? p : EnumPropName[p]).join(", ");
                 this.editorWarn(`[StateSelect "${this.node && this.node.name}"] 未跟随 prop ${names} 被改但已丢弃 (切 state 自动结束录制)`);
             }
         }
@@ -2097,24 +2131,47 @@ export class StateSelect extends cc.Component {
     /**
      * 给 StateController.startRecording 用: 扫本 StateSelect 的 controlled prop,
      * 节点当前值 vs ctrlData[ctrl.selectedIndex] 不一致 = dirty.
-     * 返回 [{ propType, current, stored }, ...]. 由 ctrl 端聚合后弹窗.
+     * 返回 [{ propType?, propRef?, current, stored }, ...]. 由 ctrl 端聚合后弹窗.
+     *
+     * W6-2a-fixup: schema 升级 - 双 key 双分支.
+     *   $$controlledProps$$ value 规则 (按 typeof 区分, 与 readControlledPropsFromNode 一致):
+     *     - number → 内置 prop (value 是 EnumPropName 数字), 走老 PropHandlerManager 路径.
+     *       返回 {propType: EnumPropName, current, stored} (propRef undefined).
+     *     - string → 自定义 prop (value 是 propRef 字符串自指), 走 readPropFromNodeByPropRef.
+     *       返回 {propRef: string, current, stored} (propType undefined).
      */
-    public collectDirtyControlled(ctrl: StateController): Array<{ propType: EnumPropName, current: unknown, stored: unknown }> {
-        const out: Array<{ propType: EnumPropName, current: unknown, stored: unknown }> = [];
+    public collectDirtyControlled(ctrl: StateController): Array<{ propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> {
+        const out: Array<{ propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> = [];
         if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return out;
         if (!this.node) return out;
         const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
         const controlledProps = (propData && propData.$$controlledProps$$) || {};
         for (const propName in controlledProps) {
-            const propType = controlledProps[propName] as EnumPropName;
-            if (propType === EnumPropName.Non) continue;
-            const current = PropHandlerManager.getValue(propType, this.node);
-            if (current === undefined) continue;
-            // W6-2c2: 双 key 读
-            const stored = this.readPropByEnum(propData, propType);
-            if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
-            if (!PropHandlerManager.isEqual(propType, stored, current)) {
-                out.push({ propType, current, stored });
+            const ctrlVal = controlledProps[propName];
+            if (typeof ctrlVal === "number") {
+                // 老路径: 内置 EnumPropName 数字
+                const propType = ctrlVal as EnumPropName;
+                if (propType === EnumPropName.Non) continue;
+                const current = PropHandlerManager.getValue(propType, this.node);
+                if (current === undefined) continue;
+                // W6-2c2: 双 key 读
+                const stored = this.readPropByEnum(propData, propType);
+                if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
+                if (!PropHandlerManager.isEqual(propType, stored, current)) {
+                    out.push({ propType, current, stored });
+                }
+            } else if (typeof ctrlVal === "string") {
+                // W6-2a-fixup 新路径: 自定义 propRef 字符串
+                const propRef = ctrlVal;
+                const current = this.readPropFromNodeByPropRef(propRef);
+                if (current === undefined) continue;
+                const stored = (propData as any)[propRef];
+                if (stored === undefined) continue;
+                const tp = this.resolveTrackableProp(propRef);
+                const cocosType = tp ? tp.cocosType : undefined;
+                if (!eqValueByType(stored, current, cocosType)) {
+                    out.push({ propRef, current, stored });
+                }
             }
         }
         return out;
@@ -2123,17 +2180,45 @@ export class StateSelect extends cc.Component {
     /**
      * 扫节点上所有 applicable prop (== PropHandler.getValue 不返回 undefined 的 prop).
      * 含未勾选跟随的, 供录制期间"未跟随 dirty"检测.
+     *
+     * W6-2a-fixup: 双轨扫 —
+     *   1) 老路径 PropHandlerManager.listRegisteredPropTypes (内置 EnumPropName 数字 key)
+     *   2) 新路径 listTrackableProps (自定义 @ccclass 组件 propRef 字符串 key)
+     *      过滤 isEnumMappedPropRef (已被内置路径覆盖) / readonly / 系统黑名单
+     *      → 用 readPropFromNodeByPropRef 读 + cloneValueByType 深拷
+     *
+     * _fullSnapshot 内层 key 类型变成混合: number (内置) | string (自定义 propRef).
      */
     private readAllApplicablePropsFromNode(): TProp {
         const out: TProp = {} as TProp;
         if (!this.node) return out;
-        // 走 PropHandlerManager 的已注册列表 — TS enum 在 ts-jest 下不保证有 reverse mapping,
-        // 不能依赖 Object.keys(EnumPropName) 拿数字 key.
+        // 1) 老路径 - 内置 EnumPropName 数字 key
+        // TS enum 在 ts-jest 下不保证有 reverse mapping, 不能依赖 Object.keys(EnumPropName) 拿数字 key.
         const allPropTypes = PropHandlerManager.listRegisteredPropTypes();
         for (const propType of allPropTypes) {
             if (propType === EnumPropName.Non) continue;
             const v = PropHandlerManager.getValue(propType, this.node);
             if (v !== undefined) (out as TPropDictionary)[propType] = v;
+        }
+        // 2) W6-2a-fixup 新路径 - 自定义 propRef 字符串 key
+        let trackable: TrackableProp[] = [];
+        try {
+            trackable = listTrackableProps(this.node);
+        }
+        catch (_) { /* listTrackableProps 失败时降级仅内置 */ }
+        const systemComps = new Set(StateSelect.CONTROLLER_SYSTEM_COMPS);
+        for (const tp of trackable) {
+            // 内置 cc.Node 已被老路径覆盖
+            if (tp.compName === "cc.Node") continue;
+            // state machine 自身 component 不参与
+            if (systemComps.has(tp.compName)) continue;
+            // 已被 EnumPropName 老路径覆盖 (e.g. cc.Label.string → EnumPropName.LabelString)
+            if (isEnumMappedPropRef(tp.propRef)) continue;
+            // readonly 字段无法 setValue, 不进 untracked detect 范围
+            if (tp.readonly) continue;
+            const cur = this.readPropFromNodeByPropRef(tp.propRef);
+            if (cur === undefined) continue;
+            (out as any)[tp.propRef] = cloneValueByType(cur, tp.cocosType);
         }
         return out;
     }
@@ -2141,19 +2226,41 @@ export class StateSelect extends cc.Component {
     /**
      * 录制期间, 哪些 applicable prop 被改了**但没勾选跟随**.
      * 用 _fullSnapshot (start 时全 prop 快照) vs 当前节点 diff, 减去 controlled 部分.
+     *
+     * W6-2a-fixup: schema 升级 - _fullSnapshot 现在含双 key (内置数字 + 自定义 propRef 字符串).
+     *   返回 union 数组: EnumPropName 数字 (内置) | propRef 字符串 (自定义).
+     *   旧调用方 (Recording.modelZ.test.ts) 仍用 toContain(EnumPropName.Opacity) 数字断言, 兼容.
      */
-    private detectUntrackedDirty(): EnumPropName[] {
-        const out: EnumPropName[] = [];
+    private detectUntrackedDirty(): Array<EnumPropName | string> {
+        const out: Array<EnumPropName | string> = [];
         if (!this._fullSnapshot) return out;
         for (const k of Object.keys(this._fullSnapshot)) {
-            const propType = Number(k) as EnumPropName;
-            if (propType === EnumPropName.Non) continue;
-            if (this.isPropertyControlled(propType)) continue; // 已跟随 — commit 路径已处理
-            const before = (this._fullSnapshot as TPropDictionary)[propType];
-            const current = PropHandlerManager.getValue(propType, this.node);
-            if (current === undefined) continue;
-            if (!PropHandlerManager.isEqual(propType, before, current)) {
-                out.push(propType);
+            // 按 key 字符串格式判别: 纯数字 → 内置 EnumPropName; 含非数字 → 自定义 propRef
+            const num = Number(k);
+            const isNumericKey = Number.isFinite(num) && String(num) === k;
+            if (isNumericKey) {
+                // 老路径: 内置 EnumPropName 数字
+                const propType = num as EnumPropName;
+                if (propType === EnumPropName.Non) continue;
+                if (this.isPropertyControlled(propType)) continue; // 已跟随 — commit 路径已处理
+                const before = (this._fullSnapshot as TPropDictionary)[propType];
+                const current = PropHandlerManager.getValue(propType, this.node);
+                if (current === undefined) continue;
+                if (!PropHandlerManager.isEqual(propType, before, current)) {
+                    out.push(propType);
+                }
+            } else {
+                // W6-2a-fixup 新路径: 自定义 propRef 字符串
+                const propRef = k;
+                if (this.isPropertyControlled(propRef)) continue; // 已跟随
+                const before = (this._fullSnapshot as any)[propRef];
+                const current = this.readPropFromNodeByPropRef(propRef);
+                if (current === undefined) continue;
+                const tp = this.resolveTrackableProp(propRef);
+                const cocosType = tp ? tp.cocosType : undefined;
+                if (!eqValueByType(before, current, cocosType)) {
+                    out.push(propRef);
+                }
             }
         }
         return out;
@@ -2162,20 +2269,39 @@ export class StateSelect extends cc.Component {
     /**
      * 手动 stopRecording + 有未跟随 dirty 时弹窗: 是否把这些 prop 自动加入跟随并保存当前值.
      * Editor.Dialog 异步, 用户点完才操作. 此时录制已停, 数据切 fromState 已 commit, 不冲突.
+     *
+     * W6-2a-fixup: untracked 是 union 数组 (EnumPropName 数字 | propRef 字符串). 内置走老
+     * togglePropertyControl(EnumPropName) + writePropByEnum; 自定义走 togglePropertyControl(propRef)
+     * (W6-2b 联合 API) + 直写 propData[propRef].
      */
-    private promptUntrackedAfterStop(ctrl: StateController, untracked: EnumPropName[]): void {
-        const names = untracked.map(p => EnumPropName[p]);
+    private promptUntrackedAfterStop(ctrl: StateController, untracked: Array<EnumPropName | string>): void {
+        const names = untracked.map(p => typeof p === "string" ? p : EnumPropName[p]);
         const message = `录制期间这些 prop 被改了, 但未勾选跟随:\n  ${names.join("\n  ")}\n\n是否自动加入跟随并保存到 state[${ctrl.selectedIndex}]?`;
         const onConfirm = () => {
-            for (const propType of untracked) {
-                this.togglePropertyControl(propType, true);
-                // togglePropertyControl(prop, true) 会写 controlled flag + 默认值;
-                // 这里再 commit 节点当前实际值, 覆盖默认.
-                const current = PropHandlerManager.getValue(propType, this.node);
-                if (current !== undefined) {
-                    const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-                    // W6-2c2: 写 string propRef key
-                    this.writePropByEnum(propData, propType, current);
+            for (const item of untracked) {
+                if (typeof item === "number") {
+                    const propType = item as EnumPropName;
+                    this.togglePropertyControl(propType, true);
+                    // togglePropertyControl(prop, true) 会写 controlled flag + 默认值;
+                    // 这里再 commit 节点当前实际值, 覆盖默认.
+                    const current = PropHandlerManager.getValue(propType, this.node);
+                    if (current !== undefined) {
+                        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+                        // W6-2c2: 写 string propRef key
+                        this.writePropByEnum(propData, propType, current);
+                    }
+                } else {
+                    // W6-2a-fixup: 自定义 propRef 路径
+                    const propRef = item;
+                    this.togglePropertyControl(propRef, true);
+                    const current = this.readPropFromNodeByPropRef(propRef);
+                    if (current !== undefined) {
+                        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+                        if (propData) {
+                            const tp = this.resolveTrackableProp(propRef);
+                            (propData as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
+                        }
+                    }
                 }
             }
             this.editorLog(`[StateSelect "${this.node && this.node.name}"] 追加跟随 + 保存: ${names.join(", ")} 到 state[${ctrl.selectedIndex}]`);
