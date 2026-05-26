@@ -3,13 +3,16 @@
 const SNAP_INDEX_KEY = 'sel' + 'ectedIndex';
 const NODE_UUID_KEY = 'sel' + 'ectUuid';
 
+// W6-4: KNOWN_PROPS 走 propRef 字符串路径 (W6-2c2 后 ctrlData 内层是 propRef string key,
+// togglePropertyControl 接受 string 会走 togglePropertyControlStringPath, 内置 propRef
+// 在 PROPREF_TO_ENUM 里反查到 EnumPropName 数字, 重定向回老路径; 自定义 propRef 直接走新路径).
 const KNOWN_PROPS = [
-    { name: 'position', propType: 'position' },
-    { name: 'active', propType: 'active' },
-    { name: 'scale', propType: 'scale' },
-    { name: 'opacity', propType: 'opacity' },
-    { name: 'color', propType: 'color' },
-    { name: 'spriteFrame', propType: 'spriteFrame' },
+    { name: 'position', propType: 'cc.Node.position' },
+    { name: 'active', propType: 'cc.Node.active' },
+    { name: 'scale', propType: 'cc.Node.scale' },
+    { name: 'opacity', propType: 'cc.Node.opacity' },
+    { name: 'color', propType: 'cc.Node.color' },
+    { name: 'spriteFrame', propType: 'cc.Sprite.spriteFrame' },
 ];
 
 module.exports = {
