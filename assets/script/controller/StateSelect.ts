@@ -35,7 +35,7 @@ import { StateComponentProps } from "./props/StateComponentProps";
 import { StateNodeProps } from "./props/StateNodeProps";
 import { StateWidgetProps } from "./props/StateWidgetProps";
 import { StateController } from "./StateController";
-import { EnumCtrlName, EnumPropName, EnumStateName } from "./StateEnum";
+import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { PropHandlerManager } from "./StatePropHandler";
 import { PropertyControlService } from "./StatePropertyControlService";
@@ -49,6 +49,7 @@ import { CapabilityRegistry } from "./CapabilityRegistry";
 
 cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
+cc.Enum(EnumExcludeSlot);
 cc.Enum(EnumPropName);
 
 /** 属性类型 */
@@ -183,28 +184,32 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * W6-4: 当前选择的"添加排除" propRef (transient — 用户每次操作时临时值).
-     * setter 收到非空 propRef 时, 把它加入 _userExcludedProps + 从跟随中移除.
+     * W6-4: add/remove 下拉的"当前选项"缓存 (instance scope, 非序列化).
+     * setter 收到 cocos 下拉选中的 number value 后, 反查这里得到 propRef 字符串.
+     * refreshExcludeEnumLists 在注入 enumList 时同步刷新.
      */
-    @property({ visible: false, serializable: false })
-    private _addExcludeTrigger: string = "";
+    private _addExcludeOptions: string[] = [];
+    private _removeExcludeOptions: string[] = [];
 
-    @property({ type: cc.String, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单" })
-    public get addExcludeTrigger(): string {
-        return "";
+    /**
+     * W6-4: cocos 2.x inspector 必须 type:EnumXxx 才渲下拉. cc.String 渲输入框 — enumList 不读.
+     * 用空骨架 EnumExcludeSlot + setClassAttr 注入实际选项. setter 收到 number value (cocos 下拉选项 index),
+     * 反查 _addExcludeOptions 得 propRef 字符串.
+     */
+    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单" })
+    public get addExcludeTrigger(): number {
+        return 0;
     }
 
-    public set addExcludeTrigger(v: string) {
+    public set addExcludeTrigger(v: number) {
         if (!CC_EDITOR) return;
-        // 空字符串 / 空白 / sentinel 'Non' 视为 noop
-        if (!v || !v.trim() || v === "Non") return;
-        const propRef = v;
-        // 防重复
+        if (typeof v !== "number" || !Number.isFinite(v)) return;
+        const propRef = this._addExcludeOptions[v];
+        if (!propRef) return;
         if (!this._userExcludedProps) this._userExcludedProps = [];
         if (this._userExcludedProps.indexOf(propRef) === -1) {
             this._userExcludedProps.push(propRef);
         }
-        // 从跟随中移除 (走 togglePropertyControl 字符串路径; 内置 propRef 会自动重定向到 EnumPropName 数字路径)
         try {
             this.togglePropertyControl(propRef, false);
         } catch (e) {
@@ -218,30 +223,29 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * W6-4: 当前选择的"恢复跟随" propRef.
-     * setter 收到 propRef 时, 从 _userExcludedProps 移除. 是否自动重新跟随留待下一次 __preload
-     * 的 autoOptInCustomComponentProps (避免在 setter 内做太多状态变更).
+     * W6-4: 同 addExcludeTrigger, type:EnumExcludeSlot. setter 收到 number value 反查 _removeExcludeOptions.
      */
-    @property({ type: cc.String, displayName: "- 恢复跟随", tooltip: "从用户排除清单中选一个 propRef 恢复跟随" })
-    public get removeExcludeTrigger(): string {
-        return "";
+    @property({ type: EnumExcludeSlot, displayName: "- 恢复跟随", tooltip: "从用户排除清单中选一个 propRef 恢复跟随" })
+    public get removeExcludeTrigger(): number {
+        return 0;
     }
 
-    public set removeExcludeTrigger(v: string) {
+    public set removeExcludeTrigger(v: number) {
         if (!CC_EDITOR) return;
-        if (!v || !v.trim() || v === "Non") return;
+        if (typeof v !== "number" || !Number.isFinite(v)) return;
+        const propRef = this._removeExcludeOptions[v];
+        if (!propRef) return;
         if (!this._userExcludedProps) return;
-        const idx = this._userExcludedProps.indexOf(v);
+        const idx = this._userExcludedProps.indexOf(propRef);
         if (idx === -1) return;
         this._userExcludedProps.splice(idx, 1);
-        // 立即重新接入 (与 autoOptInCustomComponentProps 同效)
         try {
-            this.togglePropertyControl(v, true);
+            this.togglePropertyControl(propRef, true);
         } catch (e) {
             StateErrorManager.warn("removeExcludeTrigger: togglePropertyControl 失败", {
                 component: "StateSelect",
                 method: "removeExcludeTrigger.setter",
-                params: { propRef: v, error: (e as Error).message },
+                params: { propRef, error: (e as Error).message },
             });
         }
         this.refreshExcludeEnumLists();
@@ -276,8 +280,12 @@ export class StateSelect extends cc.Component {
         }
         // 当前可跟随 = trackable - SYSTEM - user (用户能从中再选一个排除)
         const addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
-        const addEnum = addList.map(r => ({ name: r, value: r }));
-        const removeEnum = (this._userExcludedProps || []).map(r => ({ name: r, value: r }));
+        const removeList = (this._userExcludedProps || []).slice();
+        // cocos 2.x enum 下拉项是 {name, value:number}, value 是 index. setter 收 number 反查 instance 缓存.
+        this._addExcludeOptions = addList;
+        this._removeExcludeOptions = removeList;
+        const addEnum = addList.map((r, i) => ({ name: r, value: i }));
+        const removeEnum = removeList.map((r, i) => ({ name: r, value: i }));
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
         cc.Class.Attr.setClassAttr(this, "addExcludeTrigger", "enumList", addEnum);
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明

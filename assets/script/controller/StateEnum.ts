@@ -42,6 +42,14 @@ export enum EnumUpdateType {
 export enum EnumCtrlName {
 }
 /**
+ * W6-4 排除清单下拉空骨架枚举 (不要往里加值)。
+ * 同 EnumStateName / EnumCtrlName: 由 StateSelect.refreshExcludeEnumLists 运行时
+ * 通过 cc.Class.Attr.setClassAttr(this, "addExcludeTrigger" | "removeExcludeTrigger", "enumList", array)
+ * 注入实际选项. cocos 2.x inspector 必须有 type:EnumXxx 才渲染下拉, type:cc.String 渲染输入框.
+ */
+export enum EnumExcludeSlot {
+}
+/**
  * 🔧 核心枚举：属性名 - 定义所有支持的UI属性类型
  *
  * 这是整个状态控制器系统的基础枚举：
