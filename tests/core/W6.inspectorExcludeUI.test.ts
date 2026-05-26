@@ -178,4 +178,50 @@ describe("W6-4 inspector 排除清单 UI", () => {
         expect(attrs["componentProps$_$visible"]).toBe(false);
         expect(attrs["widgetProps$_$visible"]).toBe(false);
     });
+
+    // W6-4 hotfix2 #3: 搜索过滤
+    it("excludeFilter setter: 设关键字后 refresh enumList 只保留 substring 匹配 (大小写不敏感)", () => {
+        const { select } = setup();
+        // 前置: addExcludeOptions 至少含 W6_ExcludeFixture.heatLevel + 一些 cc.Node.* 内置 prop
+        (select as any).excludeFilter = "heat";
+        const attrs = ccL.Class.Attr.getClassAttrs(select);
+        const enumList = attrs["addExcludeTrigger$_$enumList"];
+        // sentinel 仍在 (索引 0), 名字加了过滤提示
+        expect(enumList[0].name).toContain("heat");
+        expect(enumList[0].value).toBe(0);
+        // 真实选项全部含 "heat" (大小写不敏感)
+        const realItems = enumList.slice(1);
+        for (const it of realItems) {
+            expect(it.name.toLowerCase()).toContain("heat");
+        }
+        // 至少匹配 heatLevel
+        expect(realItems.map((e: any) => e.name)).toContain("W6_ExcludeFixture.heatLevel");
+    });
+
+    it("excludeFilter setter: 空关键字恢复全部选项 (无过滤)", () => {
+        const { select } = setup();
+        (select as any).excludeFilter = "heat";
+        let attrs = ccL.Class.Attr.getClassAttrs(select);
+        const filteredCount = attrs["addExcludeTrigger$_$enumList"].length;
+
+        (select as any).excludeFilter = "";
+        attrs = ccL.Class.Attr.getClassAttrs(select);
+        const unfilteredCount = attrs["addExcludeTrigger$_$enumList"].length;
+
+        // 空关键字应不少于过滤后 (通常 >>)
+        expect(unfilteredCount).toBeGreaterThanOrEqual(filteredCount);
+        // sentinel 恢复无过滤提示
+        expect(attrs["addExcludeTrigger$_$enumList"][0].name).toBe("(选一个加入排除)");
+    });
+
+    // W6-4 hotfix2 #1: 刷新按钮
+    it("refreshInspectorTrigger setter: 调 reconcile + refresh enumList, 不抛", () => {
+        const { select } = setup();
+        // 设置一些 user 排除项, 然后调 refresh 应该重新 reconcile
+        (select as any)._userExcludedProps = ["W6_ExcludeFixture.heatLevel"];
+        (select as any)._lastSeenExcluded = []; // 模拟未同步状态
+        expect(() => { (select as any).refreshInspectorTrigger = true; }).not.toThrow();
+        // reconcile 应已跑 (_lastSeenExcluded 同步成 current)
+        expect((select as any)._lastSeenExcluded).toEqual(["W6_ExcludeFixture.heatLevel"]);
+    });
 });

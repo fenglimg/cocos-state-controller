@@ -223,6 +223,24 @@ export class StateSelect extends cc.Component {
      */
     private _addExcludeOptions: string[] = [];
 
+    /** W6-4 hotfix2 #3: 排除下拉搜索关键字 (instance, 不序列化), 大小写不敏感 substring 匹配 */
+    private _excludeFilter: string = "";
+
+    /**
+     * W6-4 hotfix2 #3: 搜索关键字过滤 "+ 添加排除" 下拉选项. cocos 2.x 长下拉无原生搜索,
+     * 这里加 string 输入字段, 输入后失焦/Enter 触发 setter → refresh enumList 只保留匹配项.
+     */
+    @property({ displayName: "🔍 搜索 (排除)", tooltip: "输入关键字过滤添加排除下拉. 大小写不敏感 substring. 空 = 不过滤." })
+    public get excludeFilter(): string {
+        return this._excludeFilter;
+    }
+
+    public set excludeFilter(v: string) {
+        if (!CC_EDITOR) return;
+        this._excludeFilter = (v == null) ? "" : String(v);
+        this.refreshExcludeEnumLists();
+    }
+
     /**
      * W6-4 C 方案: "+ 添加排除" 快捷下拉. enumList index=0 是 sentinel "(选一个...)", 真实选项 value 从 1 起.
      * getter 永远返回 0 → 用户操作完显示回到 sentinel (符合"未选"语义). setter 收 0 noop, 收 >0 处理.
@@ -275,11 +293,15 @@ export class StateSelect extends cc.Component {
             });
         }
         // 当前可跟随 = trackable - SYSTEM - user (用户能从中再选一个排除)
-        const addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
+        let addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
+        // W6-4 hotfix2 #3: 搜索关键字过滤 (substring, 大小写不敏感, 空关键字不过滤)
+        const kw = (this._excludeFilter || "").trim().toLowerCase();
+        if (kw) addList = addList.filter(r => r.toLowerCase().includes(kw));
         // enumList[0] 是 sentinel, 真实选项 value 从 1 起. setter 反查 _addExcludeOptions[v-1].
         this._addExcludeOptions = addList;
+        const sentinelName = kw ? `(选一个加入排除, 过滤: ${kw})` : "(选一个加入排除)";
         const addEnum = [
-            { name: "(选一个加入排除)", value: 0 },
+            { name: sentinelName, value: 0 },
             ...addList.map((r, i) => ({ name: r, value: i + 1 })),
         ];
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
@@ -2856,6 +2878,35 @@ export class StateSelect extends cc.Component {
         if (!ctrl) return;
         if (ctrl.isRecording) {
             ctrl.cancelRecording();
+        }
+    }
+
+    /**
+     * W6-4 hotfix2 #1: 一键刷新 inspector. 用户在 panel/外部改了状态后,
+     * inspector 偶尔不自动 refresh 时手动一键. 同时 reconcile + refresh enumList 兜底.
+     */
+    @property({
+        displayName: "🔄 刷新 inspector",
+        tooltip: "手动刷新 inspector: reconcile 排除清单 + 刷下拉选项 + 强制 cocos refreshSelectedInspector",
+    })
+    public get refreshInspectorTrigger(): boolean {
+        return false;
+    }
+
+    public set refreshInspectorTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        try { this.reconcileUserExcluded(); } catch { /* swallow, 兜底 */ }
+        try { this.refreshExcludeEnumLists(); } catch { /* swallow */ }
+        try {
+            if (this.node && (Editor as any)?.Utils?.refreshSelectedInspector) {
+                (Editor as any).Utils.refreshSelectedInspector("node", this.node.uuid);
+            }
+        } catch (e) {
+            StateErrorManager.warn("refreshInspectorTrigger: Editor.Utils.refreshSelectedInspector 失败", {
+                component: "StateSelect",
+                method: "refreshInspectorTrigger.setter",
+                params: { error: (e as Error).message },
+            });
         }
     }
 
