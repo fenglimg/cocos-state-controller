@@ -243,8 +243,13 @@ describe("W6-2c2 migrateLegacyCtrlData: ENUM_TO_PROPREF 36 项 number→string �
         expect(state1["cc.Node.active"]).toBe(true);
         expect(state1["cc.Node.color"]).toBe("stub-color");
         expect(state1["cc.Node.opacity"]).toBe(128);
+        // W6-axis-decomp: AMBIGUOUS_DECOMPOSE eulerAngles 守卫 (typeof !== object) → 留整体 propRef
         expect(state1["cc.Node.eulerAngles"]).toBe("stub-euler");
-        expect(state1["cc.Node.scale"]).toBe(2);
+        // W6-axis-decomp: AMBIGUOUS_DECOMPOSE scale uniform number → 拆 .scaleX/.scaleY/.scaleZ
+        expect(state1["cc.Node.scale"]).toBeUndefined();
+        expect(state1["cc.Node.scaleX"]).toBe(2);
+        expect(state1["cc.Node.scaleY"]).toBe(2);
+        expect(state1["cc.Node.scaleZ"]).toBe(2);
     });
 
     it("组件 prop (LabelString/WidgetTop/SpriteFrame) 数字 key 迁 string propRef key", () => {

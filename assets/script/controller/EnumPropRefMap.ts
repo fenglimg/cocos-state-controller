@@ -149,3 +149,84 @@ export function isEnumMappedPropRef(propRef: string): boolean {
  * (避免误迁废弃 enum). c1 范围: 仅此一项, 不动 ENUM_TO_PROPREF / AMBIGUOUS.
  */
 export const LEGACY_DROPPED_ENUMS: number[] = [EnumPropName.GrayScale];
+
+/**
+ * W6-axis-decomp X 方案: AMBIGUOUS 复合 propRef → 子项拆解函数.
+ *
+ * 设计动机: W6-2a 双轨设计 ("Position" 整体 propRef + cc.Node.x/y/z 子项 propRef) 在 cc.Node 复合字段上
+ * 存在固有冲突 — 用户排子项 cc.Node.x 只断 propRef 字符串路径, 但整体 "cc.Node.position" 路径仍跟踪 →
+ * 切 state 时 x 跟着 Vec3 整体被恢复. X 方案: 彻底废弃整体路径, 让 cc.Node.x/y/z 子项独立接入.
+ *
+ * 拆解三项 (其它 cc.Node 字段如 Euler/Color 仍走整体, 因为没拆分的对应子项 EnumPropName):
+ *   - 'cc.Node.position' (Vec3) → x/y/z 三子项
+ *   - 'cc.Node.anchorPoint' (Vec2) → anchorX/anchorY 两子项
+ *   - 'cc.Node.contentSize' (Size) → width/height 两子项
+ *
+ * 调用方: migrateLegacyCtrlData — 检测 propData 内层有整体 Vec3/Vec2/Size 值时调拆解, 升级为多子项 key.
+ *
+ * 守卫: 值必须形似 Vec3 ({x,y,z}) / Vec2 ({x,y}) / Size ({width,height}). string/null/undefined 不动
+ * (e.g. W6.legacyMigration.test.ts 的 "stub-pos" 字符串 stub 不应被解构, 保持兼容).
+ */
+export const AMBIGUOUS_DECOMPOSE: { [propRef: string]: (value: any) => Array<[string, any]> | null } = {
+    "cc.Node.position": (v: any) => {
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.x !== "number" || typeof v.y !== "number" || typeof v.z !== "number") return null;
+        return [
+            ["cc.Node.x", v.x],
+            ["cc.Node.y", v.y],
+            ["cc.Node.z", v.z],
+        ];
+    },
+    "cc.Node.anchorPoint": (v: any) => {
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.x !== "number" || typeof v.y !== "number") return null;
+        return [
+            ["cc.Node.anchorX", v.x],
+            ["cc.Node.anchorY", v.y],
+        ];
+    },
+    "cc.Node.contentSize": (v: any) => {
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.width !== "number" || typeof v.height !== "number") return null;
+        return [
+            ["cc.Node.width", v.width],
+            ["cc.Node.height", v.height],
+        ];
+    },
+    // cocos 2.x cc.Node.scale 是 Vec3 (有 scaleX/scaleY/scaleZ 子项 getter/setter)
+    "cc.Node.scale": (v: any) => {
+        if (v == null) return null;
+        // scale 可能是 number (uniform scale) 或 Vec3
+        if (typeof v === "number") {
+            return [
+                ["cc.Node.scaleX", v],
+                ["cc.Node.scaleY", v],
+                ["cc.Node.scaleZ", v],
+            ];
+        }
+        if (typeof v !== "object") return null;
+        if (typeof v.x !== "number" || typeof v.y !== "number") return null;
+        return [
+            ["cc.Node.scaleX", v.x],
+            ["cc.Node.scaleY", v.y],
+            ["cc.Node.scaleZ", typeof v.z === "number" ? v.z : 1],
+        ];
+    },
+    // cocos 2.x cc.Node.eulerAngles 是 Vec3 (rotationX/rotationY 子项, z 不常用)
+    "cc.Node.eulerAngles": (v: any) => {
+        if (!v || typeof v !== "object") return null;
+        if (typeof v.x !== "number" || typeof v.y !== "number") return null;
+        return [
+            ["cc.Node.rotationX", v.x],
+            ["cc.Node.rotationY", v.y],
+        ];
+    },
+};
+
+/**
+ * W6-axis-decomp: 判断 propRef 是否是 AMBIGUOUS 整体 propRef (可拆解为子项).
+ * 用于 autoOptInCustomComponentProps 跳过整体 propRef 接入 (只接入 listTrackableProps 内的 x/y/z 子项).
+ */
+export function isAmbiguousAggregatePropRef(propRef: string): boolean {
+    return AMBIGUOUS_DECOMPOSE[propRef] !== undefined;
+}

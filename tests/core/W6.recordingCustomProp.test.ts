@@ -205,27 +205,30 @@ describe("W6-2a-fixup: Recording 路径闭环自定义 propRef", () => {
         fixture.heat = 33;
 
         const dirty = select.collectDirtyControlled(ctrl);
-        // 内置: 老 schema {propType: EnumPropName.Active, ...}
-        const builtin = dirty.find((d: any) => d.propType === EnumPropName.Active);
+        // W6-axis-decomp: 内置 schema 统一为 {propRef: 'cc.Node.active', ...} (X 方案废 dual-key)
+        const builtin = dirty.find((d: any) => d.propRef === "cc.Node.active");
         expect(builtin).toBeDefined();
         expect(builtin.current).toBe(false);
 
-        // 自定义: 新 schema {propRef: 'W6_RecCustomComp.heat', ...}
+        // 自定义: schema {propRef: 'W6_RecCustomComp.heat', ...}
         const custom = dirty.find((d: any) => d.propRef === "W6_RecCustomComp.heat");
         expect(custom).toBeDefined();
         expect(custom.current).toBe(33);
     });
 
-    it("readAllApplicablePropsFromNode (Recording 开始) 应扫到自定义 propRef key", () => {
+    it("readAllApplicablePropsFromNode (Recording 开始) 应扫到内置 + 自定义 propRef key (X 方案单 key)", () => {
         const { ctrl, select } = setup();
         ctrl.selectedIndex = 0;
         ctrl.startRecording();
 
         const fullSnap = (select as any)._fullSnapshot;
-        // 既含内置数字 key (EnumPropName.Active=1)
-        expect(fullSnap[EnumPropName.Active]).toBe(true);
-        // 也含自定义 propRef 字符串 key
+        // W6-axis-decomp: 全部统一 string propRef key, 不再有 EnumPropName 数字 key
+        expect(fullSnap["cc.Node.active"]).toBe(true);
+        // 自定义 propRef 字符串 key
         expect(fullSnap["W6_RecCustomComp.heat"]).toBeDefined();
         expect(fullSnap["W6_RecCustomComp.lbl"]).toBeDefined();
+        // 数字 key 应 0 个 (X 方案彻底废)
+        const numericKeys = Object.keys(fullSnap).filter(k => /^\d+$/.test(k));
+        expect(numericKeys).toEqual([]);
     });
 });

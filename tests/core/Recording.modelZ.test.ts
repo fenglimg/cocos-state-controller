@@ -193,18 +193,18 @@ describe("模型 Z: 手动 stopRecording 未跟随 prop 弹窗", () => {
         // 只勾 Color 跟随; Opacity 不勾
         select.togglePropertyControl(EnumPropName.Color, true);
         ctrl.startRecording();
-        // 验证 _fullSnapshot 含 Opacity
+        // W6-axis-decomp: _fullSnapshot 改 string propRef key
         const fullSnap = (select as any)._fullSnapshot;
         expect(fullSnap).toBeDefined();
-        expect(fullSnap[EnumPropName.Opacity]).toBeDefined();
+        expect(fullSnap["cc.Node.opacity"]).toBeDefined();
 
         // 改了 Opacity (没勾跟随) + Color (勾了)
         selectNode.opacity = 100;
         selectNode.color = ccL.color(50, 50, 50, 255);
 
-        // 验证 detectUntrackedDirty 现在能识别 Opacity
+        // W6-axis-decomp: detectUntrackedDirty 返回 string propRef (X 方案)
         const untracked = (select as any).detectUntrackedDirty();
-        expect(untracked).toContain(EnumPropName.Opacity);
+        expect(untracked).toContain("cc.Node.opacity");
 
         dialogResponse = 0;
         ctrl.stopRecording();

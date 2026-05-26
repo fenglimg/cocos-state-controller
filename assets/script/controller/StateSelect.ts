@@ -43,7 +43,7 @@ import { PropertyControlService } from "./StatePropertyControlService";
 // W6-4: SYSTEM_EXCLUDE 用于 inspector 排除清单 union (excludedPropsDisplay getter)
 import { listTrackableProps, TrackableProp, SYSTEM_EXCLUDE } from "./PrefabIntrospection";
 import { cloneValueByType, eqValueByType } from "./NestedCtrlData";
-import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM, LEGACY_DROPPED_ENUMS, enumToPropRef } from "./EnumPropRefMap";
+import { isEnumMappedPropRef, ENUM_TO_PROPREF, PROPREF_TO_ENUM, LEGACY_DROPPED_ENUMS, enumToPropRef, AMBIGUOUS_DECOMPOSE, isAmbiguousAggregatePropRef } from "./EnumPropRefMap";
 // W6-2b: capability dispatch (propRef 字段派发给 hooks)
 import { CapabilityRegistry } from "./CapabilityRegistry";
 
@@ -609,23 +609,14 @@ export class StateSelect extends cc.Component {
             this.refProp();
         }
 
-        // TASK-003: 挂载自动接入 — 新挂 StateSelect / 当前 ctrl 下从未有过任何 controlled prop 时,
-        // 遍历所有 applicable prop (节点自带 + 组件存在的) 一次性 togglePropertyControl(true).
-        // 用户不想要的在 inspector 手动 ☐ 取消即可.
-        //
-        // 守卫: 用 hasAnyControlledProps() 判断, 不能简单看 _ctrlData 是否为空 — getPropData 在
-        // __preload 内部路径中会自动创建 _ctrlData[ctrlId][state]={} 占位条目, 即使没任何 controlled
-        // 也会非空. hasAnyControlledProps 扫所有 state 的 $$controlledProps$$, 严格判定用户/迁移
-        // 是否真的接入过任何 prop. 存量用户主动 opt-out 后某个 prop $$controlledProps$$ 没有该 key,
-        // 但其它 controlled prop 还在 → hasAnyControlledProps=true → 跳过自动接入, 行为零变更.
-        if (this.currCtrlId && !this.hasAnyControlledProps()) {
-            this.autoOptInApplicableProps();
-        }
-
-        // W6-2a: 老路径只覆盖 EnumPropName 内置 prop, 自定义 @ccclass 组件的 @property 字段
-        // (e.g. UserComp.heatLevel) 不在 EnumPropName 表里, 走新的 propRef 字符串路径接入.
-        // 这里在老路径接入之后 (hasAnyControlledProps 守卫已被老路径破除), 再扫一次"剩余"
-        // trackable propRef 自动接入. idempotent — 已接入的 propRef 直接跳过.
+        // W6-axis-decomp X 方案: 自动接入完全走 propRef 字符串路径 (autoOptInCustomComponentProps).
+        // 老路径 autoOptInApplicableProps (EnumPropName 数字 key) 已废 — 双轨设计在 AMBIGUOUS
+        // (Position/Anchor/Size) 上的冲突 (排子项 cc.Node.x 但整体 'Position' 仍跟踪) 由此彻底切根:
+        //   - cc.Node.x/y/z/scaleX/scaleY/anchorX/anchorY/width/height 等子项独立接入
+        //   - EnumPropName.Position/Anchor/Size 整体路径自动接入零次
+        // EnumPropName / PropHandlerManager 类 facade 保留, 老调用方 togglePropertyControl(EnumPropName.X)
+        // 仍可主动调 (会写名字 key 'Position' 进 $$controlledProps$$, 与 propRef 路径共存; bridge
+        // 由 isPropertyControlled / togglePropertyControl(_, false) 处理跨 key 一致性).
         if (this.currCtrlId) {
             this.autoOptInCustomComponentProps();
         }
@@ -663,36 +654,18 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * TASK-003: 把节点上所有 applicable prop 一次性 togglePropertyControl(true).
-     * 仅 __preload 在零态 (hasAnyControlledProps()=false) 时调用, idempotent no-op 重复调.
-     * 不刷新 inspector (在 __preload 上下文调用, 调用方负责后续 refresh).
+     * W6-axis-decomp X 方案: autoOptInApplicableProps 已废 — 自动接入完全走 propRef 字符串路径.
+     *
+     * 历史: W6-2a 以前用 EnumPropName 数字路径自动接入 8 个 cc.Node 基础 prop (Active/Opacity/Color/
+     * Position/Anchor/Size/Scale/Euler), 与 autoOptInCustomComponentProps 双轨并行. AMBIGUOUS 项
+     * (Position=Vec3 整体 + cc.Node.x/y/z 子项) 双轨同时跟踪 → 用户排子项 cc.Node.x 不生效.
+     *
+     * X 方案后 (W6 终态全 cocos 内省): 全部走 propRef 单一路径 — autoOptInCustomComponentProps
+     * 取消 isEnumMappedPropRef filter, 改为接入所有 listTrackableProps 返回的 propRef (除 AMBIGUOUS
+     * 整体 + state machine 自身组件). EnumPropName / PropHandlerManager facade 保留, 老调用方
+     * (panel / capability) 仍可主动调 togglePropertyControl(EnumPropName.X) — bridge 见
+     * isPropertyControlled / togglePropertyControl(_, false) 跨 key 一致性处理.
      */
-    private autoOptInApplicableProps(): void {
-        if (!CC_EDITOR) return;
-        if (!this.node) return;
-        const applicable = PropertyControlService.scanAvailableProperties(this.node);
-        let enabled = 0;
-        for (const propType of applicable) {
-            if (propType === EnumPropName.Non) continue;
-            if (this.isPropertyControlled(propType)) continue;
-            try {
-                this.togglePropertyControl(propType, true);
-                enabled++;
-            }
-            catch (e) {
-                StateErrorManager.warn("autoOptIn: togglePropertyControl 失败", {
-                    component: "StateSelect",
-                    method: "autoOptInApplicableProps",
-                    params: { propType: EnumPropName[propType], error: (e as Error).message },
-                });
-            }
-        }
-        StateErrorManager.info("StateSelect 挂载自动接入完成", {
-            component: "StateSelect",
-            method: "autoOptInApplicableProps",
-            params: { enabledCount: enabled, applicableCount: applicable.length },
-        });
-    }
 
     /**
      * W6-2a: state controller 自身组件名单. 这些 component 是 state machine 基础设施,
@@ -703,19 +676,16 @@ export class StateSelect extends cc.Component {
     ];
 
     /**
-     * W6-2a: 自定义组件 @ccclass 的 @property 字段自动接入 (走 propRef 字符串路径).
+     * W6-axis-decomp X 方案: 节点上所有 trackable prop 自动接入 (走 propRef 字符串路径单一通道).
      *
-     * 过滤策略:
-     *   1) compName === "cc.Node" — 内置节点字段, 全归老路径 (EnumPropName.Active/Position/Color
-     *      等), 不接入 string key. 即使部分 EnumPropName 是 AMBIGUOUS 复合 (Position=x/y/z,
-     *      Anchor=anchorX/anchorY 等), 它们已被 EnumPropName 整体管理, 不重复接入 sub-prop.
-     *   2) compName in CONTROLLER_SYSTEM_COMPS — state machine 自身的 component, 不该被自己控制
-     *   3) isEnumMappedPropRef(propRef) — 已被 ENUM_TO_PROPREF 覆盖, 走老路径
-     *   4) tp.readonly — 只读 (getter only), 写不进去
-     *   5) _userExcludedProps 用户黑名单 (W6-1 占位, panel 后续维护)
-     *
-     * 剩下的是真正用户自定义业务组件 prop, 接入到**所有 state** (与老路径 syncPropToAllStates 等价).
-     * idempotent — 已在 controlledProps 里的 propRef 跳过.
+     * 过滤策略 (相比 W6-2a 取消了 cc.Node + isEnumMappedPropRef 过滤, 改为单一 AMBIGUOUS 整体跳过):
+     *   1) compName in CONTROLLER_SYSTEM_COMPS — state machine 自身组件不接入
+     *   2) isAmbiguousAggregatePropRef(propRef) — AMBIGUOUS 整体 propRef ('cc.Node.position'/
+     *      '.anchorPoint'/'.contentSize') 不接入, 让其子项 cc.Node.x/y/z/anchorX/anchorY/width/height
+     *      独立接入 (X 方案核心 — 切根 AMBIGUOUS 双轨冲突)
+     *   3) tp.readonly — 只读 (getter only) 字段写不进去, 不接入
+     *   4) _userExcludedProps 用户黑名单 (W6-1 + W6-4 panel UI 维护)
+     *   5) 已在 controlledProps 中跳过 (idempotent)
      *
      * SYSTEM_EXCLUDE 在 listTrackableProps 内部已过滤, 这里不重复.
      */
@@ -737,12 +707,10 @@ export class StateSelect extends cc.Component {
         }
         let enabled = 0;
         for (const tp of trackable) {
-            // cc.Node 内置字段全归老路径
-            if (tp.compName === "cc.Node") continue;
             // state controller 自身组件不接入
             if (systemComps.has(tp.compName)) continue;
-            // 已被 EnumPropName 老路径覆盖
-            if (isEnumMappedPropRef(tp.propRef)) continue;
+            // W6-axis-decomp X 方案: AMBIGUOUS 整体 propRef 不接入, 让子项独立
+            if (isAmbiguousAggregatePropRef(tp.propRef)) continue;
             // readonly 字段 (getter only) 写不进去, 不接入
             if (tp.readonly) continue;
             // 用户黑名单
@@ -760,7 +728,7 @@ export class StateSelect extends cc.Component {
                 });
             }
         }
-        StateErrorManager.info("StateSelect 自定义组件 prop 自动接入完成", {
+        StateErrorManager.info("StateSelect prop 自动接入完成 (X 方案 propRef 单一路径)", {
             component: "StateSelect",
             method: "autoOptInCustomComponentProps",
             params: { enabledCount: enabled, trackableCount: trackable.length },
@@ -864,16 +832,17 @@ export class StateSelect extends cc.Component {
      * W6-2a: 按 propRef 从节点上读当前值. cc.Node.* 走 node[propKey], 其它走 component[propKey].
      * 返回 undefined 表示组件不存在或 prop 不存在.
      *
-     * 注意: 用 indexOf('.') (第一个点) 分隔. 这里仅服务于 W6-2a 自动接入路径 (filter
-     * out compName==='cc.Node' 之外的自定义组件), 自定义组件 compName 不含 '.', 所以正确.
-     * 如果要覆盖 'cc.Node.active' / 'cc.Label.string' 等内置 propRef, 必须用
-     * readPropFromNodeByPropRef (W6-2a-fixup 新增, lastIndexOf 分隔).
+     * W6-axis-decomp X 方案 修正: 改用 lastIndexOf('.') 分隔, 正确处理含多个 '.' 的内置
+     * propRef (e.g. 'cc.Node.x' / 'cc.Label.string'). X 方案自动接入路径同时覆盖内置 + 自定义,
+     * 原先的 indexOf 假设 ("仅服务自定义组件, compName 不含 '.'") 已破, 必须按 lastIndexOf 走.
+     * 与 readPropFromNodeByPropRef 等价 — 保留独立方法以减小改动面.
      */
     private readNodeValueByPropRef(propRef: string): any {
-        const dotIdx = propRef.indexOf(".");
-        if (dotIdx <= 0) return undefined;
-        const compName = propRef.substring(0, dotIdx);
-        const propKey = propRef.substring(dotIdx + 1);
+        if (typeof propRef !== "string") return undefined;
+        const lastDot = propRef.lastIndexOf(".");
+        if (lastDot <= 0 || lastDot >= propRef.length - 1) return undefined;
+        const compName = propRef.substring(0, lastDot);
+        const propKey = propRef.substring(lastDot + 1);
         if (compName === "cc.Node") {
             return (this.node as any)[propKey];
         }
@@ -913,12 +882,16 @@ export class StateSelect extends cc.Component {
     /**
      * W6-2a: 按 propRef 把值写回节点. compName === "cc.Node" 走 node[propKey] = value,
      * 其它走 component[propKey] = value. cocosType-aware clone 由调用方负责.
+     *
+     * W6-axis-decomp X 方案 修正: 用 lastIndexOf('.') 分隔, 正确处理 'cc.Node.x' / 'cc.Label.string'
+     * 等内置 propRef (含多个 '.'). 与 readNodeValueByPropRef 对称.
      */
     private writeNodeValueByPropRef(propRef: string, value: any): void {
-        const dotIdx = propRef.indexOf(".");
-        if (dotIdx <= 0) return;
-        const compName = propRef.substring(0, dotIdx);
-        const propKey = propRef.substring(dotIdx + 1);
+        if (typeof propRef !== "string") return;
+        const lastDot = propRef.lastIndexOf(".");
+        if (lastDot <= 0 || lastDot >= propRef.length - 1) return;
+        const compName = propRef.substring(0, lastDot);
+        const propKey = propRef.substring(lastDot + 1);
         if (compName === "cc.Node") {
             (this.node as any)[propKey] = value;
             return;
@@ -1034,6 +1007,27 @@ export class StateSelect extends cc.Component {
                 handleNumericKey(dict, propKey);
             }
         };
+        // W6-axis-decomp X 方案: 第二趟扫 — AMBIGUOUS 整体 propRef 值 (Vec3/Vec2/Size) → 拆子项 key.
+        // 在 number→string 迁移之后跑, 这样 'cc.Node.position'=Vec3 (无论是直接老数据还是迁移产物) 都被覆盖.
+        // 守卫: AMBIGUOUS_DECOMPOSE[propRef] 的拆解函数对非 Vec/Size 形状值 (e.g. stub 字符串) 返回 null,
+        // 保留原值不动 (W6-2c2 老测试 stub-pos 字符串场景保持兼容).
+        const sweepDecomposeAmbiguous = (dict: any): void => {
+            if (!dict || typeof dict !== "object") return;
+            for (const propRef of Object.keys(AMBIGUOUS_DECOMPOSE)) {
+                if (!(propRef in dict)) continue;
+                const decomposer = AMBIGUOUS_DECOMPOSE[propRef];
+                const subPairs = decomposer(dict[propRef]);
+                if (!subPairs) continue; // 形状不符 (e.g. stub 字符串) — 不动
+                for (const [subRef, subVal] of subPairs) {
+                    // 整体 Vec3/Vec2/Size 是老 .fire 真实数据, 拆解为子项是数据迁移的权威值,
+                    // 强制覆盖 — 即使子项 key 已存在 (autoOptIn 在 __preload 时写过 baseline=0,
+                    // migration 必须用老 .fire 整体值替换). 已是子项形态的老用户场景见
+                    // sweepPropDictionary 之前的 number→string 迁移, 与本步骤不冲突.
+                    dict[subRef] = subVal;
+                }
+                delete dict[propRef];
+            }
+        };
         for (const ctrlIdKey of Object.keys(ctrlData)) {
             const ctrlPage = ctrlData[ctrlIdKey];
             if (!ctrlPage || typeof ctrlPage !== "object") {
@@ -1046,9 +1040,13 @@ export class StateSelect extends cc.Component {
                 }
                 // 外层 propData: 扫数字 key (跳过 $$xxx$$ 元数据)
                 sweepPropDictionary(propData);
-                // 内层 $$propertyData$$: 同规则扫 (number key 也迁 string key)
+                // W6-axis-decomp X 方案: 接着拆 AMBIGUOUS 整体 propRef (Vec3/Vec2/Size) → 子项 key.
+                // 必须在 sweepPropDictionary 之后跑 — 老数字 key 先迁 string propRef, 再统一拆解.
+                sweepDecomposeAmbiguous(propData);
+                // 内层 $$propertyData$$: 同规则扫 (number key 也迁 string key, AMBIGUOUS 也拆)
                 if (propData.$$propertyData$$) {
                     sweepPropDictionary(propData.$$propertyData$$);
+                    sweepDecomposeAmbiguous(propData.$$propertyData$$);
                 }
             }
         }
@@ -1089,6 +1087,18 @@ export class StateSelect extends cc.Component {
         if (propRef !== undefined) {
             propData[propRef] = value;
             delete (propData as TPropDictionary)[propType];
+            // W6-axis-decomp: 若 propRef 是 AMBIGUOUS aggregate (Position/Anchor/Size/Scale/Euler), 同步拆子项写入.
+            // 让老 facade API (togglePropertyControl(EnumPropName.Anchor) + setDefaultProp) 能跟 X 方案 apply 路径
+            // (走 listTrackableProps 子项 readPropFromNodeByPropRef) 协同 — 子项 apply 时能读到 propData['cc.Node.anchorX'] 等.
+            const decompose = AMBIGUOUS_DECOMPOSE[propRef];
+            if (decompose) {
+                const subs = decompose(value);
+                if (subs) {
+                    for (const [subRef, subVal] of subs) {
+                        propData[subRef] = subVal;
+                    }
+                }
+            }
         }
         else {
             (propData as TPropDictionary)[propType] = value;
@@ -2178,43 +2188,32 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 扫节点上所有 applicable prop (== PropHandler.getValue 不返回 undefined 的 prop).
-     * 含未勾选跟随的, 供录制期间"未跟随 dirty"检测.
+     * 扫节点上所有 applicable prop, 含未勾选跟随的, 供录制期间"未跟随 dirty"检测.
      *
-     * W6-2a-fixup: 双轨扫 —
-     *   1) 老路径 PropHandlerManager.listRegisteredPropTypes (内置 EnumPropName 数字 key)
-     *   2) 新路径 listTrackableProps (自定义 @ccclass 组件 propRef 字符串 key)
-     *      过滤 isEnumMappedPropRef (已被内置路径覆盖) / readonly / 系统黑名单
-     *      → 用 readPropFromNodeByPropRef 读 + cloneValueByType 深拷
+     * W6-axis-decomp X 方案: 单走 listTrackableProps + readPropFromNodeByPropRef (propRef 字符串 key 单一路径).
+     * 老 PropHandlerManager.listRegisteredPropTypes (数字 key) 路径已废 — 全 cocos 内省, AMBIGUOUS
+     * 整体 propRef ('cc.Node.position'/'.anchorPoint'/'.contentSize') 不进 snapshot, 其子项 cc.Node.x/y/z
+     * 等已在 listTrackableProps 内独立返回.
      *
-     * _fullSnapshot 内层 key 类型变成混合: number (内置) | string (自定义 propRef).
+     * 过滤 (与 autoOptInCustomComponentProps 对齐):
+     *   - state machine 自身 component (CONTROLLER_SYSTEM_COMPS) 跳过
+     *   - AMBIGUOUS 整体 propRef 跳过 (子项独立)
+     *   - readonly 字段无法 setValue, 不进 dirty detect 范围
+     *
+     * _fullSnapshot 内层 key 类型全部 string propRef (内置 + 自定义统一).
      */
     private readAllApplicablePropsFromNode(): TProp {
         const out: TProp = {} as TProp;
         if (!this.node) return out;
-        // 1) 老路径 - 内置 EnumPropName 数字 key
-        // TS enum 在 ts-jest 下不保证有 reverse mapping, 不能依赖 Object.keys(EnumPropName) 拿数字 key.
-        const allPropTypes = PropHandlerManager.listRegisteredPropTypes();
-        for (const propType of allPropTypes) {
-            if (propType === EnumPropName.Non) continue;
-            const v = PropHandlerManager.getValue(propType, this.node);
-            if (v !== undefined) (out as TPropDictionary)[propType] = v;
-        }
-        // 2) W6-2a-fixup 新路径 - 自定义 propRef 字符串 key
         let trackable: TrackableProp[] = [];
         try {
             trackable = listTrackableProps(this.node);
         }
-        catch (_) { /* listTrackableProps 失败时降级仅内置 */ }
+        catch (_) { /* listTrackableProps 失败时返回空 snapshot — 录制 dirty detect 降级 */ }
         const systemComps = new Set(StateSelect.CONTROLLER_SYSTEM_COMPS);
         for (const tp of trackable) {
-            // 内置 cc.Node 已被老路径覆盖
-            if (tp.compName === "cc.Node") continue;
-            // state machine 自身 component 不参与
             if (systemComps.has(tp.compName)) continue;
-            // 已被 EnumPropName 老路径覆盖 (e.g. cc.Label.string → EnumPropName.LabelString)
-            if (isEnumMappedPropRef(tp.propRef)) continue;
-            // readonly 字段无法 setValue, 不进 untracked detect 范围
+            if (isAmbiguousAggregatePropRef(tp.propRef)) continue;
             if (tp.readonly) continue;
             const cur = this.readPropFromNodeByPropRef(tp.propRef);
             if (cur === undefined) continue;
@@ -2227,40 +2226,25 @@ export class StateSelect extends cc.Component {
      * 录制期间, 哪些 applicable prop 被改了**但没勾选跟随**.
      * 用 _fullSnapshot (start 时全 prop 快照) vs 当前节点 diff, 减去 controlled 部分.
      *
-     * W6-2a-fixup: schema 升级 - _fullSnapshot 现在含双 key (内置数字 + 自定义 propRef 字符串).
-     *   返回 union 数组: EnumPropName 数字 (内置) | propRef 字符串 (自定义).
-     *   旧调用方 (Recording.modelZ.test.ts) 仍用 toContain(EnumPropName.Opacity) 数字断言, 兼容.
+     * W6-axis-decomp X 方案: _fullSnapshot 内层全部 string propRef key (readAllApplicablePropsFromNode
+     * 单走 propRef 路径), 不再有数字 key. 单一遍历分支.
+     *
+     * 返回 string[] — 都是 propRef 字符串. 历史调用方 (Recording.modelZ 等) 仍可用 EnumPropName
+     * 反查名字 'cc.Node.color' 等比较.
      */
     private detectUntrackedDirty(): Array<EnumPropName | string> {
         const out: Array<EnumPropName | string> = [];
         if (!this._fullSnapshot) return out;
         for (const k of Object.keys(this._fullSnapshot)) {
-            // 按 key 字符串格式判别: 纯数字 → 内置 EnumPropName; 含非数字 → 自定义 propRef
-            const num = Number(k);
-            const isNumericKey = Number.isFinite(num) && String(num) === k;
-            if (isNumericKey) {
-                // 老路径: 内置 EnumPropName 数字
-                const propType = num as EnumPropName;
-                if (propType === EnumPropName.Non) continue;
-                if (this.isPropertyControlled(propType)) continue; // 已跟随 — commit 路径已处理
-                const before = (this._fullSnapshot as TPropDictionary)[propType];
-                const current = PropHandlerManager.getValue(propType, this.node);
-                if (current === undefined) continue;
-                if (!PropHandlerManager.isEqual(propType, before, current)) {
-                    out.push(propType);
-                }
-            } else {
-                // W6-2a-fixup 新路径: 自定义 propRef 字符串
-                const propRef = k;
-                if (this.isPropertyControlled(propRef)) continue; // 已跟随
-                const before = (this._fullSnapshot as any)[propRef];
-                const current = this.readPropFromNodeByPropRef(propRef);
-                if (current === undefined) continue;
-                const tp = this.resolveTrackableProp(propRef);
-                const cocosType = tp ? tp.cocosType : undefined;
-                if (!eqValueByType(before, current, cocosType)) {
-                    out.push(propRef);
-                }
+            const propRef = k;
+            if (this.isPropertyControlled(propRef)) continue; // 已跟随 — commit 路径已处理
+            const before = (this._fullSnapshot as any)[propRef];
+            const current = this.readPropFromNodeByPropRef(propRef);
+            if (current === undefined) continue;
+            const tp = this.resolveTrackableProp(propRef);
+            const cocosType = tp ? tp.cocosType : undefined;
+            if (!eqValueByType(before, current, cocosType)) {
+                out.push(propRef);
             }
         }
         return out;
@@ -2451,11 +2435,16 @@ export class StateSelect extends cc.Component {
      */
     private applyPropRefKeysToNode(propData: TProp, defaultData: TProp): void {
         const seen = new Set<string>();
+        // W6-axis-decomp: 排除清单 (系统 + 用户) 的 propRef 不 apply, 即使 propData 残留 baseline 也不 push 回节点.
+        // 修 BUG-10: user 排 cc.Node.x 后 propData['cc.Node.x']=0 baseline 仍存, 不 filter 就 apply 把 x 拽回 0.
+        const userExcl = new Set(this._userExcludedProps || []);
+        const sysExcl = new Set(SYSTEM_EXCLUDE);
         const apply = (data: TProp) => {
             if (!data) return;
             const keys = this.extractPropRefKeys(data);
             for (const propRef of keys) {
                 if (seen.has(propRef)) continue;
+                if (userExcl.has(propRef) || sysExcl.has(propRef)) continue;
                 const value = (data as any)[propRef];
                 if (value === undefined) continue;
                 const tp = this.resolveTrackableProp(propRef);
@@ -2788,6 +2777,13 @@ export class StateSelect extends cc.Component {
                 delete (statePropData as TPropDictionary)[propKey];
                 if (hadValue) deletedFromStates++;
 
+                // W6-axis-decomp: 跨所有 state 删 $$controlledProps$$ 中 name key + propRef key
+                // (performPropertyDeletion 只删了当前 state, 这里补全 — 修 bridge isPropertyControlled fallback 残留)
+                if (statePropData.$$controlledProps$$) {
+                    delete statePropData.$$controlledProps$$[name];
+                    if (propRef !== undefined) delete (statePropData.$$controlledProps$$ as any)[propRef];
+                }
+
                 // 删除changedProp记录
                 const $$changedProp$$ = statePropData.$$changedProp$$ || {};
                 delete $$changedProp$$[name];
@@ -2803,6 +2799,11 @@ export class StateSelect extends cc.Component {
         const defaultData = this.getDefaultData();
         if (propRef !== undefined) delete (defaultData as any)[propRef];
         delete (defaultData as TPropDictionary)[propKey];
+        // W6-axis-decomp: 默认状态 $$controlledProps$$ 也双删
+        if (defaultData.$$controlledProps$$) {
+            delete defaultData.$$controlledProps$$[name];
+            if (propRef !== undefined) delete (defaultData.$$controlledProps$$ as any)[propRef];
+        }
 
         StateErrorManager.info("属性删除完成", {
             component: "StateSelect",
@@ -2901,14 +2902,29 @@ export class StateSelect extends cc.Component {
      * 🔧 检查属性是否已被控制（使用新的controlledProps结构）
      *
      * W6-2b: 公开 API 接受 EnumPropName | string 联合类型.
-     *   - number (EnumPropName): 走老路径 PropertyControlService.isPropertyControlled (内置 prop, number key)
-     *   - string (propRef): 走新路径 isPropertyControlledByPropRef (自定义 prop, string key)
+     *   - number (EnumPropName): 走老路径 PropertyControlService.isPropertyControlled (内置 prop, name key 'Active')
+     *   - string (propRef): 走新路径 isPropertyControlledByPropRef (string key 'cc.Node.active')
+     *
+     * W6-axis-decomp X 方案 bridge: EnumPropName 路径 fallback 看 propRef 键 — 老调用方
+     * isPropertyControlled(EnumPropName.Active) 仍能在自动接入走 propRef 路径后正确返回 true.
+     * 命中规则:
+     *   - 主路径: propData.$$controlledProps$$ 含名字 key 'Active' (老 API addPropertyControl 写入)
+     *   - bridge: propData.$$controlledProps$$ 含 propRef key 'cc.Node.active' (X 方案 autoOptIn 写入)
      */
     public isPropertyControlled(propTypeOrRef: EnumPropName | string): boolean {
         if (typeof propTypeOrRef === "string") {
             return this.isPropertyControlledByPropRef(propTypeOrRef);
         }
-        return PropertyControlService.isPropertyControlled(this.getPropData(), propTypeOrRef);
+        // 主路径: name key
+        if (PropertyControlService.isPropertyControlled(this.getPropData(), propTypeOrRef)) {
+            return true;
+        }
+        // W6-axis-decomp bridge: 看 propRef 等价 key (autoOptInCustomComponentProps 写的)
+        const propRef = enumToPropRef(propTypeOrRef);
+        if (propRef !== undefined) {
+            return this.isPropertyControlledByPropRef(propRef);
+        }
+        return false;
     }
 
     /**
@@ -3142,6 +3158,16 @@ export class StateSelect extends cc.Component {
         else {
             // 🔧 第一步：禁用属性控制
             this.removePropertyControl(propType);
+
+            // W6-axis-decomp bridge: 老 API togglePropertyControl(EnumPropName, false) 也需删
+            // propRef 等价 key — autoOptInCustomComponentProps 写过的 'cc.Node.color' 等. 否则
+            // off 后 isPropertyControlled(EnumPropName.Color) bridge 仍命中 propRef → 行为不一致.
+            if (propRef !== undefined) {
+                const pd = this.getPropData();
+                if (pd && pd.$$controlledProps$$ && pd.$$controlledProps$$[propRef] !== undefined) {
+                    delete pd.$$controlledProps$$[propRef];
+                }
+            }
 
             // 🔧 第二步：如果是当前显示的属性，清空界面标识
             if (this._currentDisplayProp === propType) {
