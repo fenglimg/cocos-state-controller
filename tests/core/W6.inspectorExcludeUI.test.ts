@@ -95,89 +95,78 @@ describe("W6-4 inspector 排除清单 UI", () => {
         expect(display.length).toBe(SYSTEM_EXCLUDE.length + 2);
     });
 
-    it("addExcludeTrigger setter 收到下拉 index 时, push 到 _userExcludedProps 且该 prop 从跟随中移除", () => {
+    it("addExcludeTrigger setter 收到 value (>=1) 时, push 到 _userExcludedProps 且该 prop 从跟随中移除 (sentinel value=0 是占位)", () => {
         const { select } = setup();
         // 前置: __preload 自动接入 W6_ExcludeFixture.heatLevel
         expect((select as any).isPropertyControlledByPropRef("W6_ExcludeFixture.heatLevel")).toBe(true);
-        // 找 heatLevel 在 _addExcludeOptions 中的 index (refreshExcludeEnumLists 已在 __preload 同步过)
+        // _addExcludeOptions[v-1] = propRef; enumList value 从 1 起 (0 是 sentinel)
         const options: string[] = (select as any)._addExcludeOptions;
         const idx = options.indexOf("W6_ExcludeFixture.heatLevel");
         expect(idx).toBeGreaterThanOrEqual(0);
+        const enumValue = idx + 1; // value=1..N
 
-        (select as any).addExcludeTrigger = idx;
+        (select as any).addExcludeTrigger = enumValue;
 
         expect((select as any)._userExcludedProps).toContain("W6_ExcludeFixture.heatLevel");
-        // 跟随中已移除
+        // reconcileUserExcluded 在 setter 内调过, 跟随应已移除
         expect((select as any).isPropertyControlledByPropRef("W6_ExcludeFixture.heatLevel")).toBe(false);
     });
 
-    it("addExcludeTrigger setter 收到非法值时 noop", () => {
+    it("addExcludeTrigger setter 收到 0 (sentinel) 或非法值时 noop", () => {
         const { select } = setup();
         const before = [...((select as any)._userExcludedProps || [])];
 
-        // 越界 index
-        (select as any).addExcludeTrigger = 99999;
+        (select as any).addExcludeTrigger = 0; // sentinel
         expect((select as any)._userExcludedProps).toEqual(before);
 
-        // 非数字
+        (select as any).addExcludeTrigger = 99999; // 越界
+        expect((select as any)._userExcludedProps).toEqual(before);
+
         (select as any).addExcludeTrigger = NaN;
         expect((select as any)._userExcludedProps).toEqual(before);
     });
 
-    it("removeExcludeTrigger setter 收到下拉 index 时, 从 _userExcludedProps 移除", () => {
+    it("数组化删除: 从 _userExcludedProps 数组中删项 (cocos 原生 - 按钮模拟) 触发 reconcile 重新接入跟随", () => {
         const { select } = setup();
-        (select as any)._userExcludedProps = ["W6_ExcludeFixture.heatLevel", "W6_ExcludeFixture.label"];
-        (select as any).refreshExcludeEnumLists();
-        const options: string[] = (select as any)._removeExcludeOptions;
-        const idx = options.indexOf("W6_ExcludeFixture.heatLevel");
-        expect(idx).toBeGreaterThanOrEqual(0);
-
-        (select as any).removeExcludeTrigger = idx;
-
-        expect((select as any)._userExcludedProps).not.toContain("W6_ExcludeFixture.heatLevel");
-        expect((select as any)._userExcludedProps).toContain("W6_ExcludeFixture.label");
-    });
-
-    it("removeExcludeTrigger setter 收到越界 index 时 noop", () => {
-        const { select } = setup();
+        // 先排除一个 prop
         (select as any)._userExcludedProps = ["W6_ExcludeFixture.heatLevel"];
-        (select as any).refreshExcludeEnumLists();
-        (select as any).removeExcludeTrigger = 99999;
-        expect((select as any)._userExcludedProps).toEqual(["W6_ExcludeFixture.heatLevel"]);
+        // 触发 reconcile (模拟 inspector 渲染调 excludedPropsDisplay getter)
+        void (select as any).excludedPropsDisplay;
+        expect((select as any).isPropertyControlledByPropRef("W6_ExcludeFixture.heatLevel")).toBe(false);
+
+        // 模拟用户在 cocos inspector 数组 - 按钮删项
+        (select as any)._userExcludedProps = [];
+        void (select as any).excludedPropsDisplay; // 触发 reconcile
+
+        // reconcile 应已 toggle 重新接入
+        expect((select as any).isPropertyControlledByPropRef("W6_ExcludeFixture.heatLevel")).toBe(true);
     });
 
-    it("refreshExcludeEnumLists: addExcludeTrigger.enumList = 当前跟随中, 不含已排除", () => {
+    it("refreshExcludeEnumLists: addExcludeTrigger.enumList 含 sentinel + 当前跟随中, 不含已排除", () => {
         const { select } = setup();
-        // refreshExcludeEnumLists 在 __preload 末尾应被调用过.
-        // 注意: cocos 2.x setClassAttr(instance, ...) 走 instance.__attrs__ proto-chain 路径
-        // (参考 updateCtrlName 处的同款套路), 所以读 enumList 要走 instance 的 attrs.
         const attrs = ccL.Class.Attr.getClassAttrs(select);
         const addEnumList = attrs["addExcludeTrigger$_$enumList"];
         expect(Array.isArray(addEnumList)).toBe(true);
-        // cocos 2.x enum 下拉项 value 是 number index, name 是 propRef
-        const addNames = addEnumList.map((e: any) => e.name);
-        expect(addNames).toContain("W6_ExcludeFixture.heatLevel");
+        // 第 0 项是 sentinel
+        expect(addEnumList[0]).toEqual({ name: "(选一个加入排除)", value: 0 });
+        // 真实选项 value 从 1 起
+        const realItems = addEnumList.slice(1);
+        const realNames = realItems.map((e: any) => e.name);
+        expect(realNames).toContain("W6_ExcludeFixture.heatLevel");
         for (const ex of SYSTEM_EXCLUDE) {
-            expect(addNames).not.toContain(ex);
+            expect(realNames).not.toContain(ex);
         }
+        // value 从 1 单调递增
+        realItems.forEach((it: any, i: number) => expect(it.value).toBe(i + 1));
     });
 
-    it("refreshExcludeEnumLists: removeExcludeTrigger.enumList = _userExcludedProps", () => {
-        const { select } = setup();
-        (select as any)._userExcludedProps = ["W6_ExcludeFixture.heatLevel"];
-        // 主动触发 refresh
-        if (typeof (select as any).refreshExcludeEnumLists === "function") {
-            (select as any).refreshExcludeEnumLists();
-        }
-
-        const attrs = ccL.Class.Attr.getClassAttrs(select);
-        const removeEnumList = attrs["removeExcludeTrigger$_$enumList"];
-        expect(Array.isArray(removeEnumList)).toBe(true);
-        const removeNames = removeEnumList.map((e: any) => e.name);
-        expect(removeNames).toContain("W6_ExcludeFixture.heatLevel");
-        for (const ex of SYSTEM_EXCLUDE) {
-            expect(removeNames).not.toContain(ex);
-        }
+    it("_userExcludedProps 是 @property visible:true 数组 (cocos 原生 +/- 按钮)", () => {
+        const ctor = StateSelect;
+        const attrs = ccL.Class.Attr.getClassAttrs(ctor);
+        // visible 默认 true (不显式 false 即可); 类型应为 cc.String 数组
+        expect(attrs["_userExcludedProps$_$visible"]).not.toBe(false);
+        // displayName 应注入
+        expect(attrs["_userExcludedProps$_$displayName"]).toBe("用户排除清单");
     });
 
     it("旧 3 props 组 @property visible:false (inspector 视觉隐藏, ts 字段保留)", () => {

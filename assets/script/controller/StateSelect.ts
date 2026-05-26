@@ -180,87 +180,83 @@ export class StateSelect extends cc.Component {
      */
     @property({ displayName: "排除跟随", tooltip: "当前被排除的 prop 列表 (系统 + 用户). 系统部分不可恢复.", readonly: true })
     public get excludedPropsDisplay(): string[] {
+        // W6-4 C 方案: inspector 渲染时机做 reconcile (idempotent, O(N) 小数组). 用户在 _userExcludedProps
+        // 数组 inspector +/- 后, 这里 diff 上次快照 → 触发 togglePropertyControl 同步跟随状态.
+        this.reconcileUserExcluded();
         return [...SYSTEM_EXCLUDE, ...(this._userExcludedProps || [])];
     }
 
     /**
-     * W6-4: add/remove 下拉的"当前选项"缓存 (instance scope, 非序列化).
-     * setter 收到 cocos 下拉选中的 number value 后, 反查这里得到 propRef 字符串.
-     * refreshExcludeEnumLists 在注入 enumList 时同步刷新.
+     * W6-4 C 方案: diff _userExcludedProps vs _lastSeenExcluded, 同步 togglePropertyControl.
+     * 加项 → togglePropertyControl(propRef, false) 从跟随移除. 删项 → togglePropertyControl(propRef, true) 重新接入.
+     * idempotent: 已同步过的状态不重复 trigger.
      */
-    private _addExcludeOptions: string[] = [];
-    private _removeExcludeOptions: string[] = [];
+    private reconcileUserExcluded(): void {
+        if (!CC_EDITOR) return;
+        const current = this._userExcludedProps || [];
+        const last = this._lastSeenExcluded || [];
+        const currentSet = new Set(current);
+        const lastSet = new Set(last);
+        // 新加项: 在 current 不在 last → 排除 (从跟随中移除)
+        for (const propRef of current) {
+            if (!lastSet.has(propRef)) {
+                try { this.togglePropertyControl(propRef, false); }
+                catch (e) { StateErrorManager.warn("reconcileUserExcluded: 排除失败", { component: "StateSelect", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } }); }
+            }
+        }
+        // 删除项: 在 last 不在 current → 重新跟随
+        for (const propRef of last) {
+            if (!currentSet.has(propRef)) {
+                try { this.togglePropertyControl(propRef, true); }
+                catch (e) { StateErrorManager.warn("reconcileUserExcluded: 恢复跟随失败", { component: "StateSelect", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } }); }
+            }
+        }
+        this._lastSeenExcluded = current.slice();
+        // 顺便刷下拉选项 (排除清单变, 下拉可选项要跟着变)
+        this.refreshExcludeEnumLists();
+    }
 
     /**
-     * W6-4: cocos 2.x inspector 必须 type:EnumXxx 才渲下拉. cc.String 渲输入框 — enumList 不读.
-     * 用空骨架 EnumExcludeSlot + setClassAttr 注入实际选项. setter 收到 number value (cocos 下拉选项 index),
-     * 反查 _addExcludeOptions 得 propRef 字符串.
+     * W6-4 C 方案: "+ 添加排除" 下拉选项缓存 (instance scope, 非序列化).
+     * enumList value=v 对应 _addExcludeOptions[v-1] (value=0 是 sentinel "(选一个...)").
+     * refreshExcludeEnumLists 注入 enumList 时同步刷新.
      */
-    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单" })
+    private _addExcludeOptions: string[] = [];
+
+    /**
+     * W6-4 C 方案: "+ 添加排除" 快捷下拉. enumList index=0 是 sentinel "(选一个...)", 真实选项 value 从 1 起.
+     * getter 永远返回 0 → 用户操作完显示回到 sentinel (符合"未选"语义). setter 收 0 noop, 收 >0 处理.
+     * 处理逻辑: 反查 _addExcludeOptions[value-1] 得 propRef → push 到 _userExcludedProps (cocos 数组同步).
+     * 移除跟随由 reconcileUserExcluded 在下一次 inspector 渲染时统一做. 删除走 cocos 数组原生 - 按钮 (不再有 removeExcludeTrigger).
+     */
+    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单 (用 cocos 数组 - 按钮恢复跟随)" })
     public get addExcludeTrigger(): number {
         return 0;
     }
 
     public set addExcludeTrigger(v: number) {
         if (!CC_EDITOR) return;
-        if (typeof v !== "number" || !Number.isFinite(v)) return;
-        const propRef = this._addExcludeOptions[v];
+        if (typeof v !== "number" || !Number.isFinite(v) || v === 0) return;
+        // v 是 enumList value (>=1), 真实选项 index = v-1
+        const propRef = this._addExcludeOptions[v - 1];
         if (!propRef) return;
         if (!this._userExcludedProps) this._userExcludedProps = [];
         if (this._userExcludedProps.indexOf(propRef) === -1) {
             this._userExcludedProps.push(propRef);
         }
-        try {
-            this.togglePropertyControl(propRef, false);
-        } catch (e) {
-            StateErrorManager.warn("addExcludeTrigger: togglePropertyControl 失败", {
-                component: "StateSelect",
-                method: "addExcludeTrigger.setter",
-                params: { propRef, error: (e as Error).message },
-            });
-        }
-        this.refreshExcludeEnumLists();
+        // reconcileUserExcluded 会在下次 excludedPropsDisplay getter 调用时同步 togglePropertyControl
+        // 但 setter 完成后 inspector 立即重渲染, 通常 getter 紧接着被调用. 这里也手动 reconcile 一下兜底:
+        this.reconcileUserExcluded();
     }
 
     /**
-     * W6-4: 同 addExcludeTrigger, type:EnumExcludeSlot. setter 收到 number value 反查 _removeExcludeOptions.
-     */
-    @property({ type: EnumExcludeSlot, displayName: "- 恢复跟随", tooltip: "从用户排除清单中选一个 propRef 恢复跟随" })
-    public get removeExcludeTrigger(): number {
-        return 0;
-    }
-
-    public set removeExcludeTrigger(v: number) {
-        if (!CC_EDITOR) return;
-        if (typeof v !== "number" || !Number.isFinite(v)) return;
-        const propRef = this._removeExcludeOptions[v];
-        if (!propRef) return;
-        if (!this._userExcludedProps) return;
-        const idx = this._userExcludedProps.indexOf(propRef);
-        if (idx === -1) return;
-        this._userExcludedProps.splice(idx, 1);
-        try {
-            this.togglePropertyControl(propRef, true);
-        } catch (e) {
-            StateErrorManager.warn("removeExcludeTrigger: togglePropertyControl 失败", {
-                component: "StateSelect",
-                method: "removeExcludeTrigger.setter",
-                params: { propRef, error: (e as Error).message },
-            });
-        }
-        this.refreshExcludeEnumLists();
-    }
-
-    /**
-     * W6-4: 用 cc.Class.Attr.setClassAttr 动态注入 addExcludeTrigger / removeExcludeTrigger 的下拉选项.
+     * W6-4 C 方案: 注入 addExcludeTrigger 下拉选项.
      *
-     * 选项规则:
-     *   - addExcludeTrigger.enumList = (listTrackableProps 全集) - SYSTEM_EXCLUDE - _userExcludedProps
-     *     (用户能从"当前可跟随"中选一个排除)
-     *   - removeExcludeTrigger.enumList = _userExcludedProps
-     *     (用户只能恢复自己加的, SYSTEM_EXCLUDE 不可恢复)
+     * 选项规则: enumList = [sentinel "(选一个...)" value=0, ...listTrackableProps - SYSTEM_EXCLUDE - _userExcludedProps value=1,2,...].
+     * 用户选 sentinel = noop, 选其它 = 加入 _userExcludedProps (cocos 数组自动同步显示).
+     * 删除走 _userExcludedProps 数组 cocos 原生 - 按钮 (无 removeExcludeTrigger 下拉).
      *
-     * 调用时机: __preload 末尾 + _userExcludedProps push/splice 后. idempotent.
+     * 调用时机: __preload 末尾 + addExcludeTrigger setter 后 + reconcileUserExcluded 内. idempotent.
      */
     public refreshExcludeEnumLists(): void {
         if (!CC_EDITOR) return;
@@ -280,16 +276,14 @@ export class StateSelect extends cc.Component {
         }
         // 当前可跟随 = trackable - SYSTEM - user (用户能从中再选一个排除)
         const addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
-        const removeList = (this._userExcludedProps || []).slice();
-        // cocos 2.x enum 下拉项是 {name, value:number}, value 是 index. setter 收 number 反查 instance 缓存.
+        // enumList[0] 是 sentinel, 真实选项 value 从 1 起. setter 反查 _addExcludeOptions[v-1].
         this._addExcludeOptions = addList;
-        this._removeExcludeOptions = removeList;
-        const addEnum = addList.map((r, i) => ({ name: r, value: i }));
-        const removeEnum = removeList.map((r, i) => ({ name: r, value: i }));
+        const addEnum = [
+            { name: "(选一个加入排除)", value: 0 },
+            ...addList.map((r, i) => ({ name: r, value: i + 1 })),
+        ];
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
         cc.Class.Attr.setClassAttr(this, "addExcludeTrigger", "enumList", addEnum);
-        // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
-        cc.Class.Attr.setClassAttr(this, "removeExcludeTrigger", "enumList", removeEnum);
     }
     // #endregion W6-4
 
@@ -306,8 +300,22 @@ export class StateSelect extends cc.Component {
      *
      * 当前 W6-1 仅占位, 默认空数组, 不破任何老路径.
      */
-    @property({ visible: false })
-    private _userExcludedProps: string[] = [];
+    /**
+     * W6-4 (C 方案): 用户自定义排除清单. cocos 2.x 数组 inspector 原生 +/- 按钮可直接增删.
+     * 删项时 excludedPropsDisplay getter 内 reconcile 自动重新接入跟随; 加项时反之自动从跟随中移除.
+     * 加项通常通过 "+ 添加排除" 下拉 (sentinel 防误触, 选项带 propRef 提示);
+     * 也可以直接点数组 + 自己手输, 但只有合法 propRef (在 listTrackableProps 内) 才会被 reconcile 应用.
+     */
+    @property({
+        type: [cc.String],
+        displayName: "用户排除清单",
+        tooltip: "用户手动排除的 prop 列表 (除 SYSTEM_EXCLUDE 外). 数组 +/- 按钮可直接增删. 删项 = 重新跟随, 加项 = 排除跟随.",
+        visible: true,
+    })
+    public _userExcludedProps: string[] = [];
+
+    /** reconcile 用的上次快照, 用于 diff 触发 togglePropertyControl */
+    private _lastSeenExcluded: string[] = [];
 
     /**
      * 录制中的 snapshot (Wave 2 prefab diff 路径).
