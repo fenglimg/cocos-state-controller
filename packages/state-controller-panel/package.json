@@ -5,19 +5,16 @@
     "author": "wepie",
     "main": "main.js",
     "main-menu": {
-        "i18n:MAIN_MENU.package.title/State Controller Panel/打开": {
+        "i18n:MAIN_MENU.package.title/State Controller Panel/打开面板": {
             "message": "state-controller-panel:open"
         },
-        "i18n:MAIN_MENU.package.title/State Controller Panel/关闭": {
+        "i18n:MAIN_MENU.package.title/State Controller Panel/关闭面板": {
             "message": "state-controller-panel:close"
         },
-        "i18n:MAIN_MENU.package.title/State Controller Panel/探测 Inspector DOM (P0)": {
-            "message": "state-controller-panel:probe-inspector"
-        },
-        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 徽标: 开 (P1)": {
+        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 增强：开启": {
             "message": "state-controller-panel:inspector-mark-on"
         },
-        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 徽标: 关 (P1)": {
+        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 增强：关闭": {
             "message": "state-controller-panel:inspector-mark-off"
         }
     },

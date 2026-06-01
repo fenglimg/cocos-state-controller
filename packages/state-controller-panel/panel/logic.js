@@ -335,9 +335,6 @@ module.exports = {
                 });
             });
 
-            const dupBtn = node.querySelector('.btn-dup-state');
-            dupBtn.classList.add('is-disabled');
-
             this.$statesList.appendChild(node);
         });
     },
