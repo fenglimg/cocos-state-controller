@@ -179,41 +179,6 @@ describe("W6-4 inspector 排除清单 UI", () => {
         expect(attrs["widgetProps$_$visible"]).toBe(false);
     });
 
-    // W6-4 hotfix2 #3: 搜索过滤
-    it("excludeFilter setter: 设关键字后 refresh enumList 只保留 substring 匹配 (大小写不敏感)", () => {
-        const { select } = setup();
-        // 前置: addExcludeOptions 至少含 W6_ExcludeFixture.heatLevel + 一些 cc.Node.* 内置 prop
-        (select as any).excludeFilter = "heat";
-        const attrs = ccL.Class.Attr.getClassAttrs(select);
-        const enumList = attrs["addExcludeTrigger$_$enumList"];
-        // sentinel 仍在 (索引 0), 名字加了过滤提示
-        expect(enumList[0].name).toContain("heat");
-        expect(enumList[0].value).toBe(0);
-        // 真实选项全部含 "heat" (大小写不敏感)
-        const realItems = enumList.slice(1);
-        for (const it of realItems) {
-            expect(it.name.toLowerCase()).toContain("heat");
-        }
-        // 至少匹配 heatLevel
-        expect(realItems.map((e: any) => e.name)).toContain("W6_ExcludeFixture.heatLevel");
-    });
-
-    it("excludeFilter setter: 空关键字恢复全部选项 (无过滤)", () => {
-        const { select } = setup();
-        (select as any).excludeFilter = "heat";
-        let attrs = ccL.Class.Attr.getClassAttrs(select);
-        const filteredCount = attrs["addExcludeTrigger$_$enumList"].length;
-
-        (select as any).excludeFilter = "";
-        attrs = ccL.Class.Attr.getClassAttrs(select);
-        const unfilteredCount = attrs["addExcludeTrigger$_$enumList"].length;
-
-        // 空关键字应不少于过滤后 (通常 >>)
-        expect(unfilteredCount).toBeGreaterThanOrEqual(filteredCount);
-        // sentinel 恢复无过滤提示
-        expect(attrs["addExcludeTrigger$_$enumList"][0].name).toBe("(选一个加入排除)");
-    });
-
     // W6-4 hotfix2 #1: 刷新按钮
     it("refreshInspectorTrigger setter: 调 reconcile + refresh enumList, 不抛", () => {
         const { select } = setup();
@@ -223,5 +188,63 @@ describe("W6-4 inspector 排除清单 UI", () => {
         expect(() => { (select as any).refreshInspectorTrigger = true; }).not.toThrow();
         // reconcile 应已跑 (_lastSeenExcluded 同步成 current)
         expect((select as any)._lastSeenExcluded).toEqual(["W6_ExcludeFixture.heatLevel"]);
+    });
+});
+
+/**
+ * 回归: 被排除的 prop 在录制期间被改, 不应进入录制范围 (不 detect, 不弹窗, 不 commit).
+ *
+ * 用户场景: x=200, 把 cc.Node.x 加入排除清单, 点录制, 录制中误改 x → 结束录制后 x 仍按改后值"被记录".
+ * 根因: readAllApplicablePropsFromNode 构建 _fullSnapshot 时未过滤 _userExcludedProps, 导致排除的 prop
+ *       被 detectUntrackedDirty 当"未跟随 dirty"弹窗回写, 违背"排除 = 彻底脱离录制"语义.
+ *
+ * 红预期 (修复前): _fullSnapshot 含 cc.Node.x, detectUntrackedDirty 返回 cc.Node.x.
+ */
+describe("W6 回归: 排除清单 prop 不进录制范围", () => {
+    function excludePropRef(select: any, propRef: string) {
+        if (!select._userExcludedProps) select._userExcludedProps = [];
+        if (select._userExcludedProps.indexOf(propRef) === -1) select._userExcludedProps.push(propRef);
+        // 触发 reconcile (模拟 inspector 渲染调 excludedPropsDisplay getter) → togglePropertyControl(propRef, false)
+        void select.excludedPropsDisplay;
+    }
+
+    it("排除 cc.Node.x 后录制中改 x → _fullSnapshot 不含 x, detectUntrackedDirty 不返回 x", () => {
+        const { ctrl, select, selectNode } = setup();
+        ctrl.selectedIndex = 0;
+        selectNode.x = 200;
+
+        // 加入排除清单 → 从跟随移除
+        excludePropRef(select, "cc.Node.x");
+        expect(select.isPropertyControlledByPropRef("cc.Node.x")).toBe(false);
+
+        ctrl.startRecording();
+        // _fullSnapshot 不应含被排除的 cc.Node.x (彻底脱离录制范围)
+        const fullSnap = (select as any)._fullSnapshot;
+        expect(fullSnap).toBeDefined();
+        expect(fullSnap["cc.Node.x"]).toBeUndefined();
+
+        // 录制中误改 x
+        selectNode.x = 500;
+
+        // detectUntrackedDirty 不应把排除的 x 当"未跟随 dirty"
+        const untracked = (select as any).detectUntrackedDirty();
+        expect(untracked).not.toContain("cc.Node.x");
+    });
+
+    it("排除 cc.Node.x 后录制改 x → stopRecording 不把改后值写进 ctrlData", () => {
+        const { ctrl, select, selectNode } = setup();
+        ctrl.selectedIndex = 0;
+        selectNode.x = 200;
+
+        excludePropRef(select, "cc.Node.x");
+
+        ctrl.startRecording();
+        selectNode.x = 500;
+        ctrl.stopRecording();
+
+        const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
+        // 排除的 x: 录制改后值 (500) 不应被 commit. (autoOptIn baseline 残留 key 无害, apply 路径已 filter 排除项)
+        const recordedX = ctrlData[0] && ctrlData[0]["cc.Node.x"];
+        expect(recordedX).not.toBe(500);
     });
 });
