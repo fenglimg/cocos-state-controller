@@ -46,7 +46,13 @@ function saveFlags(flags) {
 
 module.exports = {
     load() {
-        // 预留: 启动时初始化全局状态 (本期无)
+        // 默认自动开启 (用户期望): 读持久化 flags, master 默认 true → 启动即注入, 无需手动点菜单.
+        // 用户经面板 master toggle 持久化关闭 (saveFlags master:false) 后, 下次启动不自动注入.
+        _inspectorOn = getFlags().master;
+        if (_inspectorOn) {
+            // 场景可能尚未 ready, 此次注入失败由 scene:ready 兜底 (其 _inspectorOn 已为 true).
+            try { freshInject().enableInspectorMark(getFlags()); } catch (e) { /* 静默, scene:ready 重注入 */ }
+        }
     },
 
     unload() {
