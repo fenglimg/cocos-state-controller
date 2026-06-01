@@ -346,7 +346,7 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 8;
+        const VER = 9;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
@@ -445,7 +445,7 @@ function buildResidentScript() {
                             const rows = res.rows || [];
                             for (let i = 0; i < rows.length; i++) {
                                 const it = rows[i];
-                                map[it.scope + '|' + it.display] = { varies: !!it.variesAcrossStates, override: !!it.overriddenAtCurrent, refs: it.refs };
+                                map[it.scope + '|' + it.display] = { varies: !!it.variesAcrossStates, override: !!it.overriddenAtCurrent, dirty: !!it.dirty, refs: it.refs };
                             }
                         }
                         SCI.dataSV = { uuid: uuid, map: map, props: props, states: states, selectedIndex: selectedIndex };
@@ -582,6 +582,18 @@ function buildResidentScript() {
             if (SCI.tip) { SCI.tip.style.opacity = '0'; SCI.tip.style.display = 'none'; }
         };
 
+        // M2a-1: 录制态脏行标记 — 琥珀左条 (inset box-shadow), 区别于 ● 蓝点 / ∅ 排除.
+        SCI.markDirtyRow = function (row, dirty) {
+            const had = row.getAttribute('data-sci-dirty') === '1';
+            if (dirty && !had) {
+                row.style.boxShadow = 'inset 3px 0 0 #e5a13a';
+                row.setAttribute('data-sci-dirty', '1');
+            } else if (!dirty && had) {
+                row.style.boxShadow = '';
+                row.removeAttribute('data-sci-dirty');
+            }
+        };
+
         // 向主进程要"选中节点上非全受控的行" → 转 scene → 回 items, 建 'scope|display' 查找表
         SCI.request = function (uuid) {
             try {
@@ -694,8 +706,9 @@ function buildResidentScript() {
                         if (map) { const hit = map[key]; if (hit) { kind = hit.kind; refs = hit.refs; } }
                         if (svMap) svHit = svMap[key] || null;
                     }
-                    SCI.markRow(row, kind, refs);       // P2b 排除徽标 (∅/!/◐)
-                    SCI.markStateBadge(row, svHit);     // M1-2 ● 状态行为徽标
+                    SCI.markRow(row, kind, refs);                          // P2b 排除徽标 (∅/!/◐)
+                    SCI.markStateBadge(row, svHit);                        // M1-2/M1-3 ● 状态行为徽标
+                    SCI.markDirtyRow(row, !!(svHit && svHit.dirty));       // M2a-1 录制脏行 琥珀左条
                 }
             } finally {
                 SCI.connect();
@@ -757,7 +770,10 @@ function buildResidentScript() {
                 const bs = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
                 for (let i = 0; i < bs.length; i++) bs[i].remove();
                 const rows = panel.shadowRoot.querySelectorAll('ui-prop');
-                for (let j = 0; j < rows.length; j++) { if (rows[j].style.opacity) rows[j].style.opacity = ''; }
+                for (let j = 0; j < rows.length; j++) {
+                    if (rows[j].style.opacity) rows[j].style.opacity = '';
+                    if (rows[j].getAttribute('data-sci-dirty')) { rows[j].style.boxShadow = ''; rows[j].removeAttribute('data-sci-dirty'); }
+                }
             }
             SCI.reqUuid = null;
             SCI.data = null;
@@ -793,6 +809,7 @@ function enableInspectorMark() {
     forEachWCSimple(RESIDENT_SCRIPT);
     Editor.log('[sc-inspector] Inspector 增强已开 (M1+P2b). 选中带 StateSelect 的节点:'
         + '\n  ● 蓝 = 受状态机驱动 (跨状态有差异); 带描边环 = 当前 state 已覆盖 default. hover 即时弹各状态值表;'
+        + '\n  琥珀左条 = 录制中改过未提交 (脏);'
         + '\n  ∅ 灰 = 已排除(整行变暗); ! 黄 = 未受控(掉出控制); ◐ = 部分. 点徽标切换排除.');
 }
 

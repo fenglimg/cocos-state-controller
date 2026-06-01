@@ -131,6 +131,19 @@ function sciEnumCompProps(ctor, compName, Attr) {
     return out;
 }
 
+/** 插件侧按 propRef 读节点当前值 (mirror StateSelect.readNodeValueByPropRef, 不 require 项目源). */
+function readNodeValByRef(node, propRef) {
+    if (!node || typeof propRef !== 'string') return undefined;
+    const lastDot = propRef.lastIndexOf('.');
+    if (lastDot <= 0 || lastDot >= propRef.length - 1) return undefined;
+    const compName = propRef.substring(0, lastDot);
+    const key = propRef.substring(lastDot + 1);
+    if (compName === 'cc.Node') return node[key];
+    const comp = node.getComponent(compName);
+    if (!comp) return undefined;
+    return comp[key];
+}
+
 /** 枚举选中节点的所有 inspector 显示行 → [{ scope, display, refs }] (无过滤, 由各调用方加语义). */
 function enumInspectorRows(node) {
     const cc_ = (typeof cc !== 'undefined') ? cc : null;
@@ -345,7 +358,24 @@ module.exports = {
         // ctrl 从 select 推导 (可能在祖先节点上); handlers 内部兜底再推一次
         const ctrl = (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || node.getComponent('StateController') || null;
         const sv = handlers.getPropStateValues(select, ctrl);
-        // 行视图: 把 props (per-ref varies) join 到 inspector 显示行
+        // M2a-1: 录制态 → 标"改过未提交"的脏行 (节点当前值 ≠ 该 state 存储值, default 兜底).
+        const isRecording = !!(ctrl && ctrl.isRecording);
+        sv.isRecording = isRecording;
+        const selIdx = sv.selectedIndex;
+        function isRowDirty(refs) {
+            if (!isRecording || selIdx < 0) return false;
+            for (let r = 0; r < refs.length; r++) {
+                const p = sv.props && sv.props[refs[r]];
+                if (!p) continue;
+                const curSer = handlers.serializeStateValue(readNodeValByRef(node, refs[r]));
+                let base = p.valueByState ? p.valueByState[selIdx] : undefined;
+                if (base === null || base === undefined) base = p.defaultValue;
+                if (base === undefined) base = null;
+                if (JSON.stringify(curSer) !== JSON.stringify(base)) return true;
+            }
+            return false;
+        }
+        // 行视图: 把 props (per-ref varies/override/dirty) join 到 inspector 显示行
         const rows = enumInspectorRows(node);
         sv.rows = [];
         for (let i = 0; i < rows.length; i++) {
@@ -359,7 +389,11 @@ module.exports = {
                     if (p.overriddenAtCurrent) override = true;
                 }
             }
-            if (hasData) sv.rows.push({ scope: rows[i].scope, display: rows[i].display, refs: refs, variesAcrossStates: varies, overriddenAtCurrent: override });
+            if (hasData) sv.rows.push({
+                scope: rows[i].scope, display: rows[i].display, refs: refs,
+                variesAcrossStates: varies, overriddenAtCurrent: override,
+                dirty: isRowDirty(refs),
+            });
         }
         reply(sv);
     },
