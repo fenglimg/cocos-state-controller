@@ -346,7 +346,7 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 11;
+        const VER = 12;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
@@ -354,13 +354,11 @@ function buildResidentScript() {
         SCI.version = VER;
         SCI.observer = null;
         SCI.enabled = true;
-        SCI.data = SCI.data || null;   // { uuid, map: { 'scope|display': {kind, refs} } }  (P2b 排除)
-        SCI.dataSV = SCI.dataSV || null; // { uuid, map: {'scope|display': {varies, refs}}, props, states } (M1 状态行为可视化)
-        SCI.reqUuid = null;            // 最近请求的 uuid
-        SCI.lastReq = 0;               // 上次请求时间戳 (节流刷新, 应对数据源变动 #3)
+        SCI.data = SCI.data || null;
+        SCI.dataSV = SCI.dataSV || null;
+        SCI.reqUuid = null;
+        SCI.lastReq = 0;
 
-        // M2a-2: 各特性开关 (master 总开关 + 3 组). 注入时由 window.__SCI_FLAGS 注入, 面板可改 + Profile 持久化.
-        // 缺省全开. SCI.flags 在版本热更间保留 (old 上已有则沿用, 否则取注入值/默认).
         const injectedFlags = (typeof window.__SCI_FLAGS === 'object' && window.__SCI_FLAGS) ? window.__SCI_FLAGS : null;
         SCI.flags = (old && old.flags) || injectedFlags || { master: true, viz: true, dirty: true, exclude: true };
         SCI.setFlags = function (f) {
@@ -392,7 +390,6 @@ function buildResidentScript() {
             return (p && p.shadowRoot) ? p : null;
         };
 
-        // 当前选中节点 uuid (渲染进程可直接读 Editor.Selection)
         SCI.getSelUuid = function () {
             try {
                 const sel = Editor.Selection.curSelection('node');
@@ -400,7 +397,6 @@ function buildResidentScript() {
             } catch (e) { return null; }
         };
 
-        // M2a-3 硬化: 选中节点数 (多选时不渲染标记, 避免只对第一个打标的误导 + 不报错)
         SCI.getSelCount = function () {
             try {
                 const sel = Editor.Selection.curSelection('node');
@@ -408,13 +404,10 @@ function buildResidentScript() {
             } catch (e) { return 0; }
         };
 
-        // 行的显示名 (Polymer = _name, Vue = __vue__.name)
         SCI.rowDisplay = function (uiProp) {
             try { return uiProp._name || (uiProp.__vue__ && uiProp.__vue__.name) || ''; } catch (e) { return ''; }
         };
 
-        // 从一个 ui-prop 的 __vue__.target.path 抽组件序号 (__comps__.<idx>.<key>); 抽不出返回 -1.
-        // (inspector target.uuid 是 dump 包装对象不可用, 序号才是可靠桥)
         SCI.compIndexOfRow = function (uiProp) {
             try {
                 const v = uiProp.__vue__;
@@ -426,7 +419,6 @@ function buildResidentScript() {
             return -1;
         };
 
-        // 最近的 ui-section 元素 (穿透 shadow 向上)
         SCI.sectionOf = function (el) {
             let cur = el;
             for (let i = 0; i < 14 && cur; i++) {
@@ -439,7 +431,6 @@ function buildResidentScript() {
             return null;
         };
 
-        // 节流请求: uuid 变 或 距上次 > 600ms 才请求 (数据源变动靠 MutationObserver 触发 apply + 此节流刷新)
         SCI.maybeRequest = function (uuid) {
             const now = Date.now();
             if (uuid !== SCI.reqUuid || (now - SCI.lastReq) > 600) {
@@ -450,7 +441,6 @@ function buildResidentScript() {
             }
         };
 
-        // M1-2: 请求"各受控 propRef 跨状态差异 + 各状态值表" → 建 'scope|display' 行查找表
         SCI.requestSV = function (uuid) {
             try {
                 Editor.Ipc.sendToMain('state-controller-panel:inspector-req-state-values', { uuid: uuid },
@@ -473,147 +463,6 @@ function buildResidentScript() {
             } catch (e) {}
         };
 
-        // M1-2: 序列化值 → 简短可读字符串 (与 handlers.serializeStateValue 的 _t 标签对齐)
-        SCI.fmtVal = function (v) {
-            if (v === null || v === undefined) return '—';
-            const t = typeof v;
-            if (t === 'number') return (Math.round(v * 1000) / 1000) + '';
-            if (t === 'boolean' || t === 'string') return v + '';
-            if (t === 'object') {
-                if (v._t === 'Color') return 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + v.a + ')';
-                if (v._t === 'Vec2') return '(' + v.x + ', ' + v.y + ')';
-                if (v._t === 'Vec3') return '(' + v.x + ', ' + v.y + ', ' + v.z + ')';
-                if (v._t === 'Size') return v.width + '×' + v.height;
-                if (v._t === 'Quat') return '(' + v.x + ',' + v.y + ',' + v.z + ',' + v.w + ')';
-                if (v._t === 'Asset') return '' + v.id;
-            }
-            return '?';
-        };
-
-        // 单一色: ● 受状态机驱动 (跨状态有差异). 用户反馈: 双色 (蓝/琥珀) 易误解 → 统一蓝点.
-        SCI.SV_COLOR = '#5ab1ef';
-
-        // M1-2/M1-3: 贴/更新 ● 状态行为徽标. 独立于 P2b 排除徽标.
-        //   varies 或 override → 贴单色 ● (统一蓝); override (当前 state 值≠default) 额外加同色描边环 (非第二种颜色).
-        //   悬浮值表走自定义浮层 (SCI.showTip), 不用原生 title (原生有 ~0.5-1s 系统延迟 + 样式丑).
-        SCI.markStateBadge = function (row, svHit) {
-            let badge = null;
-            const kids = row.children;
-            for (let k = 0; k < kids.length; k++) {
-                if (kids[k].className === '__sci-sv-badge') { badge = kids[k]; break; }
-            }
-            const varies = !!(svHit && svHit.varies);
-            const override = !!(svHit && svHit.override);
-            if (varies || override) {
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = '__sci-sv-badge';
-                    badge.textContent = '●';
-                    row.insertBefore(badge, row.firstChild);
-                }
-                // 统一样式: 单色; override 加同色描边环 (box-shadow), 不引入第二种颜色
-                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;'
-                    + 'min-width:14px;height:14px;margin-right:3px;font-size:10px;line-height:1;'
-                    + 'flex:0 0 auto;pointer-events:auto;cursor:help;vertical-align:middle;box-sizing:border-box;'
-                    + 'border-radius:50%;color:' + SCI.SV_COLOR + ';'
-                    + (override ? 'box-shadow:0 0 0 2px rgba(90,177,239,0.45);' : '');
-                // 浮层数据挂在 badge 上 (showTip 读), 不写 title
-                badge.__sv = { refs: (svHit.refs || []), display: SCI.rowDisplay(row), override: override };
-            } else if (badge) {
-                if (SCI.tipFor === badge) SCI.hideTip();
-                badge.parentNode.removeChild(badge);
-            }
-        };
-
-        // ---- 自定义即时浮层 (替代慢的原生 title) ----
-        SCI.ensureTip = function () {
-            if (SCI.tip && SCI.tip.isConnected) return SCI.tip;
-            const t = document.createElement('div');
-            t.className = '__sci-sv-tip';
-            t.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;'
-                + 'background:#2b2b2b;color:#ddd;border:1px solid #444;border-radius:5px;'
-                + 'padding:7px 9px;font-size:11px;line-height:1.5;font-family:Menlo,Consolas,monospace;'
-                + 'box-shadow:0 4px 14px rgba(0,0,0,0.5);max-width:340px;white-space:nowrap;'
-                + 'display:none;opacity:0;transition:opacity 0.08s;';
-            document.body.appendChild(t);
-            SCI.tip = t;
-            return t;
-        };
-
-        // 把序列化值渲成 HTML (Color 带色块)
-        SCI.fmtValHTML = function (v) {
-            if (v && typeof v === 'object' && v._t === 'Color') {
-                const c = 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + (v.a / 255).toFixed(2) + ')';
-                return '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid #555;'
-                    + 'vertical-align:middle;margin-right:4px;background:' + c + '"></span>'
-                    + 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + v.a + ')';
-            }
-            return String(SCI.fmtVal(v)).replace(/</g, '&lt;');
-        };
-
-        SCI.buildTipHTML = function (sv) {
-            const props = (SCI.dataSV && SCI.dataSV.props) || null;
-            const states = (SCI.dataSV && SCI.dataSV.states) || null;
-            const selIdx = (SCI.dataSV && typeof SCI.dataSV.selectedIndex === 'number') ? SCI.dataSV.selectedIndex : -1;
-            let html = '<div style="font-weight:600;color:#fff;margin-bottom:4px">' + (sv.display || '') + '</div>';
-            if (!props || !states || !states.length) return html + '<div style="color:#888">无状态数据</div>';
-            html += '<table style="border-collapse:collapse">';
-            for (let s = 0; s < states.length; s++) {
-                const idx = states[s].index;
-                const isCur = idx === selIdx;
-                const parts = [];
-                for (let r = 0; r < sv.refs.length; r++) {
-                    const p = props[sv.refs[r]];
-                    if (!p) continue;
-                    const val = SCI.fmtValHTML(p.valueByState ? p.valueByState[idx] : undefined);
-                    parts.push(sv.refs.length > 1 ? (sv.refs[r].split('.').pop() + '=' + val) : val);
-                }
-                const nm = (states[s].name || ('S' + idx));
-                html += '<tr>'
-                    + '<td style="padding:1px 8px 1px 0;color:' + (isCur ? '#fff' : '#9aa') + ';font-weight:' + (isCur ? '600' : '400') + '">'
-                    + (isCur ? '▸ ' : '') + nm + '</td>'
-                    + '<td style="padding:1px 0;color:#cfe">' + (parts.join(', ') || '—') + '</td></tr>';
-            }
-            html += '</table>';
-            if (sv.override) html += '<div style="margin-top:4px;color:#e5a13a">⚑ 当前状态已覆盖 default</div>';
-            return html;
-        };
-
-        SCI.showTip = function (badge) {
-            if (!badge || !badge.__sv) return;
-            const t = SCI.ensureTip();
-            SCI.tipFor = badge;
-            t.innerHTML = SCI.buildTipHTML(badge.__sv);
-            t.style.display = 'block';
-            // 先显示再量尺寸, 定位在徽标右下, 越界则翻转
-            const r = badge.getBoundingClientRect();
-            const tw = t.offsetWidth, th = t.offsetHeight;
-            let left = r.right + 6, top = r.top;
-            if (left + tw > window.innerWidth - 8) left = Math.max(8, r.left - tw - 6);
-            if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
-            t.style.left = left + 'px';
-            t.style.top = top + 'px';
-            t.style.opacity = '1';
-        };
-
-        SCI.hideTip = function () {
-            SCI.tipFor = null;
-            if (SCI.tip) { SCI.tip.style.opacity = '0'; SCI.tip.style.display = 'none'; }
-        };
-
-        // M2a-1: 录制态脏行标记 — 琥珀左条 (inset box-shadow), 区别于 ● 蓝点 / ∅ 排除.
-        SCI.markDirtyRow = function (row, dirty) {
-            const had = row.getAttribute('data-sci-dirty') === '1';
-            if (dirty && !had) {
-                row.style.boxShadow = 'inset 3px 0 0 #e5a13a';
-                row.setAttribute('data-sci-dirty', '1');
-            } else if (!dirty && had) {
-                row.style.boxShadow = '';
-                row.removeAttribute('data-sci-dirty');
-            }
-        };
-
-        // 向主进程要"选中节点上非全受控的行" → 转 scene → 回 items, 建 'scope|display' 查找表
         SCI.request = function (uuid) {
             try {
                 Editor.Ipc.sendToMain('state-controller-panel:inspector-req-status', { uuid: uuid },
@@ -631,51 +480,225 @@ function buildResidentScript() {
             } catch (e) {}
         };
 
-        // 贴/更新标记 (kind: excluded|loose|mixed|null). 受控行 = null = 不打标 (语义反转)
-        SCI.markRow = function (row, kind, refs) {
-            let badge = null;
-            const kids = row.children;
-            for (let k = 0; k < kids.length; k++) {
-                if (kids[k].className === '__sci-badge') { badge = kids[k]; break; }
+        SCI.fmtVal = function (v) {
+            if (v === null || v === undefined) return '—';
+            const t = typeof v;
+            if (t === 'number') return (Math.round(v * 1000) / 1000) + '';
+            if (t === 'boolean' || t === 'string') return v + '';
+            if (t === 'object') {
+                if (v._t === 'Color') return 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + v.a + ')';
+                if (v._t === 'Vec2') return '(' + v.x + ', ' + v.y + ')';
+                if (v._t === 'Vec3') return '(' + v.x + ', ' + v.y + ', ' + v.z + ')';
+                if (v._t === 'Size') return v.width + '×' + v.height;
+                if (v._t === 'Quat') return '(' + v.x + ',' + v.y + ',' + v.z + ',' + v.w + ')';
+                if (v._t === 'Asset') return '' + v.id;
             }
-            const refStr = (refs && refs.length) ? refs.join(', ') : '';
-            if (kind === 'excluded' || kind === 'loose' || kind === 'mixed') {
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = '__sci-badge';
-                    // 贴属性名左侧: 每种行都有左侧空间, 不被值框/编辑按钮/Vec 子输入抢位.
-                    // 放大命中区 (padding+min-width) 让 hover/点击更好触发; cursor:help 暗示可悬停.
-                    badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;'
-                        + 'min-width:18px;height:18px;padding:0 4px;margin-right:3px;border-radius:3px;'
-                        + 'font-size:13px;line-height:1;flex:0 0 auto;pointer-events:auto;cursor:pointer;'
-                        + 'vertical-align:middle;box-sizing:border-box;';
-                    row.insertBefore(badge, row.firstChild);
+            return '?';
+        };
+
+        SCI.fmtValHTML = function (v) {
+            if (v && typeof v === 'object' && v._t === 'Color') {
+                const c = 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + (v.a / 255).toFixed(2) + ')';
+                return '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid #555;'
+                    + 'vertical-align:middle;margin-right:4px;background:' + c + '"></span>'
+                    + '<span style="vertical-align:middle">rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + v.a + ')</span>';
+            }
+            return '<span style="vertical-align:middle">' + String(SCI.fmtVal(v)).replace(/</g, '&lt;') + '</span>';
+        };
+
+        SCI.ensureTip = function () {
+            if (SCI.tip && SCI.tip.isConnected) return SCI.tip;
+            const t = document.createElement('div');
+            t.className = '__sci-sv-tip';
+            t.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;'
+                + 'background:#252525;border:1px solid #444;border-radius:6px;'
+                + 'box-shadow:0 8px 24px rgba(0,0,0,0.6);font-family:Menlo,Monaco,"Courier New",monospace;'
+                + 'font-size:12px;line-height:1.4;display:none;opacity:0;transition:opacity 0.1s ease-in-out;'
+                + 'width:360px;flex-direction:column;overflow:hidden;';
+            document.body.appendChild(t);
+            SCI.tip = t;
+            return t;
+        };
+
+        SCI.buildTipHTML = function (badgeData) {
+            const isExcluded = badgeData.kind === 'excluded';
+            const isLoose = badgeData.kind === 'loose';
+            const isMixed = badgeData.kind === 'mixed';
+            
+            let badgeHTML = '';
+            if (isExcluded) badgeHTML = '<span style="background:rgba(136,136,136,0.2);color:#aaa;border:1px solid rgba(136,136,136,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">已排除</span>';
+            else if (isLoose) badgeHTML = '<span style="background:rgba(224,86,86,0.2);color:#e05656;border:1px solid rgba(224,86,86,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">未受控</span>';
+            else if (isMixed) badgeHTML = '<span style="background:rgba(229,161,58,0.2);color:#e5a13a;border:1px solid rgba(229,161,58,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">部分未受控</span>';
+            else if (badgeData.override) badgeHTML = '<span style="background:rgba(229,161,58,0.2);color:#e5a13a;border:1px solid rgba(229,161,58,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">已覆盖 Default</span>';
+            else if (badgeData.varies) badgeHTML = '<span style="background:rgba(90,177,239,0.2);color:#5ab1ef;border:1px solid rgba(90,177,239,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">状态驱动</span>';
+
+            const display = badgeData.display || (badgeData.refs && badgeData.refs[0]) || 'Property';
+
+            let html = '<div style="background:#333;padding:8px 12px;border-bottom:1px solid #444;display:flex;justify-content:space-between;align-items:center;">'
+                     + '<div style="font-weight:bold;color:#fff;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + display + '</div>'
+                     + '<div style="flex-shrink:0;">' + badgeHTML + '</div>'
+                     + '</div>'
+                     + '<div style="padding:8px 12px;max-height:300px;overflow-y:auto;display:block;">';
+
+            if (!badgeData.refs || !badgeData.refs.length) {
+                html += '<div style="color:#888;font-size:12px;">无状态数据</div></div>';
+                return html;
+            }
+
+            const props = (SCI.dataSV && SCI.dataSV.props) || null;
+            const states = (SCI.dataSV && SCI.dataSV.states) || null;
+            const selIdx = (SCI.dataSV && typeof SCI.dataSV.selectedIndex === 'number') ? SCI.dataSV.selectedIndex : -1;
+
+            if (!props || !states || !states.length) {
+                html += '<div style="color:#888;font-size:12px;">无状态数据</div></div>';
+                return html;
+            }
+
+            html += '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;margin:0;padding:0;">';
+            for (let s = 0; s < states.length; s++) {
+                const idx = states[s].index;
+                const isCur = idx === selIdx;
+                const nm = states[s].name || ('S' + idx);
+                
+                let valHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px 8px;">';
+                let hasVal = false;
+                for (let r = 0; r < badgeData.refs.length; r++) {
+                    const p = props[badgeData.refs[r]];
+                    if (!p) continue;
+                    const rawVal = p.valueByState ? p.valueByState[idx] : undefined;
+                    const vStr = SCI.fmtValHTML(rawVal);
+                    const keyPrefix = badgeData.refs.length > 1 ? '<span style="color:#777;">' + badgeData.refs[r].split('.').pop() + '=</span>' : '';
+                    valHTML += '<span style="display:inline-flex;align-items:center;line-height:1.4;">' + keyPrefix + vStr + '</span>';
+                    hasVal = true;
                 }
-                // 点击切换用: 记下这行的 propRef 列表 + 当前身份 (onClick 读取)
-                badge.setAttribute('data-refs', (refs || []).join(','));
-                badge.setAttribute('data-kind', kind);
-                if (kind === 'excluded') {
-                    badge.textContent = '∅'; badge.style.color = '#888'; badge.style.opacity = '0.9';
-                    badge.title = '已排除 · 点击恢复跟踪 · ' + refStr; row.style.opacity = '0.5';
-                } else if (kind === 'loose') {
-                    badge.textContent = '!'; badge.style.color = '#e5c07b'; badge.style.opacity = '0.95';
-                    badge.title = '未受控 (可能掉出控制) · 点击加入排除清单 · ' + refStr; row.style.opacity = '';
-                } else {
-                    badge.textContent = '◐'; badge.style.color = '#d8a657'; badge.style.opacity = '0.95';
-                    badge.title = '部分子项未受控/排除 · 点击全部排除 · ' + refStr; row.style.opacity = '';
-                }
-            } else {
-                if (badge) badge.parentNode.removeChild(badge);
-                if (row.style.opacity) row.style.opacity = '';
+                if (!hasVal) valHTML += '<span style="color:#777;line-height:1.4;">—</span>';
+                valHTML += '</div>';
+
+                html += '<tr>'
+                      + '<td style="width:120px;padding:6px 8px 6px 0;vertical-align:top;border-bottom:1px solid #333;">'
+                      +   '<div style="display:flex;align-items:flex-start;">'
+                      +     '<span style="width:14px;flex-shrink:0;color:#5ab1ef;font-weight:bold;line-height:1.4;">' + (isCur ? '▸' : '') + '</span>'
+                      +     '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4;color:' + (isCur ? '#fff' : '#999') + ';font-weight:' + (isCur ? 'bold' : 'normal') + ';" title="' + nm.replace(/"/g, '&quot;') + '">' + nm + '</span>'
+                      +   '</div>'
+                      + '</td>'
+                      + '<td style="padding:6px 0;vertical-align:top;color:#9cdcfe;border-bottom:1px solid #333;word-wrap:break-word;">'
+                      +   valHTML
+                      + '</td>'
+                      + '</tr>';
+            }
+            html += '</table></div>';
+            return html;
+        };
+
+        SCI.showTip = function (container) {
+            if (!container || !container.__badgeData) return;
+            const t = SCI.ensureTip();
+            SCI.tipFor = container;
+            t.innerHTML = SCI.buildTipHTML(container.__badgeData);
+            t.style.display = 'flex';
+            const r = container.getBoundingClientRect();
+            const tw = t.offsetWidth, th = t.offsetHeight;
+            let left = r.right + 6, top = r.top;
+            if (left + tw > window.innerWidth - 8) left = Math.max(8, r.left - tw - 6);
+            if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
+            t.style.left = left + 'px';
+            t.style.top = top + 'px';
+            t.style.opacity = '1';
+        };
+
+        SCI.hideTip = function () {
+            SCI.tipFor = null;
+            if (SCI.tip) {
+                SCI.tip.style.opacity = '0';
+                setTimeout(function() {
+                    if (!SCI.tipFor && SCI.tip) SCI.tip.style.display = 'none';
+                }, 120);
             }
         };
 
-        // 点击标记 → 切换排除. ∅(已排除)→恢复跟踪; !/◐(未受控/部分)→加入排除.
+        SCI.updateRowStatus = function(row, kind, refs, svHit, flags) {
+            let container = null;
+            const kids = row.children;
+            for (let k = 0; k < kids.length; k++) {
+                if (kids[k].className === '__sci-indicator') { container = kids[k]; break; }
+            }
+
+            const isExcluded = flags.exclude && kind === 'excluded';
+            const isLoose = flags.exclude && kind === 'loose';
+            const isMixed = flags.exclude && kind === 'mixed';
+            
+            const varies = flags.viz && svHit && svHit.varies;
+            const override = flags.viz && svHit && svHit.override;
+            const isDirty = flags.dirty && svHit && svHit.dirty;
+
+            if (!isExcluded && !isLoose && !isMixed && !varies && !override && !isDirty) {
+                if (container) {
+                    if (SCI.tipFor === container) SCI.hideTip();
+                    container.parentNode.removeChild(container);
+                }
+                row.style.opacity = '';
+                row.removeAttribute('data-sci-dirty');
+                return;
+            }
+
+            if (!container) {
+                container = document.createElement('div');
+                container.className = '__sci-indicator';
+                container.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;'
+                    + 'width:18px;align-self:stretch;position:relative;'
+                    + 'flex:0 0 auto;cursor:pointer;user-select:none;'
+                    + 'box-sizing:border-box;margin-right:2px;';
+                row.insertBefore(container, row.firstChild);
+            }
+
+            container.setAttribute('data-refs', (refs || []).join(','));
+            container.setAttribute('data-kind', kind || '');
+            
+            container.__badgeData = {
+                kind: kind,
+                refs: refs || (svHit && svHit.refs) || [],
+                display: SCI.rowDisplay(row),
+                varies: varies,
+                override: override,
+                dirty: isDirty
+            };
+
+            let svg = '';
+            if (isExcluded) {
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="#888" stroke-width="1.5"/><line x1="4" y1="4" x2="12" y2="12" stroke="#888" stroke-width="1.5"/></svg>';
+                row.style.opacity = '0.5';
+            } else if (isLoose) {
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 1 L15 13 H1 Z" fill="none" stroke="#e05656" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="10" stroke="#e05656" stroke-width="1.5"/><circle cx="8" cy="12" r="0.8" fill="#e05656"/></svg>';
+                row.style.opacity = '';
+            } else if (isMixed) {
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="#e5a13a" stroke-width="1.5"/><path d="M8 2 A 6 6 0 0 1 8 14 Z" fill="#e5a13a"/></svg>';
+                row.style.opacity = '';
+            } else if (varies || override) {
+                if (override) {
+                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4" fill="#5ab1ef"/><circle cx="8" cy="8" r="6.5" fill="none" stroke="#e5a13a" stroke-width="1.5"/></svg>';
+                } else {
+                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4.5" fill="#5ab1ef"/></svg>';
+                }
+                row.style.opacity = '';
+            } else {
+                row.style.opacity = '';
+            }
+
+            container.innerHTML = svg;
+
+            if (isDirty) {
+                container.style.boxShadow = 'inset 3px 0 0 #e5a13a';
+                row.setAttribute('data-sci-dirty', '1');
+            } else {
+                container.style.boxShadow = 'none';
+                row.removeAttribute('data-sci-dirty');
+            }
+        };
+
         SCI.onClick = function (e) {
             let el = e.target, badge = null;
             for (let i = 0; i < 6 && el; i++) {
-                const cls = el.className && el.className.toString ? el.className.toString() : '';
-                if (cls.indexOf('__sci-badge') >= 0) { badge = el; break; }
+                if (el.className === '__sci-indicator') { badge = el; break; }
                 el = el.parentElement;
             }
             if (!badge) return;
@@ -683,21 +706,20 @@ function buildResidentScript() {
             if (e.preventDefault) e.preventDefault();
             const refs = (badge.getAttribute('data-refs') || '').split(',').filter(Boolean);
             const kind = badge.getAttribute('data-kind');
-            if (!refs.length) return;
+            if (!refs.length || !kind || kind === 'null') return;
             const action = (kind === 'excluded') ? 'unexclude' : 'exclude';
             const uuid = SCI.getSelUuid();
             if (!uuid) return;
             try {
                 Editor.Ipc.sendToMain('state-controller-panel:inspector-toggle-exclude',
                     { uuid: uuid, refs: refs, action: action },
-                    function () { SCI.reqUuid = null; SCI.lastReq = 0; SCI.apply(); }); // 强制重拉刷新
+                    function () { SCI.reqUuid = null; SCI.lastReq = 0; SCI.apply(); });
             } catch (err) {}
         };
 
-        // 清掉面板内所有标记 (badge + 行样式), 多选/master 关 时复用.
         SCI.wipeMarks = function (panel) {
             SCI.hideTip();
-            const old = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
+            const old = panel.shadowRoot.querySelectorAll('.__sci-indicator');
             for (let i = 0; i < old.length; i++) old[i].remove();
             const rws = panel.shadowRoot.querySelectorAll('ui-prop');
             for (let j = 0; j < rws.length; j++) {
@@ -709,7 +731,6 @@ function buildResidentScript() {
         SCI.apply = function () {
             const panel = SCI.getPanel();
             if (!panel || !SCI.enabled) return;
-            // M2a-2: master 总开关关 → 清标记跳过. M2a-3: 多选 → 同样清标记跳过 (不误导/不报错).
             if (!SCI.flags.master || SCI.getSelCount() > 1) {
                 SCI.wipeMarks(panel);
                 SCI.connect();
@@ -722,8 +743,7 @@ function buildResidentScript() {
                 const map = (SCI.data && SCI.data.uuid === uuid) ? SCI.data.map : null;
                 const svMap = (SCI.dataSV && SCI.dataSV.uuid === uuid) ? SCI.dataSV.map : null;
                 const lis = panel.shadowRoot.querySelectorAll('ui-prop');
-                // 1) 先给每个 ui-section 定组件序号: 扫该段内任一带 path 的 ui-prop (Script/Blend/Materials 等)
-                const secScope = new Map();   // sectionEl -> compIndex
+                const secScope = new Map();
                 for (let i = 0; i < lis.length; i++) {
                     const ci = SCI.compIndexOfRow(lis[i]);
                     if (ci >= 0) {
@@ -731,7 +751,6 @@ function buildResidentScript() {
                         if (sec && !secScope.has(sec)) secScope.set(sec, ci);
                     }
                 }
-                // 2) 逐行打标: 组件行用段序号, 否则 'node' 段
                 for (let i = 0; i < lis.length; i++) {
                     const row = lis[i];
                     let kind = null, refs = null, svHit = null;
@@ -743,10 +762,7 @@ function buildResidentScript() {
                         if (map) { const hit = map[key]; if (hit) { kind = hit.kind; refs = hit.refs; } }
                         if (svMap) svHit = svMap[key] || null;
                     }
-                    // M2a-2: 各特性按 flags 门控 (关掉的特性传 null/false → 对应标记不渲染/被移除)
-                    SCI.markRow(row, SCI.flags.exclude ? kind : null, refs);              // P2b 排除徽标 (∅/!/◐)
-                    SCI.markStateBadge(row, SCI.flags.viz ? svHit : null);                // M1-2/M1-3 ● 状态行为徽标
-                    SCI.markDirtyRow(row, SCI.flags.dirty && !!(svHit && svHit.dirty));   // M2a-1 录制脏行 琥珀左条
+                    SCI.updateRowStatus(row, kind, refs, svHit, SCI.flags);
                 }
             } finally {
                 SCI.connect();
@@ -757,20 +773,18 @@ function buildResidentScript() {
             const panel = SCI.getPanel();
             if (!panel) return;
             const sr = panel.shadowRoot;
-            // 点击委托 (挂 shadowRoot, capture; 同一 sr 只绑一次, wrapper 动态调 onClick 以便版本热更)
             if (!sr.__sciClick) {
                 sr.addEventListener('click', function (e) {
                     const f = window.__SCI && window.__SCI.onClick; if (f) f(e);
                 }, true);
                 sr.__sciClick = true;
             }
-            // 即时浮层委托 (mouseover/mouseout 冒泡; 命中 sv-badge 立刻显/隐, 无原生 title 延迟)
             if (!sr.__sciHover) {
                 sr.addEventListener('mouseover', function (e) {
                     const S = window.__SCI; if (!S) return;
                     let el = e.target, badge = null;
                     for (let i = 0; i < 5 && el; i++) {
-                        if (el.className === '__sci-sv-badge') { badge = el; break; }
+                        if (el.className === '__sci-indicator') { badge = el; break; }
                         el = el.parentElement;
                     }
                     if (badge) S.showTip(badge);
@@ -779,7 +793,7 @@ function buildResidentScript() {
                     const S = window.__SCI; if (!S) return;
                     let el = e.target, badge = null;
                     for (let i = 0; i < 5 && el; i++) {
-                        if (el.className === '__sci-sv-badge') { badge = el; break; }
+                        if (el.className === '__sci-indicator') { badge = el; break; }
                         el = el.parentElement;
                     }
                     if (badge && S.tipFor === badge) S.hideTip();
@@ -805,7 +819,7 @@ function buildResidentScript() {
             if (SCI.tip && SCI.tip.parentNode) { try { SCI.tip.parentNode.removeChild(SCI.tip); } catch (e) {} SCI.tip = null; }
             const panel = SCI.getPanel();
             if (panel) {
-                const bs = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
+                const bs = panel.shadowRoot.querySelectorAll('.__sci-indicator');
                 for (let i = 0; i < bs.length; i++) bs[i].remove();
                 const rows = panel.shadowRoot.querySelectorAll('ui-prop');
                 for (let j = 0; j < rows.length; j++) {
@@ -818,7 +832,6 @@ function buildResidentScript() {
             SCI.dataSV = null;
         };
 
-        // 等 inspector 面板就绪 (可能晚于注入)
         let tries = 0;
         (function wait() {
             if (SCI.getPanel()) { SCI.enabled = true; SCI.connect(); SCI.apply(); return; }
@@ -849,27 +862,23 @@ function normalizeFlags(flags) {
     return f;
 }
 
-/** P1/P2a/M2a-2: 开启 inspector 标记 (注入常驻脚本). flags 决定各特性开关 (master/viz/dirty/exclude). */
 function enableInspectorMark(flags) {
     const f = normalizeFlags(flags);
-    // 把 flags 作为 window.__SCI_FLAGS 前置注入, 常驻脚本读它初始化 SCI.flags
     forEachWCSimple('window.__SCI_FLAGS = ' + JSON.stringify(f) + ';');
     forEachWCSimple(RESIDENT_SCRIPT);
-    // 已注入的版本(热更同版本走 same-version 分支不读 __SCI_FLAGS)→ 再推一次 setFlags 保证生效
     forEachWCSimple('window.__SCI && window.__SCI.setFlags && window.__SCI.setFlags(' + JSON.stringify(f) + ');');
     Editor.log('[sc-inspector] Inspector 增强已开 (M1+M2a+P2b). flags=' + JSON.stringify(f)
-        + '\n  ● 蓝 = 受状态机驱动 (跨状态有差异); 带描边环 = 当前 state 已覆盖 default. hover 即时弹各状态值表;'
-        + '\n  琥珀左条 = 录制中改过未提交 (脏);'
-        + '\n  ∅ 灰 = 已排除(整行变暗); ! 黄 = 未受控(掉出控制); ◐ = 部分. 点徽标切换排除.');
+        + '\n  视觉系统重构: 统一左侧提示容器, 支持 Hover 呈现多状态值表。'
+        + '\n  ● 蓝点 = 状态机驱动; 蓝点套黄环 = 当前 state 覆盖 default;'
+        + '\n  琥珀色左边框 = 录制脏值;'
+        + '\n  ⊘ 灰 = 已排除; ⚠ 红 = 掉出控制; ◐ 黄 = 部分子项未受控。');
 }
 
-/** M2a-2: 实时更新各特性开关 (面板 toggle 调用, 无需重注入). */
 function setInspectorFlags(flags) {
     const f = normalizeFlags(flags);
     forEachWCSimple('window.__SCI && window.__SCI.setFlags && window.__SCI.setFlags(' + JSON.stringify(f) + ');');
 }
 
-/** P1: 关闭 inspector 徽标 (撤销注入). 同步, 不等 IPC. */
 function disableInspectorMark() {
     forEachWCSimple('window.__SCI && window.__SCI.clear && window.__SCI.clear()');
     Editor.log('[sc-inspector] Inspector 增强已关 (徽标已撤)');
