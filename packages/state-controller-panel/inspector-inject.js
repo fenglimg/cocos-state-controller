@@ -346,7 +346,7 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 7;
+        const VER = 8;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
@@ -437,17 +437,18 @@ function buildResidentScript() {
                 Editor.Ipc.sendToMain('state-controller-panel:inspector-req-state-values', { uuid: uuid },
                     function (err, res) {
                         const map = {};
-                        let props = null, states = null;
+                        let props = null, states = null, selectedIndex = -1;
                         if (!err && res && res.ok && res.hasSelect) {
                             props = res.props || {};
                             states = res.states || [];
+                            selectedIndex = (typeof res.selectedIndex === 'number') ? res.selectedIndex : -1;
                             const rows = res.rows || [];
                             for (let i = 0; i < rows.length; i++) {
                                 const it = rows[i];
                                 map[it.scope + '|' + it.display] = { varies: !!it.variesAcrossStates, override: !!it.overriddenAtCurrent, refs: it.refs };
                             }
                         }
-                        SCI.dataSV = { uuid: uuid, map: map, props: props, states: states };
+                        SCI.dataSV = { uuid: uuid, map: map, props: props, states: states, selectedIndex: selectedIndex };
                         SCI.apply();
                     });
             } catch (e) {}
@@ -470,32 +471,12 @@ function buildResidentScript() {
             return '?';
         };
 
-        // M1-2: 组 hover 文本 (各 state 一行: "state名: 值"; 多 ref 行用 leaf key 短名拼).
-        SCI.buildSVHover = function (display, refs, props, states) {
-            if (!props || !states || !states.length) return display;
-            const lines = [display + ' · 各状态值:'];
-            for (let s = 0; s < states.length; s++) {
-                const idx = states[s].index;
-                const parts = [];
-                for (let r = 0; r < refs.length; r++) {
-                    const p = props[refs[r]];
-                    if (!p) continue;
-                    const val = SCI.fmtVal(p.valueByState ? p.valueByState[idx] : undefined);
-                    if (refs.length > 1) {
-                        const leaf = refs[r].split('.').pop();
-                        parts.push(leaf + '=' + val);
-                    } else {
-                        parts.push(val);
-                    }
-                }
-                lines.push('  ' + (states[s].name || ('S' + idx)) + ': ' + (parts.join(', ') || '—'));
-            }
-            return lines.join('\n');
-        };
+        // 单一色: ● 受状态机驱动 (跨状态有差异). 用户反馈: 双色 (蓝/琥珀) 易误解 → 统一蓝点.
+        SCI.SV_COLOR = '#5ab1ef';
 
         // M1-2/M1-3: 贴/更新 ● 状态行为徽标. 独立于 P2b 排除徽标.
-        //   varies (跨状态有差异) → 蓝 ●; override (当前 state 值≠default) → 琥珀 ● (覆盖高亮, M1-3).
-        //   两者皆无 → 不贴. override 优先着色 (它是"此刻"的动态信号).
+        //   varies 或 override → 贴单色 ● (统一蓝); override (当前 state 值≠default) 额外加同色描边环 (非第二种颜色).
+        //   悬浮值表走自定义浮层 (SCI.showTip), 不用原生 title (原生有 ~0.5-1s 系统延迟 + 样式丑).
         SCI.markStateBadge = function (row, svHit) {
             let badge = null;
             const kids = row.children;
@@ -508,22 +489,97 @@ function buildResidentScript() {
                 if (!badge) {
                     badge = document.createElement('span');
                     badge.className = '__sci-sv-badge';
-                    badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;'
-                        + 'min-width:14px;height:14px;margin-right:3px;font-size:10px;line-height:1;'
-                        + 'flex:0 0 auto;pointer-events:auto;cursor:help;vertical-align:middle;box-sizing:border-box;';
                     badge.textContent = '●';
                     row.insertBefore(badge, row.firstChild);
                 }
-                badge.style.color = override ? '#e5a13a' : '#5ab1ef';  // 琥珀=覆盖 default; 蓝=仅跨状态差异
-                const props = (SCI.dataSV && SCI.dataSV.props) || null;
-                const states = (SCI.dataSV && SCI.dataSV.states) || null;
-                const display = SCI.rowDisplay(row);
-                let tip = SCI.buildSVHover(display, svHit.refs || [], props, states);
-                if (override) tip += '\n⚑ 当前状态已覆盖 default';
-                badge.title = tip;
+                // 统一样式: 单色; override 加同色描边环 (box-shadow), 不引入第二种颜色
+                badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;'
+                    + 'min-width:14px;height:14px;margin-right:3px;font-size:10px;line-height:1;'
+                    + 'flex:0 0 auto;pointer-events:auto;cursor:help;vertical-align:middle;box-sizing:border-box;'
+                    + 'border-radius:50%;color:' + SCI.SV_COLOR + ';'
+                    + (override ? 'box-shadow:0 0 0 2px rgba(90,177,239,0.45);' : '');
+                // 浮层数据挂在 badge 上 (showTip 读), 不写 title
+                badge.__sv = { refs: (svHit.refs || []), display: SCI.rowDisplay(row), override: override };
             } else if (badge) {
+                if (SCI.tipFor === badge) SCI.hideTip();
                 badge.parentNode.removeChild(badge);
             }
+        };
+
+        // ---- 自定义即时浮层 (替代慢的原生 title) ----
+        SCI.ensureTip = function () {
+            if (SCI.tip && SCI.tip.isConnected) return SCI.tip;
+            const t = document.createElement('div');
+            t.className = '__sci-sv-tip';
+            t.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;'
+                + 'background:#2b2b2b;color:#ddd;border:1px solid #444;border-radius:5px;'
+                + 'padding:7px 9px;font-size:11px;line-height:1.5;font-family:Menlo,Consolas,monospace;'
+                + 'box-shadow:0 4px 14px rgba(0,0,0,0.5);max-width:340px;white-space:nowrap;'
+                + 'display:none;opacity:0;transition:opacity 0.08s;';
+            document.body.appendChild(t);
+            SCI.tip = t;
+            return t;
+        };
+
+        // 把序列化值渲成 HTML (Color 带色块)
+        SCI.fmtValHTML = function (v) {
+            if (v && typeof v === 'object' && v._t === 'Color') {
+                const c = 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + (v.a / 255).toFixed(2) + ')';
+                return '<span style="display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid #555;'
+                    + 'vertical-align:middle;margin-right:4px;background:' + c + '"></span>'
+                    + 'rgba(' + v.r + ',' + v.g + ',' + v.b + ',' + v.a + ')';
+            }
+            return String(SCI.fmtVal(v)).replace(/</g, '&lt;');
+        };
+
+        SCI.buildTipHTML = function (sv) {
+            const props = (SCI.dataSV && SCI.dataSV.props) || null;
+            const states = (SCI.dataSV && SCI.dataSV.states) || null;
+            const selIdx = (SCI.dataSV && typeof SCI.dataSV.selectedIndex === 'number') ? SCI.dataSV.selectedIndex : -1;
+            let html = '<div style="font-weight:600;color:#fff;margin-bottom:4px">' + (sv.display || '') + '</div>';
+            if (!props || !states || !states.length) return html + '<div style="color:#888">无状态数据</div>';
+            html += '<table style="border-collapse:collapse">';
+            for (let s = 0; s < states.length; s++) {
+                const idx = states[s].index;
+                const isCur = idx === selIdx;
+                const parts = [];
+                for (let r = 0; r < sv.refs.length; r++) {
+                    const p = props[sv.refs[r]];
+                    if (!p) continue;
+                    const val = SCI.fmtValHTML(p.valueByState ? p.valueByState[idx] : undefined);
+                    parts.push(sv.refs.length > 1 ? (sv.refs[r].split('.').pop() + '=' + val) : val);
+                }
+                const nm = (states[s].name || ('S' + idx));
+                html += '<tr>'
+                    + '<td style="padding:1px 8px 1px 0;color:' + (isCur ? '#fff' : '#9aa') + ';font-weight:' + (isCur ? '600' : '400') + '">'
+                    + (isCur ? '▸ ' : '') + nm + '</td>'
+                    + '<td style="padding:1px 0;color:#cfe">' + (parts.join(', ') || '—') + '</td></tr>';
+            }
+            html += '</table>';
+            if (sv.override) html += '<div style="margin-top:4px;color:#e5a13a">⚑ 当前状态已覆盖 default</div>';
+            return html;
+        };
+
+        SCI.showTip = function (badge) {
+            if (!badge || !badge.__sv) return;
+            const t = SCI.ensureTip();
+            SCI.tipFor = badge;
+            t.innerHTML = SCI.buildTipHTML(badge.__sv);
+            t.style.display = 'block';
+            // 先显示再量尺寸, 定位在徽标右下, 越界则翻转
+            const r = badge.getBoundingClientRect();
+            const tw = t.offsetWidth, th = t.offsetHeight;
+            let left = r.right + 6, top = r.top;
+            if (left + tw > window.innerWidth - 8) left = Math.max(8, r.left - tw - 6);
+            if (top + th > window.innerHeight - 8) top = Math.max(8, window.innerHeight - th - 8);
+            t.style.left = left + 'px';
+            t.style.top = top + 'px';
+            t.style.opacity = '1';
+        };
+
+        SCI.hideTip = function () {
+            SCI.tipFor = null;
+            if (SCI.tip) { SCI.tip.style.opacity = '0'; SCI.tip.style.display = 'none'; }
         };
 
         // 向主进程要"选中节点上非全受控的行" → 转 scene → 回 items, 建 'scope|display' 查找表
@@ -657,6 +713,28 @@ function buildResidentScript() {
                 }, true);
                 sr.__sciClick = true;
             }
+            // 即时浮层委托 (mouseover/mouseout 冒泡; 命中 sv-badge 立刻显/隐, 无原生 title 延迟)
+            if (!sr.__sciHover) {
+                sr.addEventListener('mouseover', function (e) {
+                    const S = window.__SCI; if (!S) return;
+                    let el = e.target, badge = null;
+                    for (let i = 0; i < 5 && el; i++) {
+                        if (el.className === '__sci-sv-badge') { badge = el; break; }
+                        el = el.parentElement;
+                    }
+                    if (badge) S.showTip(badge);
+                }, true);
+                sr.addEventListener('mouseout', function (e) {
+                    const S = window.__SCI; if (!S) return;
+                    let el = e.target, badge = null;
+                    for (let i = 0; i < 5 && el; i++) {
+                        if (el.className === '__sci-sv-badge') { badge = el; break; }
+                        el = el.parentElement;
+                    }
+                    if (badge && S.tipFor === badge) S.hideTip();
+                }, true);
+                sr.__sciHover = true;
+            }
             if (!SCI.observer) {
                 SCI.observer = new MutationObserver(function () {
                     if (SCI.raf) cancelAnimationFrame(SCI.raf);
@@ -672,6 +750,8 @@ function buildResidentScript() {
         SCI.clear = function () {
             SCI.enabled = false;
             if (SCI.observer) { try { SCI.observer.disconnect(); } catch (e) {} }
+            SCI.hideTip();
+            if (SCI.tip && SCI.tip.parentNode) { try { SCI.tip.parentNode.removeChild(SCI.tip); } catch (e) {} SCI.tip = null; }
             const panel = SCI.getPanel();
             if (panel) {
                 const bs = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
@@ -712,7 +792,7 @@ function forEachWCSimple(script) {
 function enableInspectorMark() {
     forEachWCSimple(RESIDENT_SCRIPT);
     Editor.log('[sc-inspector] Inspector 增强已开 (M1+P2b). 选中带 StateSelect 的节点:'
-        + '\n  ● 蓝 = 受状态机驱动 (跨状态有差异), hover 看各状态值表;'
+        + '\n  ● 蓝 = 受状态机驱动 (跨状态有差异); 带描边环 = 当前 state 已覆盖 default. hover 即时弹各状态值表;'
         + '\n  ∅ 灰 = 已排除(整行变暗); ! 黄 = 未受控(掉出控制); ◐ = 部分. 点徽标切换排除.');
 }
 
