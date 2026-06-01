@@ -17,6 +17,11 @@ const KNOWN_PROPS = [
 
 module.exports = {
     $: {
+        chkInspectorMaster: '#chk-inspector-master',
+        chkInspectorViz: '#chk-inspector-viz',
+        chkInspectorDirty: '#chk-inspector-dirty',
+        chkInspectorExclude: '#chk-inspector-exclude',
+        inspectorSubToggles: '#inspector-sub-toggles',
         btnInstallCore: '#btn-install-core',
         statesList: '#states-list',
         btnAddState: '#btn-add-state',
@@ -50,6 +55,7 @@ module.exports = {
         this.folded = { followed: false, ready: false };
         this._initialFetch = true;
 
+        this._fetchInspectorFlags();
         this._bindEvents();
 
         setTimeout(() => {
@@ -119,6 +125,58 @@ module.exports = {
         this.$btnReadyToggle.addEventListener('click', () => {
             this.folded.ready = !this.folded.ready;
             this.renderProps();
+        });
+
+        this.$chkInspectorMaster.addEventListener('change', () => {
+            const isMasterOn = this.$chkInspectorMaster.checked;
+            this._updateInspectorSubToggles();
+            if (isMasterOn) {
+                Editor.Ipc.sendToMain('state-controller-panel:inspector-mark-on');
+            } else {
+                Editor.Ipc.sendToMain('state-controller-panel:inspector-mark-off');
+            }
+        });
+
+        const onSubFlagChange = () => {
+            if (!this.$chkInspectorMaster.checked) return;
+            this._syncInspectorSubFlags();
+        };
+
+        this.$chkInspectorViz.addEventListener('change', onSubFlagChange);
+        this.$chkInspectorDirty.addEventListener('change', onSubFlagChange);
+        this.$chkInspectorExclude.addEventListener('change', onSubFlagChange);
+    },
+
+    _fetchInspectorFlags() {
+        Editor.Ipc.sendToMain('state-controller-panel:inspector-get-flags', (err, flags) => {
+            if (err) {
+                Editor.warn('Failed to get inspector flags:', err);
+                return;
+            }
+            if (flags) {
+                this.$chkInspectorMaster.checked = !!flags.master;
+                this.$chkInspectorViz.checked = !!flags.viz;
+                this.$chkInspectorDirty.checked = !!flags.dirty;
+                this.$chkInspectorExclude.checked = !!flags.exclude;
+                this._updateInspectorSubToggles();
+            }
+        });
+    },
+
+    _updateInspectorSubToggles() {
+        const isMasterOn = this.$chkInspectorMaster.checked;
+        this.$chkInspectorViz.disabled = !isMasterOn;
+        this.$chkInspectorDirty.disabled = !isMasterOn;
+        this.$chkInspectorExclude.disabled = !isMasterOn;
+        this.$inspectorSubToggles.classList.toggle('is-disabled', !isMasterOn);
+    },
+
+    _syncInspectorSubFlags() {
+        Editor.Ipc.sendToMain('state-controller-panel:inspector-set-flags', {
+            master: true,
+            viz: !!this.$chkInspectorViz.checked,
+            dirty: !!this.$chkInspectorDirty.checked,
+            exclude: !!this.$chkInspectorExclude.checked
         });
     },
 

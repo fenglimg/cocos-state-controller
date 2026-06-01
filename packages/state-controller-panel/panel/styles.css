@@ -64,6 +64,41 @@ button {
     padding-left: 14px;
 }
 
+.inspector-toolbar {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    background: #151a18;
+    border-bottom: 1px solid #2d3733;
+}
+
+.toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toggle-group.is-disabled {
+    opacity: 0.42;
+    pointer-events: none;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #d8ddd9;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
 .ctrl-switch-wrap {
     display: flex;
     align-items: center;
