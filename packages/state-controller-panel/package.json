@@ -10,6 +10,15 @@
         },
         "i18n:MAIN_MENU.package.title/State Controller Panel/关闭": {
             "message": "state-controller-panel:close"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller Panel/探测 Inspector DOM (P0)": {
+            "message": "state-controller-panel:probe-inspector"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 徽标: 开 (P1)": {
+            "message": "state-controller-panel:inspector-mark-on"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller Panel/Inspector 徽标: 关 (P1)": {
+            "message": "state-controller-panel:inspector-mark-off"
         }
     },
     "panel": {
