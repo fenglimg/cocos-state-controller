@@ -15,6 +15,10 @@ function freshInject() {
     return require('./inspector-inject');
 }
 
+// M2a-3 硬化: 记住 inspector 增强是否开着, scene:ready (切/重载场景) 后自动重注入,
+// 避免渲染进程重载丢失常驻脚本后标记不恢复 (注入侧 VER 机制保证幂等覆盖).
+let _inspectorOn = false;
+
 module.exports = {
     load() {
         // 预留: 启动时初始化全局状态 (本期无)
@@ -42,10 +46,18 @@ module.exports = {
         },
         // P1/P2a: 开/关 inspector 属性行状态机标记
         'inspector-mark-on'() {
+            _inspectorOn = true;
             freshInject().enableInspectorMark();
         },
         'inspector-mark-off'() {
+            _inspectorOn = false;
             freshInject().disableInspectorMark();
+        },
+        // M2a-3 硬化: 切/重载场景后, 若增强开着则重注入常驻脚本 (幂等, VER 覆盖旧脚本).
+        'scene:ready'() {
+            if (_inspectorOn) {
+                try { freshInject().enableInspectorMark(); } catch (e) { /* 静默 */ }
+            }
         },
         // P2a: 注入侧 (渲染进程) 请求"这些 propRef 的状态机身份" → 转给 scene-script 分类 → 回包
         'inspector-req-status'(event, payload) {

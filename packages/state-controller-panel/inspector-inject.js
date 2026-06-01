@@ -346,7 +346,7 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 9;
+        const VER = 10;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
@@ -387,6 +387,14 @@ function buildResidentScript() {
                 const sel = Editor.Selection.curSelection('node');
                 return (sel && sel.length) ? sel[0] : null;
             } catch (e) { return null; }
+        };
+
+        // M2a-3 硬化: 选中节点数 (多选时不渲染标记, 避免只对第一个打标的误导 + 不报错)
+        SCI.getSelCount = function () {
+            try {
+                const sel = Editor.Selection.curSelection('node');
+                return (sel && sel.length) ? sel.length : 0;
+            } catch (e) { return 0; }
         };
 
         // 行的显示名 (Polymer = _name, Vue = __vue__.name)
@@ -678,6 +686,19 @@ function buildResidentScript() {
         SCI.apply = function () {
             const panel = SCI.getPanel();
             if (!panel || !SCI.enabled) return;
+            // M2a-3 硬化: 多选时清掉残留标记并跳过 (只对第一个节点打标会误导; 也避免报错)
+            if (SCI.getSelCount() > 1) {
+                SCI.hideTip();
+                const old = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
+                for (let i = 0; i < old.length; i++) old[i].remove();
+                const rws = panel.shadowRoot.querySelectorAll('ui-prop');
+                for (let j = 0; j < rws.length; j++) {
+                    if (rws[j].style.opacity) rws[j].style.opacity = '';
+                    if (rws[j].getAttribute('data-sci-dirty')) { rws[j].style.boxShadow = ''; rws[j].removeAttribute('data-sci-dirty'); }
+                }
+                SCI.connect();
+                return;
+            }
             if (SCI.observer) SCI.observer.disconnect();
             try {
                 const uuid = SCI.getSelUuid();
