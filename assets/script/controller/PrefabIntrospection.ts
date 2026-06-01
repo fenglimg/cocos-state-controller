@@ -43,6 +43,7 @@ export interface TrackableProp {
  *   - cc.Animation.defaultClip / currentClip: 资源引用, 应通过 play() 切换
  *   - cc.ParticleSystem.file: 粒子配置资源
  *   - cc.AudioSource.clip: 音频资源
+ *   - cc.Node.rotation / rotationX / rotationY: cocos 2.1.0 起废弃, 读写会触发 cc.warn (使用 angle / eulerAngles 替代)
  */
 export const SYSTEM_EXCLUDE: string[] = [
     "cc.Widget.target",
@@ -51,6 +52,9 @@ export const SYSTEM_EXCLUDE: string[] = [
     "cc.Animation.currentClip",
     "cc.ParticleSystem.file",
     "cc.AudioSource.clip",
+    "cc.Node.rotation",
+    "cc.Node.rotationX",
+    "cc.Node.rotationY",
 ];
 
 const EXCLUDE_SET = new Set(SYSTEM_EXCLUDE);
