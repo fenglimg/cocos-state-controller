@@ -228,7 +228,8 @@ function getPropStateValues(select, ctrl) {
     const data = select._ctrlData || {};
     const pageData = (ctrlId != null && data[ctrlId]) ? data[ctrlId] : null;
     const states = listAllStates(c);
-    const result = { ok: true, hasSelect: true, states: states, props: {} };
+    const selectedIndex = (c && typeof c.selectedIndex === 'number') ? c.selectedIndex : -1;
+    const result = { ok: true, hasSelect: true, states: states, selectedIndex: selectedIndex, props: {} };
     if (!pageData) return result;
 
     function valueKeys(pd, sink) {
@@ -264,10 +265,21 @@ function getPropStateValues(select, ctrl) {
             }
         }
         const defRaw = pageData.$$default$$ ? pageData.$$default$$[ref] : undefined;
+        const defSer = serializeStateValue(defRaw);
+        // M1-3: 当前 state 下值是否覆盖 default (两者均有定义且序列化后不等)
+        let overriddenAtCurrent = false;
+        if (selectedIndex >= 0 && defRaw !== undefined) {
+            const curPd = pageOf(selectedIndex);
+            const curRaw = curPd ? curPd[ref] : undefined;
+            if (curRaw !== undefined) {
+                overriddenAtCurrent = JSON.stringify(serializeStateValue(curRaw)) !== JSON.stringify(defSer);
+            }
+        }
         result.props[ref] = {
             variesAcrossStates: definedCount >= 2 && Object.keys(distinct).length >= 2,
+            overriddenAtCurrent: overriddenAtCurrent,
             valueByState: valueByState,
-            defaultValue: serializeStateValue(defRaw),
+            defaultValue: defSer,
         };
     }
     return result;

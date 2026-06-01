@@ -1,0 +1,3767 @@
+{
+  "found": true,
+  "inspectorPanel": {
+    "tag": "ui-panel-frame",
+    "id": "inspector",
+    "cls": "fit",
+    "text": ""
+  },
+  "panels": [
+    {
+      "tag": "login-frame",
+      "id": "login",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-panel",
+      "id": "",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-tabs",
+      "id": "tabs",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "hierarchy",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-panel",
+      "id": "",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-tabs",
+      "id": "tabs",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "assets",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-panel",
+      "id": "",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-tabs",
+      "id": "tabs",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "scene",
+      "pkg": ""
+    },
+    {
+      "tag": "scene-view",
+      "id": "sceneView",
+      "pkg": ""
+    },
+    {
+      "tag": "scene-grid",
+      "id": "grid",
+      "pkg": ""
+    },
+    {
+      "tag": "scene-gizmo",
+      "id": "gizmosView",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-loader",
+      "id": "loader",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-panel",
+      "id": "",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-tabs",
+      "id": "tabs",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "console",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "timeline",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "game-window",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "state-controller-panel",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-panel",
+      "id": "",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-dock-tabs",
+      "id": "tabs",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "inspector",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-prop",
+      "id": "x-comp",
+      "pkg": "X"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "y-comp",
+      "pkg": "Y"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "x-comp",
+      "pkg": "X"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "y-comp",
+      "pkg": "Y"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "x-comp",
+      "pkg": "X"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "y-comp",
+      "pkg": "Y"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "w-comp",
+      "pkg": "W"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "h-comp",
+      "pkg": "H"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "x-comp",
+      "pkg": "X"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "y-comp",
+      "pkg": "Y"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "w-comp",
+      "pkg": "W"
+    },
+    {
+      "tag": "ui-prop",
+      "id": "h-comp",
+      "pkg": "H"
+    },
+    {
+      "tag": "ui-loader",
+      "id": "loader",
+      "pkg": ""
+    },
+    {
+      "tag": "ui-panel-frame",
+      "id": "cocos-services",
+      "pkg": ""
+    }
+  ],
+  "candidateCounts": {
+    "totalElemsInInspector": 1063,
+    "byTag_uiProp": 38,
+    "byPathAttr": 0,
+    "byVuePathOrValue": 0,
+    "byClassProp": 3
+  },
+  "pickedStrategy": "ui-prop tag",
+  "samples": [
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Position",
+        "step": "1",
+        "type": "cc.Vec2",
+        "tooltip": "相对父节点的位置坐标，以像素为单位",
+        "tabindex": "-1",
+        "readonly": "",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Position",
+        "prop._name": "Position"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "x-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "X",
+        "id": "x-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "X",
+        "prop._name": "X"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Position",
+            "prop._name": "Position"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "y-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Y",
+        "id": "y-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Y",
+        "prop._name": "Y"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Position",
+            "prop._name": "Position"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Rotation",
+        "type": "number",
+        "step": "1",
+        "slidable": "",
+        "tooltip": "相对父节点的旋转，以度为单位，输入正值时逆时针旋转",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "0",
+        "prop.name": "Rotation",
+        "prop._name": "Rotation"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Scale",
+        "step": "0.1",
+        "type": "cc.Vec2",
+        "tooltip": "节点的整体缩放比例，会影响所有子节点",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Scale",
+        "prop._name": "Scale"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "x-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "X",
+        "id": "x-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "X",
+        "prop._name": "X"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Scale",
+            "prop._name": "Scale"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "y-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Y",
+        "id": "y-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Y",
+        "prop._name": "Y"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Scale",
+            "prop._name": "Scale"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Anchor",
+        "type": "cc.Vec2",
+        "step": "0.1",
+        "tooltip": "节点位置和旋转的基准点，(0,0)表示左下角，(1,1)表示右上角",
+        "tabindex": "-1",
+        "readonly": "",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Anchor",
+        "prop._name": "Anchor"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "x-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "X",
+        "id": "x-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "X",
+        "prop._name": "X"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Anchor",
+            "prop._name": "Anchor"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "y-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Y",
+        "id": "y-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Y",
+        "prop._name": "Y"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Anchor",
+            "prop._name": "Anchor"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Size",
+        "type": "cc.Size",
+        "step": "1",
+        "tooltip": "节点的内容尺寸，以像素为单位，在排版中至关重要。修改 size 不会影响子节点。",
+        "tabindex": "-1",
+        "readonly": "",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Size",
+        "prop._name": "Size"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "w-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "W",
+        "id": "w-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "W",
+        "prop._name": "W"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Size",
+            "prop._name": "Size"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "h-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "H",
+        "id": "h-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1",
+        "is-readonly": ""
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "H",
+        "prop._name": "H"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Size",
+            "prop._name": "Size"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Color",
+        "type": "cc.Color",
+        "tooltip": "节点的颜色，会影响节点上的渲染组件的颜色显示",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Color",
+        "prop._name": "Color"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Opacity",
+        "type": "number",
+        "min": "0",
+        "max": "255",
+        "step": "1",
+        "slidable": "",
+        "tooltip": "节点的不透明度，会影响本节点和所有子节点上渲染组件的不透明度",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "255",
+        "prop.name": "Opacity",
+        "prop._name": "Opacity"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "",
+        "cls": "",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Skew",
+        "type": "cc.Vec2",
+        "step": "1",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Skew",
+        "prop._name": "Skew"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        },
+        {
+          "tag": "ui-dock-panel",
+          "id": "",
+          "cls": "",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "x-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "X",
+        "id": "x-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "X",
+        "prop._name": "X"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Skew",
+            "prop._name": "Skew"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    },
+    {
+      "self": {
+        "tag": "ui-prop",
+        "id": "y-comp",
+        "cls": "fixed-label flex-1",
+        "text": ""
+      },
+      "attrs": {
+        "name": "Y",
+        "id": "y-comp",
+        "subset": "",
+        "slidable": "",
+        "tabindex": "-1"
+      },
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Y",
+        "prop._name": "Y"
+      },
+      "ancestors": [
+        {
+          "tag": "ui-prop",
+          "id": "",
+          "cls": "",
+          "text": "",
+          "fw": {
+            "prop.path": "null",
+            "prop._path": "null",
+            "prop.name": "Skew",
+            "prop._name": "Skew"
+          }
+        },
+        {
+          "tag": "ui-section",
+          "id": "",
+          "cls": "",
+          "text": "Node default 编辑"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "props flex-1",
+          "text": "Node default 编辑 Canvas Widge"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "cls": "fit layout vertical",
+          "text": "3D Node default 编辑 Canvas Wi",
+          "fw": {
+            "hasVue": true,
+            "vueKeys": [
+              "$el",
+              "$parent",
+              "$root",
+              "$children",
+              "$refs",
+              "$els",
+              "$options",
+              "popupComponentMenu",
+              "T",
+              "multi",
+              "target",
+              "cssBtn"
+            ],
+            "vue.target": {
+              "__keys": [
+                "uuid",
+                "uuids",
+                "__type__",
+                "__comps__",
+                "name",
+                "opacity",
+                "active",
+                "angle",
+                "group",
+                "is3DNode",
+                "anchor",
+                "size",
+                "skew",
+                "color",
+                "eulerAngles",
+                "position",
+                "scale",
+                "__displayName__"
+              ],
+              "uuid": "a5esZu+45LA5mBpvttspPD",
+              "uuids": "<Array>",
+              "__type__": "cc.Node",
+              "__comps__": "<Array>",
+              "name": "<Object>",
+              "opacity": "<Object>",
+              "active": "<Object>",
+              "angle": "<Object>",
+              "group": "<Object>",
+              "is3DNode": "<Object>",
+              "anchor": "<Object>",
+              "size": "<Object>",
+              "skew": "<Object>",
+              "color": "<Object>",
+              "eulerAngles": "<Object>",
+              "position": "<Object>",
+              "scale": "<Object>",
+              "__displayName__": "Node"
+            }
+          }
+        },
+        {
+          "tag": "div",
+          "id": "view",
+          "cls": "flex-1",
+          "text": "3D Node default 编辑 Canvas Wi"
+        },
+        {
+          "tag": "ui-panel-frame",
+          "id": "inspector",
+          "cls": "fit",
+          "text": "",
+          "fw": {
+            "prop.name": "属性检查器"
+          }
+        }
+      ]
+    }
+  ],
+  "skeleton": [
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url(theme://globals/",
+      "depth": 0
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url('theme://globals",
+      "depth": 0
+    },
+    {
+      "tag": "div",
+      "id": "view",
+      "cls": "flex-1",
+      "text": "3D Node default 编辑 Canvas Wi",
+      "depth": 0
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "fit layout vertical",
+      "text": "3D Node default 编辑 Canvas Wi",
+      "depth": 1,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "popupComponentMenu",
+          "T",
+          "multi",
+          "target",
+          "cssBtn"
+        ],
+        "vue.target": {
+          "__keys": [
+            "uuid",
+            "uuids",
+            "__type__",
+            "__comps__",
+            "name",
+            "opacity",
+            "active",
+            "angle",
+            "group",
+            "is3DNode",
+            "anchor",
+            "size",
+            "skew",
+            "color",
+            "eulerAngles",
+            "position",
+            "scale",
+            "__displayName__"
+          ],
+          "uuid": "a5esZu+45LA5mBpvttspPD",
+          "uuids": "<Array>",
+          "__type__": "cc.Node",
+          "__comps__": "<Array>",
+          "name": "<Object>",
+          "opacity": "<Object>",
+          "active": "<Object>",
+          "angle": "<Object>",
+          "group": "<Object>",
+          "is3DNode": "<Object>",
+          "anchor": "<Object>",
+          "size": "<Object>",
+          "skew": "<Object>",
+          "color": "<Object>",
+          "eulerAngles": "<Object>",
+          "position": "<Object>",
+          "scale": "<Object>",
+          "__displayName__": "Node"
+        }
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "",
+      "text": "3D",
+      "depth": 2,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "target",
+          "multi",
+          "T",
+          "enabledPrefabSetSync",
+          "toggle3D",
+          "prefabSelectAsset",
+          "prefabSelectRoot",
+          "prefabApply",
+          "prefabRevert",
+          "prefabSetSync",
+          "css3dBtnPressed",
+          "css3dBtn",
+          "cssPrefabName",
+          "cssPrefabNameBtn",
+          "cssLabel",
+          "cssPrefab",
+          "cssHost"
+        ],
+        "vue.target": {
+          "__keys": [
+            "uuid",
+            "uuids",
+            "__type__",
+            "__comps__",
+            "name",
+            "opacity",
+            "active",
+            "angle",
+            "group",
+            "is3DNode",
+            "anchor",
+            "size",
+            "skew",
+            "color",
+            "eulerAngles",
+            "position",
+            "scale",
+            "__displayName__"
+          ],
+          "uuid": "a5esZu+45LA5mBpvttspPD",
+          "uuids": "<Array>",
+          "__type__": "cc.Node",
+          "__comps__": "<Array>",
+          "name": "<Object>",
+          "opacity": "<Object>",
+          "active": "<Object>",
+          "angle": "<Object>",
+          "group": "<Object>",
+          "is3DNode": "<Object>",
+          "anchor": "<Object>",
+          "size": "<Object>",
+          "skew": "<Object>",
+          "color": "<Object>",
+          "eulerAngles": "<Object>",
+          "position": "<Object>",
+          "scale": "<Object>",
+          "__displayName__": "Node"
+        },
+        "vue._props": {
+          "__keys": [
+            "target",
+            "multi"
+          ],
+          "target": "<Object>",
+          "multi": "<Object>"
+        }
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "layout horizontal center-center",
+      "text": "3D",
+      "depth": 3
+    },
+    {
+      "tag": "ui-checkbox",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4
+    },
+    {
+      "tag": "ui-input",
+      "id": "",
+      "cls": "flex-1",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop._value": "Canvas"
+      }
+    },
+    {
+      "tag": "ui-button",
+      "id": "",
+      "cls": "tiny transparent",
+      "text": "3D",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "props flex-1",
+      "text": "Node default 编辑 Canvas Widge",
+      "depth": 2
+    },
+    {
+      "tag": "ui-section",
+      "id": "",
+      "cls": "",
+      "text": "Node default 编辑",
+      "depth": 3
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "header flex-1 layout horizontal center-center",
+      "text": "Node",
+      "depth": 4
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Position",
+        "prop._name": "Position"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "0",
+        "prop.name": "Rotation",
+        "prop._name": "Rotation"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Scale",
+        "prop._name": "Scale"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Anchor",
+        "prop._name": "Anchor"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Size",
+        "prop._name": "Size"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Color",
+        "prop._name": "Color"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "255",
+        "prop.name": "Opacity",
+        "prop._name": "Opacity"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Skew",
+        "prop._name": "Skew"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "default 编辑",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Group",
+        "prop._name": "Group"
+      }
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url(theme://globals/",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "wrapper",
+      "text": "",
+      "depth": 4
+    },
+    {
+      "tag": "slot",
+      "id": "",
+      "cls": "content",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.name": ""
+      }
+    },
+    {
+      "tag": "ui-section",
+      "id": "",
+      "cls": "",
+      "text": "Canvas",
+      "depth": 3,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "name",
+          "editor",
+          "target",
+          "index",
+          "count",
+          "multi",
+          "T",
+          "dragstart",
+          "dragend",
+          "customDraw",
+          "menuClick",
+          "openHelpClick"
+        ],
+        "vue.name": "Canvas",
+        "vue.target": {
+          "__keys": [
+            "_name",
+            "_objFlags",
+            "node",
+            "name",
+            "uuid",
+            "__scriptAsset",
+            "_enabled",
+            "enabled",
+            "enabledInHierarchy",
+            "_isOnLoadCalled",
+            "_designResolution",
+            "designResolution",
+            "_fitWidth",
+            "_fitHeight",
+            "fitHeight",
+            "fitWidth",
+            "_id"
+          ],
+          "_name": "<Object>",
+          "_objFlags": "<Object>",
+          "node": "<Object>",
+          "name": "<Object>",
+          "uuid": "<Object>",
+          "__scriptAsset": "<Object>",
+          "_enabled": "<Object>",
+          "enabled": "<Object>",
+          "enabledInHierarchy": "<Object>",
+          "_isOnLoadCalled": "<Object>",
+          "_designResolution": "<Object>",
+          "designResolution": "<Object>",
+          "_fitWidth": "<Object>",
+          "_fitHeight": "<Object>",
+          "fitHeight": "<Object>",
+          "fitWidth": "<Object>",
+          "_id": "<Object>"
+        },
+        "vue._props": {
+          "__keys": [
+            "name",
+            "editor",
+            "target",
+            "index",
+            "count",
+            "multi"
+          ],
+          "name": "<Object>",
+          "editor": "<Object>",
+          "target": "<Object>",
+          "index": "<Object>",
+          "count": "<Object>",
+          "multi": "<Object>"
+        }
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "header flex-1 layout horizontal center-center",
+      "text": "Canvas",
+      "depth": 4
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "cc.Size",
+          "value": "<Object>",
+          "values": "<Array>",
+          "name": "Design Resolution",
+          "path": "target.__comps__.0.designResolution",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Design Resolution",
+        "prop._name": "Design Resolution"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "Boolean",
+          "value": "true",
+          "values": "<Array>",
+          "name": "Fit Height",
+          "path": "target.__comps__.0.fitHeight",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "true",
+        "prop.name": "Fit Height",
+        "prop._name": "Fit Height"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "Boolean",
+          "value": "false",
+          "values": "<Array>",
+          "name": "Fit Width",
+          "path": "target.__comps__.0.fitWidth",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "false",
+        "prop.name": "Fit Width",
+        "prop._name": "Fit Width"
+      }
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url(theme://globals/",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "wrapper",
+      "text": "",
+      "depth": 4
+    },
+    {
+      "tag": "slot",
+      "id": "",
+      "cls": "content",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.name": ""
+      }
+    },
+    {
+      "tag": "ui-section",
+      "id": "",
+      "cls": "",
+      "text": "Widget #widget-outer { width",
+      "depth": 3,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "name",
+          "editor",
+          "target",
+          "index",
+          "count",
+          "multi",
+          "T",
+          "dragstart",
+          "dragend",
+          "customDraw",
+          "menuClick",
+          "openHelpClick"
+        ],
+        "vue.name": "Widget",
+        "vue.target": {
+          "__keys": [
+            "_name",
+            "_objFlags",
+            "node",
+            "name",
+            "uuid",
+            "__scriptAsset",
+            "_enabled",
+            "enabled",
+            "enabledInHierarchy",
+            "_isOnLoadCalled",
+            "target",
+            "isAlignTop",
+            "isAlignVerticalCenter",
+            "isAlignBottom",
+            "isAlignLeft",
+            "isAlignHorizontalCenter",
+            "isAlignRight",
+            "isStretchWidth",
+            "isStretchHeight",
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "horizontalCenter",
+            "verticalCenter",
+            "isAbsoluteHorizontalCenter",
+            "isAbsoluteVerticalCenter",
+            "isAbsoluteTop",
+            "isAbsoluteBottom",
+            "isAbsoluteLeft"
+          ],
+          "_name": "<Object>",
+          "_objFlags": "<Object>",
+          "node": "<Object>",
+          "name": "<Object>",
+          "uuid": "<Object>",
+          "__scriptAsset": "<Object>",
+          "_enabled": "<Object>",
+          "enabled": "<Object>",
+          "enabledInHierarchy": "<Object>",
+          "_isOnLoadCalled": "<Object>",
+          "target": "<Object>",
+          "isAlignTop": "<Object>",
+          "isAlignVerticalCenter": "<Object>",
+          "isAlignBottom": "<Object>",
+          "isAlignLeft": "<Object>",
+          "isAlignHorizontalCenter": "<Object>",
+          "isAlignRight": "<Object>",
+          "isStretchWidth": "<Object>",
+          "isStretchHeight": "<Object>",
+          "top": "<Object>",
+          "bottom": "<Object>",
+          "left": "<Object>",
+          "right": "<Object>",
+          "horizontalCenter": "<Object>",
+          "verticalCenter": "<Object>",
+          "isAbsoluteHorizontalCenter": "<Object>",
+          "isAbsoluteVerticalCenter": "<Object>",
+          "isAbsoluteTop": "<Object>",
+          "isAbsoluteBottom": "<Object>",
+          "isAbsoluteLeft": "<Object>"
+        },
+        "vue._props": {
+          "__keys": [
+            "name",
+            "editor",
+            "target",
+            "index",
+            "count",
+            "multi"
+          ],
+          "name": "<Object>",
+          "editor": "<Object>",
+          "target": "<Object>",
+          "index": "<Object>",
+          "count": "<Object>",
+          "multi": "<Object>"
+        }
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "header flex-1 layout horizontal center-center",
+      "text": "Widget",
+      "depth": 4
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "#widget-outer { width: 200px",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "widget-outer",
+      "cls": "",
+      "text": "Top Left .arrow { position: ",
+      "depth": 4
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Target",
+        "prop._name": "Target"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "ONCEON_WINDOW_RESIZEALWAYS",
+      "depth": 4,
+      "fw": {
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "1",
+        "prop.name": "Align Mode",
+        "prop._name": "Align Mode"
+      }
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url(theme://globals/",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "wrapper",
+      "text": "",
+      "depth": 4
+    },
+    {
+      "tag": "slot",
+      "id": "",
+      "cls": "content",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.name": ""
+      }
+    },
+    {
+      "tag": "ui-section",
+      "id": "",
+      "cls": "",
+      "text": "StateController 打死了发深刻理解拉屎fa",
+      "depth": 3,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "name",
+          "editor",
+          "target",
+          "index",
+          "count",
+          "multi",
+          "T",
+          "dragstart",
+          "dragend",
+          "customDraw",
+          "menuClick",
+          "openHelpClick"
+        ],
+        "vue.name": "StateController",
+        "vue.target": {
+          "__keys": [
+            "_name",
+            "_objFlags",
+            "node",
+            "name",
+            "uuid",
+            "__scriptAsset",
+            "_enabled",
+            "enabled",
+            "enabledInHierarchy",
+            "_isOnLoadCalled",
+            "stateIdAuto",
+            "ctrlId",
+            "_historyStateName",
+            "_ctrlName",
+            "ctrlName",
+            "_selectedIndex",
+            "moveStateUp",
+            "moveStateDown",
+            "duplicateCurrentState",
+            "deleteCurrentState",
+            "selectedIndex",
+            "_states",
+            "states",
+            "recordTrigger",
+            "cancelRecordTrigger",
+            "_id"
+          ],
+          "_name": "<Object>",
+          "_objFlags": "<Object>",
+          "node": "<Object>",
+          "name": "<Object>",
+          "uuid": "<Object>",
+          "__scriptAsset": "<Object>",
+          "_enabled": "<Object>",
+          "enabled": "<Object>",
+          "enabledInHierarchy": "<Object>",
+          "_isOnLoadCalled": "<Object>",
+          "stateIdAuto": "<Object>",
+          "ctrlId": "<Object>",
+          "_historyStateName": "<Object>",
+          "_ctrlName": "<Object>",
+          "ctrlName": "<Object>",
+          "_selectedIndex": "<Object>",
+          "moveStateUp": "<Object>",
+          "moveStateDown": "<Object>",
+          "duplicateCurrentState": "<Object>",
+          "deleteCurrentState": "<Object>",
+          "selectedIndex": "<Object>",
+          "_states": "<Object>",
+          "states": "<Object>",
+          "recordTrigger": "<Object>",
+          "cancelRecordTrigger": "<Object>",
+          "_id": "<Object>"
+        },
+        "vue._props": {
+          "__keys": [
+            "name",
+            "editor",
+            "target",
+            "index",
+            "count",
+            "multi"
+          ],
+          "name": "<Object>",
+          "editor": "<Object>",
+          "target": "<Object>",
+          "index": "<Object>",
+          "count": "<Object>",
+          "multi": "<Object>"
+        }
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "header flex-1 layout horizontal center-center",
+      "text": "StateController",
+      "depth": 4
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "cc.Asset",
+          "value": "<Object>",
+          "values": "<Array>",
+          "name": "Script",
+          "path": "target.__comps__.2.__scriptAsset",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "Script",
+        "prop._name": "Script"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "String",
+          "value": "ctrl_1779186629816",
+          "values": "<Array>",
+          "name": "控制器 id",
+          "path": "target.__comps__.2.ctrlName",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "ctrl_1779186629816",
+        "prop.name": "控制器 id",
+        "prop._name": "控制器 id"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "打死了发深刻理解拉屎faslfjasklfjsa",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "Enum",
+          "value": "1",
+          "values": "<Array>",
+          "name": "state",
+          "path": "target.__comps__.2.selectedIndex",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "1",
+        "prop.name": "state",
+        "prop._name": "state"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target",
+          "getType",
+          "arraySizeChanged"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "elementType",
+            "compType"
+          ],
+          "type": "Array",
+          "value": "<Array>",
+          "values": "<Array>",
+          "name": "states",
+          "path": "target.__comps__.2.states",
+          "attrs": "<Object>",
+          "elementType": "Object",
+          "compType": "cc-array-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop.name": "states",
+        "prop._name": "states"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "Boolean",
+          "value": "false",
+          "values": "<Array>",
+          "name": "🔴 录制",
+          "path": "target.__comps__.2.recordTrigger",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "false",
+        "prop.name": "🔴 录制",
+        "prop._name": "🔴 录制"
+      }
+    },
+    {
+      "tag": "ui-prop",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "hasVue": true,
+        "vueKeys": [
+          "$el",
+          "$parent",
+          "$root",
+          "$children",
+          "$refs",
+          "$els",
+          "$options",
+          "_props",
+          "indent",
+          "target"
+        ],
+        "vue.target": {
+          "__keys": [
+            "type",
+            "value",
+            "values",
+            "name",
+            "path",
+            "attrs",
+            "compType"
+          ],
+          "type": "Boolean",
+          "value": "false",
+          "values": "<Array>",
+          "name": "⤺ 撤销本次录制",
+          "path": "target.__comps__.2.cancelRecordTrigger",
+          "attrs": "<Object>",
+          "compType": "cc-prop"
+        },
+        "vue._props": {
+          "__keys": [
+            "indent",
+            "target"
+          ],
+          "indent": "<Object>",
+          "target": "<Object>"
+        },
+        "prop.path": "null",
+        "prop._path": "null",
+        "prop._value": "false",
+        "prop.name": "⤺ 撤销本次录制",
+        "prop._name": "⤺ 撤销本次录制"
+      }
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": "@import url(theme://globals/",
+      "depth": 4
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "wrapper",
+      "text": "",
+      "depth": 4
+    },
+    {
+      "tag": "slot",
+      "id": "",
+      "cls": "content",
+      "text": "",
+      "depth": 4,
+      "fw": {
+        "prop.name": ""
+      }
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "layout horizontal center-center",
+      "text": "添加组件",
+      "depth": 3
+    },
+    {
+      "tag": "ui-button",
+      "id": "",
+      "cls": "",
+      "text": "添加组件",
+      "depth": 4
+    },
+    {
+      "tag": "ui-loader",
+      "id": "loader",
+      "cls": "fit",
+      "text": "加载中...",
+      "depth": 0
+    },
+    {
+      "tag": "style",
+      "id": "",
+      "cls": "",
+      "text": ":host{position:absolute;top:",
+      "depth": 1
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "animate",
+      "text": "",
+      "depth": 1
+    },
+    {
+      "tag": "div",
+      "id": "",
+      "cls": "label",
+      "text": "",
+      "depth": 1
+    },
+    {
+      "tag": "slot",
+      "id": "",
+      "cls": "",
+      "text": "",
+      "depth": 2,
+      "fw": {
+        "prop.name": ""
+      }
+    },
+    {
+      "tag": "div",
+      "id": "highlightBorder",
+      "cls": "highlight fit",
+      "text": "",
+      "depth": 0
+    }
+  ]
+}

@@ -93,6 +93,73 @@ function disposeBridge(ctrlId) {
     }
 }
 
+// ===== inspector 行枚举 (P2b 排除 + M1 状态行为可视化 共用) =====
+// 复刻 PrefabIntrospection.enumPropsForCtor 的过滤 (跳 _前缀 / SYSTEM_EXCLUDE / visible:false / readonly),
+// 按 inspector 显示行结构产出 [{ scope, display, refs }]:
+//   scope = 组件序号 (node._components 下标, 对齐 inspector __comps__.<idx>) | 'node'
+//   refs  = 该行的 leaf propRef 列表 (cc.Node 段按显示名聚合 x/y 等)
+const SCI_SYSTEM_EXCLUDE = {
+    'cc.Widget.target': 1, 'cc.Widget.alignFlags': 1, 'cc.Animation.defaultClip': 1,
+    'cc.Animation.currentClip': 1, 'cc.ParticleSystem.file': 1, 'cc.AudioSource.clip': 1,
+    'cc.Node.rotation': 1, 'cc.Node.rotationX': 1, 'cc.Node.rotationY': 1,
+};
+const SCI_CONTROLLER_COMPS = { StateSelect: 1, StateController: 1, StateValue: 1, stateValue: 1 };
+const SCI_NODE_AGG = {
+    Position: ['x', 'y'], Scale: ['scaleX', 'scaleY'], Anchor: ['anchorX', 'anchorY'],
+    Size: ['width', 'height'], Rotation: ['angle'], Color: ['color'], Opacity: ['opacity'],
+    Skew: ['skewX', 'skewY'],
+};
+
+function sciHumanize(key) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); }).replace(/\s+/g, ' ').trim();
+}
+
+function sciEnumCompProps(ctor, compName, Attr) {
+    const out = [];
+    const props = ctor && ctor.__props__;
+    if (!Array.isArray(props)) return out;
+    const attrs = (Attr && Attr.getClassAttrs) ? Attr.getClassAttrs(ctor) : {};
+    for (let i = 0; i < props.length; i++) {
+        const key = props[i];
+        if (key.charAt(0) === '_') continue;
+        const propRef = compName + '.' + key;
+        if (SCI_SYSTEM_EXCLUDE[propRef]) continue;
+        if (attrs[key + '$_$visible'] === false) continue;
+        if (attrs[key + '$_$hasGetter'] === true && attrs[key + '$_$hasSetter'] !== true) continue; // readonly
+        out.push({ propRef: propRef, display: attrs[key + '$_$displayName'] || sciHumanize(key) });
+    }
+    return out;
+}
+
+/** 枚举选中节点的所有 inspector 显示行 → [{ scope, display, refs }] (无过滤, 由各调用方加语义). */
+function enumInspectorRows(node) {
+    const cc_ = (typeof cc !== 'undefined') ? cc : null;
+    const Attr = cc_ && cc_.Class && cc_.Class.Attr;
+    const rows = [];
+    const comps = node._components || (node.getComponents ? node.getComponents(cc_ ? cc_.Component : Object) : []);
+    for (let ci = 0; ci < comps.length; ci++) {
+        const comp = comps[ci];
+        if (!comp) continue;
+        const cn = comp.__classname__ || (comp.constructor && comp.constructor.name) || '';
+        if (SCI_CONTROLLER_COMPS[cn]) continue;
+        const plist = sciEnumCompProps(comp.constructor, cn, Attr);
+        for (let pi = 0; pi < plist.length; pi++) {
+            rows.push({ scope: ci, display: plist[pi].display, refs: [plist[pi].propRef] });
+        }
+    }
+    // cc.Node 内置段: 按 inspector 显示名聚合 (2D inspector Position 只显 X/Y, 不含 z)
+    for (const disp in SCI_NODE_AGG) {
+        const subs = SCI_NODE_AGG[disp];
+        const refs = [];
+        for (let si = 0; si < subs.length; si++) {
+            const pr = 'cc.Node.' + subs[si];
+            if (!SCI_SYSTEM_EXCLUDE[pr]) refs.push(pr);
+        }
+        if (refs.length) rows.push({ scope: 'node', display: disp, refs: refs });
+    }
+    return rows;
+}
+
 module.exports = {
 
     'get-ctrl-snapshot'(event, payload) {
@@ -229,18 +296,10 @@ module.exports = {
         const select = node.getComponent('StateSelect');
         if (!select) return reply({ ok: true, hasSelect: false, items: [] });
 
-        const SYSTEM_EXCLUDE = {
-            'cc.Widget.target': 1, 'cc.Widget.alignFlags': 1, 'cc.Animation.defaultClip': 1,
-            'cc.Animation.currentClip': 1, 'cc.ParticleSystem.file': 1, 'cc.AudioSource.clip': 1,
-            'cc.Node.rotation': 1, 'cc.Node.rotationX': 1, 'cc.Node.rotationY': 1,
-        };
-        const CONTROLLER_COMPS = { StateSelect: 1, StateController: 1, StateValue: 1, stateValue: 1 };
         const userExcluded = {};
         const ue = select._userExcludedProps || [];
         for (let i = 0; i < ue.length; i++) userExcluded[ue[i]] = 1;
         const canCtrl = typeof select.isPropertyControlledByPropRef === 'function';
-        const cc_ = (typeof cc !== 'undefined') ? cc : null;
-        const Attr = cc_ && cc_.Class && cc_.Class.Attr;
 
         function classify(propRef) {
             if (userExcluded[propRef]) return 'excluded';
@@ -259,78 +318,50 @@ module.exports = {
             if (e > 0) return (t > 0) ? 'mixed' : 'excluded';
             return null;
         }
-        function humanize(key) {
-            return key.replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); }).replace(/\s+/g, ' ').trim();
-        }
-        function enumProps(ctor, compName) {
-            const out = [];
-            const props = ctor && ctor.__props__;
-            if (!Array.isArray(props)) return out;
-            const attrs = (Attr && Attr.getClassAttrs) ? Attr.getClassAttrs(ctor) : {};
-            for (let i = 0; i < props.length; i++) {
-                const key = props[i];
-                if (key.charAt(0) === '_') continue;
-                const propRef = compName + '.' + key;
-                if (SYSTEM_EXCLUDE[propRef]) continue;
-                if (attrs[key + '$_$visible'] === false) continue;
-                if (attrs[key + '$_$hasGetter'] === true && attrs[key + '$_$hasSetter'] !== true) continue; // readonly
-                out.push({ propRef: propRef, display: attrs[key + '$_$displayName'] || humanize(key) });
-            }
-            return out;
-        }
 
         const items = [];
-        // 组件 props
-        const comps = node._components || (node.getComponents ? node.getComponents(cc_ ? cc_.Component : Object) : []);
-        for (let ci = 0; ci < comps.length; ci++) {
-            const comp = comps[ci];
-            if (!comp) continue;
-            const cn = comp.__classname__ || (comp.constructor && comp.constructor.name) || '';
-            if (CONTROLLER_COMPS[cn]) continue;
-            const plist = enumProps(comp.constructor, cn);
-            for (let pi = 0; pi < plist.length; pi++) {
-                const kind = rowKind([plist[pi].propRef]);
-                // scope = ci (该组件在 node._components 的下标, 与 inspector __comps__.<idx> 对齐)
-                if (kind) items.push({ scope: ci, display: plist[pi].display, kind: kind, refs: [plist[pi].propRef] });
-            }
+        const rows = enumInspectorRows(node);
+        for (let i = 0; i < rows.length; i++) {
+            const kind = rowKind(rows[i].refs);
+            if (kind) items.push({ scope: rows[i].scope, display: rows[i].display, kind: kind, refs: rows[i].refs });
         }
-        // cc.Node 内置段: 按 inspector 显示名聚合 (2D inspector Position 只显 X/Y, 不含 z → 排除 z 干扰)
-        const NODE_AGG = {
-            Position: ['x', 'y'], Scale: ['scaleX', 'scaleY'], Anchor: ['anchorX', 'anchorY'],
-            Size: ['width', 'height'], Rotation: ['angle'], Color: ['color'], Opacity: ['opacity'],
-            Skew: ['skewX', 'skewY'],
-        };
-        for (const disp in NODE_AGG) {
-            const subs = NODE_AGG[disp];
-            const refs = [];
-            for (let si = 0; si < subs.length; si++) {
-                const pr = 'cc.Node.' + subs[si];
-                if (!SYSTEM_EXCLUDE[pr]) refs.push(pr);
-            }
-            if (!refs.length) continue;
-            const nkind = rowKind(refs);
-            if (nkind) items.push({ scope: 'node', display: disp, kind: nkind, refs: refs });
-        }
-
         reply({ ok: true, hasSelect: true, items: items });
     },
 
     /**
-     * M1-1: inspector 状态行为可视化查询. 返回选中节点 StateSelect 各受控 propRef 的
-     *   { variesAcrossStates, valueByState: {[stateIndex]: serialized}, defaultValue } + states 表.
-     * 注入侧据此对「跨状态有差异」的属性行标 ● 并 hover 出各状态值. 纯读, 不改 ctrlData.
-     *
-     * payload = { uuid }, reply = handlers.getPropStateValues 的结果 (ok/hasSelect/states/props).
+     * M1-1/M1-2: inspector 状态行为可视化查询. 返回:
+     *   - props: 各受控 propRef 的 { variesAcrossStates, valueByState:{[idx]:serialized}, defaultValue } (M1-1 primitive)
+     *   - states: [{index, stateId, name}] (hover 标题用)
+     *   - rows: inspector 行视图 [{ scope, display, refs, variesAcrossStates }] — 注入侧据此对
+     *           「跨状态有差异」的行标 ● (varies = 行内任一 ref 在 props 里 variesAcrossStates).
+     * 纯读, 不改 ctrlData. payload = { uuid }.
      */
     'inspector-prop-state-values'(event, payload) {
         const reply = function (r) { if (event && event.reply) event.reply(null, r); };
         const node = getNodeByUuid(payload && payload.uuid);
         if (!node) return reply({ ok: false, reason: 'no node' });
         const select = node.getComponent('StateSelect');
-        if (!select) return reply({ ok: true, hasSelect: false, states: [], props: {} });
+        if (!select) return reply({ ok: true, hasSelect: false, states: [], props: {}, rows: [] });
         // ctrl 从 select 推导 (可能在祖先节点上); handlers 内部兜底再推一次
         const ctrl = (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || node.getComponent('StateController') || null;
-        reply(handlers.getPropStateValues(select, ctrl));
+        const sv = handlers.getPropStateValues(select, ctrl);
+        // 行视图: 把 props (per-ref varies) join 到 inspector 显示行
+        const rows = enumInspectorRows(node);
+        sv.rows = [];
+        for (let i = 0; i < rows.length; i++) {
+            const refs = rows[i].refs;
+            let varies = false, override = false, hasData = false;
+            for (let r = 0; r < refs.length; r++) {
+                const p = sv.props && sv.props[refs[r]];
+                if (p) {
+                    hasData = true;
+                    if (p.variesAcrossStates) varies = true;
+                    if (p.overriddenAtCurrent) override = true;
+                }
+            }
+            if (hasData) sv.rows.push({ scope: rows[i].scope, display: rows[i].display, refs: refs, variesAcrossStates: varies, overriddenAtCurrent: override });
+        }
+        reply(sv);
     },
 
     /**

@@ -114,6 +114,47 @@ describe("M1-1 getPropStateValues — pure contract", () => {
         expect(r.props["cc.Node.pos2"].variesAcrossStates).toBe(false);
     });
 
+    it("M1-3: selectedIndex 处值≠default → overriddenAtCurrent:true", () => {
+        const ctrl: any = fakeCtrl(9, ["normal", "hover"]);
+        ctrl.selectedIndex = 1; // 当前在 hover
+        const select = {
+            currCtrlId: 9,
+            _ctrlsMap: { 9: ctrl },
+            _ctrlData: {
+                9: {
+                    $$default$$: { "cc.Node.opacity": 255, "MyComp.heat": 3 },
+                    0: { "cc.Node.opacity": 255, "MyComp.heat": 3 },
+                    1: { "cc.Node.opacity": 100, "MyComp.heat": 3 },
+                },
+            },
+        };
+        const r = handlers.getPropStateValues(select, ctrl);
+        expect(r.selectedIndex).toBe(1);
+        // opacity 在 hover(=100) ≠ default(255) → 覆盖
+        expect(r.props["cc.Node.opacity"].overriddenAtCurrent).toBe(true);
+        // heat 在 hover(=3) == default(3) → 未覆盖
+        expect(r.props["MyComp.heat"].overriddenAtCurrent).toBe(false);
+    });
+
+    it("M1-3: selectedIndex=0 处与 default 相同 → 不覆盖", () => {
+        const ctrl: any = fakeCtrl(11, ["a", "b"]);
+        ctrl.selectedIndex = 0;
+        const select = {
+            currCtrlId: 11,
+            _ctrlsMap: { 11: ctrl },
+            _ctrlData: {
+                11: {
+                    $$default$$: { "cc.Node.x": 7 },
+                    0: { "cc.Node.x": 7 },
+                    1: { "cc.Node.x": 99 },
+                },
+            },
+        };
+        const r = handlers.getPropStateValues(select, ctrl);
+        expect(r.props["cc.Node.x"].overriddenAtCurrent).toBe(false);
+        expect(r.props["cc.Node.x"].variesAcrossStates).toBe(true);
+    });
+
     it("ctrl 未显式传入时, 从 select._ctrlsMap[currCtrlId] 推导", () => {
         const ctrl = fakeCtrl(42, ["x", "y"]);
         const select = {
