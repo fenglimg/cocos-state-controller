@@ -816,6 +816,14 @@ export class StateSelect extends cc.Component {
             const current = this.readNodeValueByPropRef(propRef);
             if (current !== undefined) {
                 (propData as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
+                // M3-2 修 #1 (apply 漏更新): 单 state 接入也补种 default baseline (若缺).
+                // 否则切到"无该 key"的 state 时 applyPropRefKeysToNode 无兜底 → 节点残留上个 state 的值.
+                // (auto-opt 走 togglePropertyControlByPropRefAllStates 写 default+全 state, 本单 state 路径
+                //  服务 promptUntracked / 晚于 __preload 挂的组件 / 手动单 state 接入, 需对齐补 default.)
+                const defaultData = this.getDefaultData();
+                if (defaultData && (defaultData as any)[propRef] === undefined) {
+                    (defaultData as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
+                }
             }
         } else {
             delete propData.$$controlledProps$$[propRef];
