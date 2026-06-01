@@ -1172,11 +1172,15 @@ export class StateSelect extends cc.Component {
             // 新增：检查控制器承接
             this.handleControllerTransition(oldParent, currentParent);
 
-            // 只有当有Position属性被控制时才需要转换坐标
+            // 只有当有Position属性被控制时才需要转换坐标.
+            // M3-2 修 #2 (M3-1 finding): W6-2c2/X 方案后 Position 以子项 cc.Node.x/y/z 存,
+            // 老聚合 number key [EnumPropName.Position] 已被 migration/sweepDecomposeAmbiguous 删除,
+            // 原 gate 读它恒 undefined → reparent 坐标转换永不触发. 改判子项 key.
             const pageData = this.getPageData();
             let hasPositionControl = false;
             for (const state in pageData) {
-                if (pageData[state] && pageData[state][EnumPropName.Position] !== undefined) {
+                const pd = pageData[state] as any;
+                if (pd && (pd["cc.Node.x"] !== undefined || pd["cc.Node.y"] !== undefined || pd["cc.Node.z"] !== undefined)) {
                     hasPositionControl = true;
                     break;
                 }
@@ -2655,23 +2659,32 @@ export class StateSelect extends cc.Component {
         const pageData = this.getPageData();
 
         for (const state in pageData) {
-            const propData = pageData[state];
-            // W6-2c2: Position 走 AMBIGUOUS_ENUM_TO_PROPREF ('cc.Node.position') 整体存
-            const pos = this.readPropByEnum(propData, EnumPropName.Position) as cc.Vec3;
-            if (pos) {
-                try {
-                    // 在 2.x 中，需要手动计算坐标转换
-                    const worldPos = oldParent.convertToWorldSpaceAR(pos);
-                    const localPos = parent.convertToNodeSpaceAR(worldPos);
-                    pos.set(localPos);
-                }
-                catch (error) {
-                    StateErrorManager.error("坐标转换过程中发生错误", {
-                        component: "StateSelect",
-                        method: "transPosition",
-                        params: { error: error.message },
-                    });
-                }
+            const propData = pageData[state] as any;
+            if (!propData) continue;
+            // M3-2 修 #3 (M3-1 finding): Position 以子项 cc.Node.x/y/z 存 (X 方案), 聚合 key
+            // 'cc.Node.position'/number 2 已被 migration 删除, 老 readPropByEnum(Position) 恒 undefined →
+            // 坐标转换是死代码. 改读子项重组 Vec3 转换后写回子项 (缺轴用节点当前值兜底, 只回写存在的轴).
+            const sx = propData["cc.Node.x"];
+            const sy = propData["cc.Node.y"];
+            const sz = propData["cc.Node.z"];
+            if (sx === undefined && sy === undefined && sz === undefined) continue;
+            const px = sx !== undefined ? sx : this.node.x;
+            const py = sy !== undefined ? sy : this.node.y;
+            const pz = sz !== undefined ? sz : ((this.node as any).z || 0);
+            try {
+                // 在 2.x 中，需要手动计算坐标转换
+                const worldPos = oldParent.convertToWorldSpaceAR(cc.v3(px, py, pz));
+                const localPos = parent.convertToNodeSpaceAR(worldPos);
+                if (sx !== undefined) propData["cc.Node.x"] = localPos.x;
+                if (sy !== undefined) propData["cc.Node.y"] = localPos.y;
+                if (sz !== undefined) propData["cc.Node.z"] = localPos.z;
+            }
+            catch (error) {
+                StateErrorManager.error("坐标转换过程中发生错误", {
+                    component: "StateSelect",
+                    method: "transPosition",
+                    params: { error: error.message },
+                });
             }
         }
     }
