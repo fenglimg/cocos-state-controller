@@ -181,6 +181,99 @@ function removeProperty(ctrl, select, propType) {
 }
 
 /**
+ * M1-1: 把一个存储值 (primitive 或 cc 类型) 序列化成 JSON-friendly 可显示形式.
+ *
+ * 不 require 项目源 (editor scene-script 路径不可达), 用 duck-type 识别 cc 类型:
+ *   primitive (number/boolean/string) 原样; null/undefined → null;
+ *   cc.Color {r,g,b,a} / cc.Vec3 {x,y,z} / cc.Vec2 {x,y} / cc.Size {width,height} /
+ *   cc.Quat {x,y,z,w} → 带 _t 标签的纯对象; asset ({_uuid}|{name}) → {_t:'Asset', id}.
+ */
+function serializeStateValue(v) {
+    if (v === null || v === undefined) return null;
+    const t = typeof v;
+    if (t === 'number' || t === 'boolean' || t === 'string') return v;
+    if (t !== 'object') return null;
+    const num = function (x) { return typeof x === 'number'; };
+    if (num(v.r) && num(v.g) && num(v.b)) {
+        return { _t: 'Color', r: v.r, g: v.g, b: v.b, a: num(v.a) ? v.a : 255 };
+    }
+    if (num(v.width) && num(v.height)) return { _t: 'Size', width: v.width, height: v.height };
+    if (num(v.x) && num(v.y) && num(v.z) && num(v.w)) return { _t: 'Quat', x: v.x, y: v.y, z: v.z, w: v.w };
+    if (num(v.x) && num(v.y) && num(v.z)) return { _t: 'Vec3', x: v.x, y: v.y, z: v.z };
+    if (num(v.x) && num(v.y)) return { _t: 'Vec2', x: v.x, y: v.y };
+    if (v._uuid || v.name) return { _t: 'Asset', id: v._uuid || v.name };
+    return null;
+}
+
+/**
+ * M1-1: 读 select._ctrlData[currCtrlId] 里每个受控 propRef 在各 state 的存储值,
+ * 判定「是否跨状态有差异」并返回各状态值表 — 供注入侧标 ● + hover 各状态值.
+ *
+ * 数据形状 (W6-2c2 后): pageData = _ctrlData[ctrlId], key = '$$default$$' | stateIndex(number);
+ *   每个 propData 里 string propRef key → 存储值 (number/boolean/cc 类型);
+ *   '$$' 前缀 key ($$controlledProps$$ 等) 与 legacy number-only key 跳过.
+ *
+ * variesAcrossStates: 各 state 的已定义值序列化后存在 ≥2 个不同 → true (真正受状态机驱动).
+ *
+ * @param select - StateSelect 实例 (读 _ctrlData / _ctrlsMap / currCtrlId)
+ * @param ctrl   - 可选 StateController; 不传则从 select._ctrlsMap[currCtrlId] 推导
+ * @returns { ok, hasSelect, states:[{index,stateId,name}], props:{ [propRef]:{ variesAcrossStates, valueByState, defaultValue } } }
+ */
+function getPropStateValues(select, ctrl) {
+    const empty = { ok: true, hasSelect: false, states: [], props: {} };
+    if (!select) return empty;
+    const c = ctrl || (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || null;
+    const ctrlId = (c && c.ctrlId != null) ? c.ctrlId
+        : (select.currCtrlId != null ? select.currCtrlId : null);
+    const data = select._ctrlData || {};
+    const pageData = (ctrlId != null && data[ctrlId]) ? data[ctrlId] : null;
+    const states = listAllStates(c);
+    const result = { ok: true, hasSelect: true, states: states, props: {} };
+    if (!pageData) return result;
+
+    function valueKeys(pd, sink) {
+        if (!pd) return;
+        for (const k in pd) {
+            if (k.indexOf('$$') === 0) continue;       // 内部 key
+            if (/^\d+$/.test(k)) continue;             // legacy number-only key (string twin 优先)
+            sink[k] = 1;
+        }
+    }
+    function pageOf(stateIndex) {
+        return pageData[stateIndex] != null ? pageData[stateIndex] : null;
+    }
+
+    // 收集所有受控 propRef (default + 各 state 的值 key 并集)
+    const refSet = {};
+    valueKeys(pageData.$$default$$, refSet);
+    for (let i = 0; i < states.length; i++) valueKeys(pageOf(states[i].index), refSet);
+
+    for (const ref in refSet) {
+        const valueByState = {};
+        const distinct = {};
+        let definedCount = 0;
+        for (let i = 0; i < states.length; i++) {
+            const idx = states[i].index;
+            const pd = pageOf(idx);
+            const raw = pd ? pd[ref] : undefined;
+            const ser = serializeStateValue(raw);
+            valueByState[idx] = ser;
+            if (raw !== undefined) {
+                definedCount++;
+                distinct[JSON.stringify(ser)] = 1;
+            }
+        }
+        const defRaw = pageData.$$default$$ ? pageData.$$default$$[ref] : undefined;
+        result.props[ref] = {
+            variesAcrossStates: definedCount >= 2 && Object.keys(distinct).length >= 2,
+            valueByState: valueByState,
+            defaultValue: serializeStateValue(defRaw),
+        };
+    }
+    return result;
+}
+
+/**
  * 把 ctrl 内部 state 切换 + setRecording 转成 IPC broadcast.
  *
  * jest 路径: 通过 EventCapability + ad-hoc capability 注册. 测试覆盖.
@@ -246,4 +339,6 @@ module.exports = {
     addProperty: addProperty,
     removeProperty: removeProperty,
     installBroadcastBridge: installBroadcastBridge,
+    getPropStateValues: getPropStateValues,
+    serializeStateValue: serializeStateValue,
 };

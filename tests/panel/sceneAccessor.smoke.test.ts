@@ -35,6 +35,9 @@ describe("scene-accessor.js (smoke)", () => {
             "add-property",
             "remove-property",   // TASK-003
             "list-ctrls",
+            "inspector-prop-status",          // P2b 读
+            "inspector-toggle-exclude",       // P2b 写
+            "inspector-prop-state-values",    // M1-1 状态行为可视化
             "dispose-all-bridges",
         ];
         for (const name of expected) {

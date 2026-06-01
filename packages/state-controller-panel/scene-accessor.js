@@ -207,6 +207,178 @@ module.exports = {
     },
 
     /**
+     * P2b: inspector 注入层查询 "选中节点上**非全受控**的属性行".
+     *
+     * 语义反转 (用户决策): auto-opt-in 让绝大多数属性受控 → 标记受控是噪音; 真正有价值的是**例外**:
+     *   - excluded: 用户主动排除 (在 select._userExcludedProps)
+     *   - loose:    可跟踪但没受控 (掉出控制 / 未接入) ← prefab-diff 漏更新的 bug 信号
+     *   - mixed:    聚合行 (Vec) 子项里既有受控又有未受控/排除
+     * 全部受控的行不返回 → 注入侧不打标 (干净).
+     *
+     * 实现: 不 require 项目 ts 源, 在 plugin 侧用 cc 反射枚举 trackable props (复刻
+     * PrefabIntrospection.enumPropsForCtor 的过滤: 跳 _前缀 / SYSTEM_EXCLUDE / visible:false / readonly),
+     * 受控/排除判定走活 select 实例公开 API. cc.Node 按 inspector 显示名聚合 (Position=x/y 等).
+     *
+     * payload = { uuid }, reply = { ok, hasSelect, items: [{ scope, display, kind, refs }] }
+     *   scope = 组件序号 (node._components 下标, 与 inspector __comps__.<idx> 对齐) | 'node'; display = 显示名; kind = excluded|loose|mixed
+     */
+    'inspector-prop-status'(event, payload) {
+        const reply = function (r) { if (event && event.reply) event.reply(null, r); };
+        const node = getNodeByUuid(payload && payload.uuid);
+        if (!node) return reply({ ok: false, reason: 'no node' });
+        const select = node.getComponent('StateSelect');
+        if (!select) return reply({ ok: true, hasSelect: false, items: [] });
+
+        const SYSTEM_EXCLUDE = {
+            'cc.Widget.target': 1, 'cc.Widget.alignFlags': 1, 'cc.Animation.defaultClip': 1,
+            'cc.Animation.currentClip': 1, 'cc.ParticleSystem.file': 1, 'cc.AudioSource.clip': 1,
+            'cc.Node.rotation': 1, 'cc.Node.rotationX': 1, 'cc.Node.rotationY': 1,
+        };
+        const CONTROLLER_COMPS = { StateSelect: 1, StateController: 1, StateValue: 1, stateValue: 1 };
+        const userExcluded = {};
+        const ue = select._userExcludedProps || [];
+        for (let i = 0; i < ue.length; i++) userExcluded[ue[i]] = 1;
+        const canCtrl = typeof select.isPropertyControlledByPropRef === 'function';
+        const cc_ = (typeof cc !== 'undefined') ? cc : null;
+        const Attr = cc_ && cc_.Class && cc_.Class.Attr;
+
+        function classify(propRef) {
+            if (userExcluded[propRef]) return 'excluded';
+            let ctrled = false;
+            if (canCtrl) { try { ctrled = !!select.isPropertyControlledByPropRef(propRef); } catch (e) { ctrled = false; } }
+            return ctrled ? 'tracked' : 'loose';
+        }
+        // 一行 (单 prop 或聚合多子项) → kind. 全 tracked 返回 null (不标)
+        function rowKind(refs) {
+            let t = 0, e = 0, l = 0;
+            for (let i = 0; i < refs.length; i++) {
+                const k = classify(refs[i]);
+                if (k === 'tracked') t++; else if (k === 'excluded') e++; else l++;
+            }
+            if (l > 0) return (t > 0 || e > 0) ? 'mixed' : 'loose';
+            if (e > 0) return (t > 0) ? 'mixed' : 'excluded';
+            return null;
+        }
+        function humanize(key) {
+            return key.replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); }).replace(/\s+/g, ' ').trim();
+        }
+        function enumProps(ctor, compName) {
+            const out = [];
+            const props = ctor && ctor.__props__;
+            if (!Array.isArray(props)) return out;
+            const attrs = (Attr && Attr.getClassAttrs) ? Attr.getClassAttrs(ctor) : {};
+            for (let i = 0; i < props.length; i++) {
+                const key = props[i];
+                if (key.charAt(0) === '_') continue;
+                const propRef = compName + '.' + key;
+                if (SYSTEM_EXCLUDE[propRef]) continue;
+                if (attrs[key + '$_$visible'] === false) continue;
+                if (attrs[key + '$_$hasGetter'] === true && attrs[key + '$_$hasSetter'] !== true) continue; // readonly
+                out.push({ propRef: propRef, display: attrs[key + '$_$displayName'] || humanize(key) });
+            }
+            return out;
+        }
+
+        const items = [];
+        // 组件 props
+        const comps = node._components || (node.getComponents ? node.getComponents(cc_ ? cc_.Component : Object) : []);
+        for (let ci = 0; ci < comps.length; ci++) {
+            const comp = comps[ci];
+            if (!comp) continue;
+            const cn = comp.__classname__ || (comp.constructor && comp.constructor.name) || '';
+            if (CONTROLLER_COMPS[cn]) continue;
+            const plist = enumProps(comp.constructor, cn);
+            for (let pi = 0; pi < plist.length; pi++) {
+                const kind = rowKind([plist[pi].propRef]);
+                // scope = ci (该组件在 node._components 的下标, 与 inspector __comps__.<idx> 对齐)
+                if (kind) items.push({ scope: ci, display: plist[pi].display, kind: kind, refs: [plist[pi].propRef] });
+            }
+        }
+        // cc.Node 内置段: 按 inspector 显示名聚合 (2D inspector Position 只显 X/Y, 不含 z → 排除 z 干扰)
+        const NODE_AGG = {
+            Position: ['x', 'y'], Scale: ['scaleX', 'scaleY'], Anchor: ['anchorX', 'anchorY'],
+            Size: ['width', 'height'], Rotation: ['angle'], Color: ['color'], Opacity: ['opacity'],
+            Skew: ['skewX', 'skewY'],
+        };
+        for (const disp in NODE_AGG) {
+            const subs = NODE_AGG[disp];
+            const refs = [];
+            for (let si = 0; si < subs.length; si++) {
+                const pr = 'cc.Node.' + subs[si];
+                if (!SYSTEM_EXCLUDE[pr]) refs.push(pr);
+            }
+            if (!refs.length) continue;
+            const nkind = rowKind(refs);
+            if (nkind) items.push({ scope: 'node', display: disp, kind: nkind, refs: refs });
+        }
+
+        reply({ ok: true, hasSelect: true, items: items });
+    },
+
+    /**
+     * M1-1: inspector 状态行为可视化查询. 返回选中节点 StateSelect 各受控 propRef 的
+     *   { variesAcrossStates, valueByState: {[stateIndex]: serialized}, defaultValue } + states 表.
+     * 注入侧据此对「跨状态有差异」的属性行标 ● 并 hover 出各状态值. 纯读, 不改 ctrlData.
+     *
+     * payload = { uuid }, reply = handlers.getPropStateValues 的结果 (ok/hasSelect/states/props).
+     */
+    'inspector-prop-state-values'(event, payload) {
+        const reply = function (r) { if (event && event.reply) event.reply(null, r); };
+        const node = getNodeByUuid(payload && payload.uuid);
+        if (!node) return reply({ ok: false, reason: 'no node' });
+        const select = node.getComponent('StateSelect');
+        if (!select) return reply({ ok: true, hasSelect: false, states: [], props: {} });
+        // ctrl 从 select 推导 (可能在祖先节点上); handlers 内部兜底再推一次
+        const ctrl = (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || node.getComponent('StateController') || null;
+        reply(handlers.getPropStateValues(select, ctrl));
+    },
+
+    /**
+     * P2b 写半边: 点击 inspector 标记 → 切换某些 propRef 的排除状态.
+     *
+     * 复用现成机制 (零改 StateSelect.ts): 改 select._userExcludedProps (公开数组) +
+     * 读 select.excludedPropsDisplay getter (其副作用 reconcileUserExcluded 会 diff 并
+     * 调 togglePropertyControl 同步跟踪态). 绞杀 W6 UI 时再换成干净的 setPropExcluded.
+     *
+     * Undo: best-effort 包 _Scene.Undo.recordObject/commit (项目无先例, API 不对也不影响写入).
+     * payload = { uuid, refs: [propRef...], action: 'exclude'|'unexclude' }
+     */
+    'inspector-toggle-exclude'(event, payload) {
+        const reply = function (r) { if (event && event.reply) event.reply(null, r); };
+        const node = getNodeByUuid(payload && payload.uuid);
+        if (!node) return reply({ ok: false, reason: 'no node' });
+        const select = node.getComponent('StateSelect');
+        if (!select) return reply({ ok: false, reason: 'no select' });
+        const refs = (payload && payload.refs) || [];
+        const action = payload && payload.action;
+        if (!refs.length || (action !== 'exclude' && action !== 'unexclude')) {
+            return reply({ ok: false, reason: 'bad payload' });
+        }
+
+        // Undo best-effort: 记录变更前 (项目内无 _Scene.Undo 先例, 容错处理)
+        const Undo = (typeof _Scene !== 'undefined' && _Scene) ? _Scene.Undo : null;
+        try { if (Undo && Undo.recordObject) Undo.recordObject(node.uuid, 'state-controller: toggle exclude'); } catch (e) { /* noop */ }
+
+        if (!select._userExcludedProps) select._userExcludedProps = [];
+        for (let i = 0; i < refs.length; i++) {
+            const r = refs[i];
+            const idx = select._userExcludedProps.indexOf(r);
+            if (action === 'exclude') { if (idx === -1) select._userExcludedProps.push(r); }
+            else { if (idx >= 0) select._userExcludedProps.splice(idx, 1); }
+        }
+        // 触发 reconcileUserExcluded (getter 副作用) → 同步 togglePropertyControl 跟踪态
+        try { void select.excludedPropsDisplay; } catch (e) { /* noop */ }
+
+        try { if (Undo && Undo.commit) Undo.commit(); } catch (e) { /* noop */ }
+        // 标脏 → 可 Ctrl+S 存盘
+        if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        // 广播 data-changed (其它面板 / 监听方刷新)
+        const ctrl = node.getComponent('StateController');
+        if (ctrl) broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+        reply({ ok: true });
+    },
+
+    /**
      * panel 关闭时调用, 解除所有广播桥, 避免 leak.
      */
     'dispose-all-bridges'(event) {
