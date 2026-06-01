@@ -19,6 +19,31 @@ function freshInject() {
 // 避免渲染进程重载丢失常驻脚本后标记不恢复 (注入侧 VER 机制保证幂等覆盖).
 let _inspectorOn = false;
 
+// M2a-2: 各特性开关 (master 总开关 + viz/dirty/exclude), Editor.Profile 持久化 → 重启编辑器记忆.
+const FLAGS_PROFILE_URL = 'profile://local/state-controller-inspector.json';
+const DEFAULT_FLAGS = { master: true, viz: true, dirty: true, exclude: true };
+let _flagsProfile = null;
+function getFlags() {
+    if (!_flagsProfile) {
+        try { _flagsProfile = Editor.Profile.load(FLAGS_PROFILE_URL, { 'state-controller': DEFAULT_FLAGS }); }
+        catch (e) { _flagsProfile = null; }
+    }
+    const data = (_flagsProfile && _flagsProfile.data && _flagsProfile.data['state-controller']) || DEFAULT_FLAGS;
+    const f = {};
+    for (const k in DEFAULT_FLAGS) f[k] = (typeof data[k] === 'boolean') ? data[k] : DEFAULT_FLAGS[k];
+    return f;
+}
+function saveFlags(flags) {
+    const f = {};
+    for (const k in DEFAULT_FLAGS) f[k] = (flags && typeof flags[k] === 'boolean') ? flags[k] : DEFAULT_FLAGS[k];
+    try {
+        if (!_flagsProfile) _flagsProfile = Editor.Profile.load(FLAGS_PROFILE_URL, { 'state-controller': DEFAULT_FLAGS });
+        _flagsProfile.data['state-controller'] = f;
+        _flagsProfile.save();
+    } catch (e) { /* 静默, Profile 不可用时仅本次会话内存生效 */ }
+    return f;
+}
+
 module.exports = {
     load() {
         // 预留: 启动时初始化全局状态 (本期无)
@@ -44,10 +69,10 @@ module.exports = {
         'probe-inspector'() {
             freshInject().probeInspector();
         },
-        // P1/P2a: 开/关 inspector 属性行状态机标记
+        // P1/P2a: 开/关 inspector 属性行状态机标记 (带持久化的特性 flags)
         'inspector-mark-on'() {
             _inspectorOn = true;
-            freshInject().enableInspectorMark();
+            freshInject().enableInspectorMark(getFlags());
         },
         'inspector-mark-off'() {
             _inspectorOn = false;
@@ -56,8 +81,19 @@ module.exports = {
         // M2a-3 硬化: 切/重载场景后, 若增强开着则重注入常驻脚本 (幂等, VER 覆盖旧脚本).
         'scene:ready'() {
             if (_inspectorOn) {
-                try { freshInject().enableInspectorMark(); } catch (e) { /* 静默 */ }
+                try { freshInject().enableInspectorMark(getFlags()); } catch (e) { /* 静默 */ }
             }
+        },
+        // M2a-2: 面板读当前特性开关 (渲染 toggle 勾选态)
+        'inspector-get-flags'(event) {
+            const f = getFlags();
+            if (event && event.reply) event.reply(null, f);
+        },
+        // M2a-2: 面板改特性开关 → 持久化 + 实时推给注入侧 (无需重注入). master 关也走 setFlags (注入侧清标记).
+        'inspector-set-flags'(event, payload) {
+            const f = saveFlags(payload);
+            try { freshInject().setInspectorFlags(f); } catch (e) { /* 静默 */ }
+            if (event && event.reply) event.reply(null, f);
         },
         // P2a: 注入侧 (渲染进程) 请求"这些 propRef 的状态机身份" → 转给 scene-script 分类 → 回包
         'inspector-req-status'(event, payload) {

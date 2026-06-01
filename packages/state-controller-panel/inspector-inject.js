@@ -346,7 +346,7 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 10;
+        const VER = 11;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
@@ -358,6 +358,17 @@ function buildResidentScript() {
         SCI.dataSV = SCI.dataSV || null; // { uuid, map: {'scope|display': {varies, refs}}, props, states } (M1 状态行为可视化)
         SCI.reqUuid = null;            // 最近请求的 uuid
         SCI.lastReq = 0;               // 上次请求时间戳 (节流刷新, 应对数据源变动 #3)
+
+        // M2a-2: 各特性开关 (master 总开关 + 3 组). 注入时由 window.__SCI_FLAGS 注入, 面板可改 + Profile 持久化.
+        // 缺省全开. SCI.flags 在版本热更间保留 (old 上已有则沿用, 否则取注入值/默认).
+        const injectedFlags = (typeof window.__SCI_FLAGS === 'object' && window.__SCI_FLAGS) ? window.__SCI_FLAGS : null;
+        SCI.flags = (old && old.flags) || injectedFlags || { master: true, viz: true, dirty: true, exclude: true };
+        SCI.setFlags = function (f) {
+            if (f && typeof f === 'object') {
+                for (const k in f) SCI.flags[k] = !!f[k];
+            }
+            SCI.apply();
+        };
 
         SCI.deepFindById = function (root, id) {
             if (!root) return null;
@@ -683,19 +694,24 @@ function buildResidentScript() {
             } catch (err) {}
         };
 
+        // 清掉面板内所有标记 (badge + 行样式), 多选/master 关 时复用.
+        SCI.wipeMarks = function (panel) {
+            SCI.hideTip();
+            const old = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
+            for (let i = 0; i < old.length; i++) old[i].remove();
+            const rws = panel.shadowRoot.querySelectorAll('ui-prop');
+            for (let j = 0; j < rws.length; j++) {
+                if (rws[j].style.opacity) rws[j].style.opacity = '';
+                if (rws[j].getAttribute('data-sci-dirty')) { rws[j].style.boxShadow = ''; rws[j].removeAttribute('data-sci-dirty'); }
+            }
+        };
+
         SCI.apply = function () {
             const panel = SCI.getPanel();
             if (!panel || !SCI.enabled) return;
-            // M2a-3 硬化: 多选时清掉残留标记并跳过 (只对第一个节点打标会误导; 也避免报错)
-            if (SCI.getSelCount() > 1) {
-                SCI.hideTip();
-                const old = panel.shadowRoot.querySelectorAll('.__sci-badge, .__sci-sv-badge');
-                for (let i = 0; i < old.length; i++) old[i].remove();
-                const rws = panel.shadowRoot.querySelectorAll('ui-prop');
-                for (let j = 0; j < rws.length; j++) {
-                    if (rws[j].style.opacity) rws[j].style.opacity = '';
-                    if (rws[j].getAttribute('data-sci-dirty')) { rws[j].style.boxShadow = ''; rws[j].removeAttribute('data-sci-dirty'); }
-                }
+            // M2a-2: master 总开关关 → 清标记跳过. M2a-3: 多选 → 同样清标记跳过 (不误导/不报错).
+            if (!SCI.flags.master || SCI.getSelCount() > 1) {
+                SCI.wipeMarks(panel);
                 SCI.connect();
                 return;
             }
@@ -727,9 +743,10 @@ function buildResidentScript() {
                         if (map) { const hit = map[key]; if (hit) { kind = hit.kind; refs = hit.refs; } }
                         if (svMap) svHit = svMap[key] || null;
                     }
-                    SCI.markRow(row, kind, refs);                          // P2b 排除徽标 (∅/!/◐)
-                    SCI.markStateBadge(row, svHit);                        // M1-2/M1-3 ● 状态行为徽标
-                    SCI.markDirtyRow(row, !!(svHit && svHit.dirty));       // M2a-1 录制脏行 琥珀左条
+                    // M2a-2: 各特性按 flags 门控 (关掉的特性传 null/false → 对应标记不渲染/被移除)
+                    SCI.markRow(row, SCI.flags.exclude ? kind : null, refs);              // P2b 排除徽标 (∅/!/◐)
+                    SCI.markStateBadge(row, SCI.flags.viz ? svHit : null);                // M1-2/M1-3 ● 状态行为徽标
+                    SCI.markDirtyRow(row, SCI.flags.dirty && !!(svHit && svHit.dirty));   // M2a-1 录制脏行 琥珀左条
                 }
             } finally {
                 SCI.connect();
@@ -825,13 +842,31 @@ function forEachWCSimple(script) {
     } catch (e) {}
 }
 
-/** P1/P2a: 开启 inspector 标记 (注入常驻脚本) */
-function enableInspectorMark() {
+const DEFAULT_FLAGS = { master: true, viz: true, dirty: true, exclude: true };
+function normalizeFlags(flags) {
+    const f = {};
+    for (const k in DEFAULT_FLAGS) f[k] = (flags && typeof flags[k] === 'boolean') ? flags[k] : DEFAULT_FLAGS[k];
+    return f;
+}
+
+/** P1/P2a/M2a-2: 开启 inspector 标记 (注入常驻脚本). flags 决定各特性开关 (master/viz/dirty/exclude). */
+function enableInspectorMark(flags) {
+    const f = normalizeFlags(flags);
+    // 把 flags 作为 window.__SCI_FLAGS 前置注入, 常驻脚本读它初始化 SCI.flags
+    forEachWCSimple('window.__SCI_FLAGS = ' + JSON.stringify(f) + ';');
     forEachWCSimple(RESIDENT_SCRIPT);
-    Editor.log('[sc-inspector] Inspector 增强已开 (M1+P2b). 选中带 StateSelect 的节点:'
+    // 已注入的版本(热更同版本走 same-version 分支不读 __SCI_FLAGS)→ 再推一次 setFlags 保证生效
+    forEachWCSimple('window.__SCI && window.__SCI.setFlags && window.__SCI.setFlags(' + JSON.stringify(f) + ');');
+    Editor.log('[sc-inspector] Inspector 增强已开 (M1+M2a+P2b). flags=' + JSON.stringify(f)
         + '\n  ● 蓝 = 受状态机驱动 (跨状态有差异); 带描边环 = 当前 state 已覆盖 default. hover 即时弹各状态值表;'
         + '\n  琥珀左条 = 录制中改过未提交 (脏);'
         + '\n  ∅ 灰 = 已排除(整行变暗); ! 黄 = 未受控(掉出控制); ◐ = 部分. 点徽标切换排除.');
+}
+
+/** M2a-2: 实时更新各特性开关 (面板 toggle 调用, 无需重注入). */
+function setInspectorFlags(flags) {
+    const f = normalizeFlags(flags);
+    forEachWCSimple('window.__SCI && window.__SCI.setFlags && window.__SCI.setFlags(' + JSON.stringify(f) + ');');
 }
 
 /** P1: 关闭 inspector 徽标 (撤销注入). 同步, 不等 IPC. */
@@ -843,5 +878,6 @@ function disableInspectorMark() {
 module.exports = {
     probeInspector: probeInspector,
     enableInspectorMark: enableInspectorMark,
+    setInspectorFlags: setInspectorFlags,
     disableInspectorMark: disableInspectorMark,
 };
