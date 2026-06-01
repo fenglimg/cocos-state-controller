@@ -10,12 +10,9 @@
  */
 
 import "./AutoSyncCapability";
-import "./CodeGenCapability";
 import "./EventCapability";
 import "./MigrationCapability";
 import "./MultiCtrlBindingCapability";
-import "./PresetCapability";
 import "./PropertyControlCapability";
 import "./RecordingCapability";
 import "./SelectedPageIdCapability";
-import "./TweenCapability";

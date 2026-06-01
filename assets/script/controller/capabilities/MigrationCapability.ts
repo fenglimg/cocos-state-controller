@@ -3,7 +3,6 @@
  *
  * 数据版本迁移框架. 用途:
  *   - prefab 反序列化时, 老格式 _ctrlData → 当前格式
- *   - PresetCapability apply 跨 ctrl 时, 处理两边版本差
  *   - 未来字段重命名 / 结构调整, 不破坏老 scene
  *
  * 使用方式:
@@ -19,7 +18,7 @@
  *
  * 错误兜底: step 抛异常 → 停止后续, 返回最后一个成功的中间结果 (尽力升级而非崩盘).
  *
- * 当前 CURRENT_VERSION = 1 (基线). W4 Preset 等真要改格式时, ++ 并注册对应 step.
+ * 当前 CURRENT_VERSION = 1 (基线). 未来真要改数据格式时, ++ 并注册对应 step.
  */
 
 import { CapabilityRegistry } from "../CapabilityRegistry";

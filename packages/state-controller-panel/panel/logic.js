@@ -22,7 +22,6 @@ module.exports = {
         chkInspectorDirty: '#chk-inspector-dirty',
         chkInspectorExclude: '#chk-inspector-exclude',
         inspectorSubToggles: '#inspector-sub-toggles',
-        btnInstallCore: '#btn-install-core',
         statesList: '#states-list',
         btnAddState: '#btn-add-state',
         stateDetail: '#state-detail',
@@ -74,10 +73,6 @@ module.exports = {
     },
 
     _bindEvents() {
-        this.$btnInstallCore.addEventListener('click', () => {
-            Editor.log('TODO Wave 3: 实装安装核心脚本命令');
-        });
-
         this.$btnAddState.addEventListener('click', () => {
             if (!this.currentCtrlUuid || !this.currentSnapshot || this.currentSnapshot.isRecording) return;
             const states = this.currentSnapshot.states || [];
