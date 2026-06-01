@@ -367,9 +367,9 @@ module.exports = {
     /**
      * P2b 写半边: 点击 inspector 标记 → 切换某些 propRef 的排除状态.
      *
-     * 复用现成机制 (零改 StateSelect.ts): 改 select._userExcludedProps (公开数组) +
-     * 读 select.excludedPropsDisplay getter (其副作用 reconcileUserExcluded 会 diff 并
-     * 调 togglePropertyControl 同步跟踪态). 绞杀 W6 UI 时再换成干净的 setPropExcluded.
+     * M2b-1 后: 走干净的 select.setPropExcluded(ref, bool) mutation API (替代旧的
+     * "改 _userExcludedProps 数组 + 读 excludedPropsDisplay getter 副作用" hack). 该方法内部
+     * 改数组 + togglePropertyControl 同步跟踪态 + 同步 _lastSeenExcluded 快照.
      *
      * Undo: best-effort 包 _Scene.Undo.recordObject/commit (项目无先例, API 不对也不影响写入).
      * payload = { uuid, refs: [propRef...], action: 'exclude'|'unexclude' }
@@ -390,15 +390,20 @@ module.exports = {
         const Undo = (typeof _Scene !== 'undefined' && _Scene) ? _Scene.Undo : null;
         try { if (Undo && Undo.recordObject) Undo.recordObject(node.uuid, 'state-controller: toggle exclude'); } catch (e) { /* noop */ }
 
-        if (!select._userExcludedProps) select._userExcludedProps = [];
+        const excluded = (action === 'exclude');
+        const useApi = typeof select.setPropExcluded === 'function';
         for (let i = 0; i < refs.length; i++) {
-            const r = refs[i];
-            const idx = select._userExcludedProps.indexOf(r);
-            if (action === 'exclude') { if (idx === -1) select._userExcludedProps.push(r); }
-            else { if (idx >= 0) select._userExcludedProps.splice(idx, 1); }
+            if (useApi) {
+                try { select.setPropExcluded(refs[i], excluded); } catch (e) { /* noop */ }
+            } else {
+                // 兜底 (旧组件无 setPropExcluded): 退回数组 + getter 副作用路径
+                if (!select._userExcludedProps) select._userExcludedProps = [];
+                const idx = select._userExcludedProps.indexOf(refs[i]);
+                if (excluded) { if (idx === -1) select._userExcludedProps.push(refs[i]); }
+                else { if (idx >= 0) select._userExcludedProps.splice(idx, 1); }
+                try { void select.excludedPropsDisplay; } catch (e) { /* noop */ }
+            }
         }
-        // 触发 reconcileUserExcluded (getter 副作用) → 同步 togglePropertyControl 跟踪态
-        try { void select.excludedPropsDisplay; } catch (e) { /* noop */ }
 
         try { if (Undo && Undo.commit) Undo.commit(); } catch (e) { /* noop */ }
         // 标脏 → 可 Ctrl+S 存盘

@@ -217,29 +217,40 @@ export class StateSelect extends cc.Component {
     }
 
     /**
+     * M2b-1: 干净的排除 mutation API — 显式替代 excludedPropsDisplay getter 的副作用路径
+     * (reconcileUserExcluded). 插件 inspector 行内排除徽标点击走此方法.
+     *
+     * 与 reconcile 同效但单次精确: 改 _userExcludedProps + 调 togglePropertyControl 同步跟随态,
+     * 并同步 _lastSeenExcluded 快照, 避免后续 excludedPropsDisplay getter reconcile 重复 toggle.
+     * 幂等: 重复排除不重复入列; 恢复未排除项 / 排除空 ref 安全.
+     *
+     * @param propRef 受跟踪 propRef ("cc.Sprite.spriteFrame" / "MyComp.heat" / "cc.Node.x")
+     * @param excluded true=排除(退出跟随); false=恢复跟随
+     */
+    public setPropExcluded(propRef: string, excluded: boolean): void {
+        if (!propRef) return;
+        if (!this._userExcludedProps) this._userExcludedProps = [];
+        const idx = this._userExcludedProps.indexOf(propRef);
+        if (excluded) {
+            if (idx === -1) this._userExcludedProps.push(propRef);
+            try { this.togglePropertyControl(propRef, false); }
+            catch (e) { StateErrorManager.warn("setPropExcluded: 排除失败", { component: "StateSelect", method: "setPropExcluded", params: { propRef, error: (e as Error).message } }); }
+        } else {
+            if (idx >= 0) this._userExcludedProps.splice(idx, 1);
+            try { this.togglePropertyControl(propRef, true); }
+            catch (e) { StateErrorManager.warn("setPropExcluded: 恢复跟随失败", { component: "StateSelect", method: "setPropExcluded", params: { propRef, error: (e as Error).message } }); }
+        }
+        // 与 reconcile 路径快照一致, 避免下次 getter reconcile 把刚做的 toggle 又翻回去
+        this._lastSeenExcluded = this._userExcludedProps.slice();
+        this.refreshExcludeEnumLists();
+    }
+
+    /**
      * W6-4 C 方案: "+ 添加排除" 下拉选项缓存 (instance scope, 非序列化).
      * enumList value=v 对应 _addExcludeOptions[v-1] (value=0 是 sentinel "(选一个...)").
      * refreshExcludeEnumLists 注入 enumList 时同步刷新.
      */
     private _addExcludeOptions: string[] = [];
-
-    /** W6-4 hotfix2 #3: 排除下拉搜索关键字 (instance, 不序列化), 大小写不敏感 substring 匹配 */
-    private _excludeFilter: string = "";
-
-    /**
-     * W6-4 hotfix2 #3: 搜索关键字过滤 "+ 添加排除" 下拉选项. cocos 2.x 长下拉无原生搜索,
-     * 这里加 string 输入字段, 输入后失焦/Enter 触发 setter → refresh enumList 只保留匹配项.
-     */
-    @property({ displayName: "🔍 搜索 (排除)", tooltip: "输入关键字过滤添加排除下拉. 大小写不敏感 substring. 空 = 不过滤." })
-    public get excludeFilter(): string {
-        return this._excludeFilter;
-    }
-
-    public set excludeFilter(v: string) {
-        if (!CC_EDITOR) return;
-        this._excludeFilter = (v == null) ? "" : String(v);
-        this.refreshExcludeEnumLists();
-    }
 
     /**
      * W6-4 C 方案: "+ 添加排除" 快捷下拉. enumList index=0 是 sentinel "(选一个...)", 真实选项 value 从 1 起.
@@ -293,15 +304,11 @@ export class StateSelect extends cc.Component {
             });
         }
         // 当前可跟随 = trackable - SYSTEM - user (用户能从中再选一个排除)
-        let addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
-        // W6-4 hotfix2 #3: 搜索关键字过滤 (substring, 大小写不敏感, 空关键字不过滤)
-        const kw = (this._excludeFilter || "").trim().toLowerCase();
-        if (kw) addList = addList.filter(r => r.toLowerCase().includes(kw));
+        const addList = trackableRefs.filter(r => !systemExcluded.has(r) && !userExcluded.has(r));
         // enumList[0] 是 sentinel, 真实选项 value 从 1 起. setter 反查 _addExcludeOptions[v-1].
         this._addExcludeOptions = addList;
-        const sentinelName = kw ? `(选一个加入排除, 过滤: ${kw})` : "(选一个加入排除)";
         const addEnum = [
-            { name: sentinelName, value: 0 },
+            { name: "(选一个加入排除)", value: 0 },
             ...addList.map((r, i) => ({ name: r, value: i + 1 })),
         ];
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
@@ -331,8 +338,9 @@ export class StateSelect extends cc.Component {
     @property({
         type: [cc.String],
         displayName: "用户排除清单",
-        tooltip: "用户手动排除的 prop 列表 (除 SYSTEM_EXCLUDE 外). 数组 +/- 按钮可直接增删. 删项 = 重新跟随, 加项 = 排除跟随.",
+        tooltip: "用户手动排除的 prop 列表 (除 SYSTEM_EXCLUDE 外). 用 +/- 按钮增删数组项 (不要直接编辑文本: 加项请走 '+ 添加排除' 下拉). 删项 = 重新跟随.",
         visible: true,
+        readonly: true,
     })
     public _userExcludedProps: string[] = [];
 
@@ -2211,10 +2219,15 @@ export class StateSelect extends cc.Component {
         }
         catch (_) { /* listTrackableProps 失败时返回空 snapshot — 录制 dirty detect 降级 */ }
         const systemComps = new Set(StateSelect.CONTROLLER_SYSTEM_COMPS);
+        // W6: 用户排除清单的 prop 不进 _fullSnapshot — 排除 = 彻底脱离录制范围.
+        // 否则录制期间误改被排除的 prop, detectUntrackedDirty 会当"未跟随 dirty"弹窗回写, 违背排除语义.
+        // (SYSTEM_EXCLUDE 已在 listTrackableProps 内部过滤, 这里只补用户黑名单.)
+        const userExcluded = new Set(this._userExcludedProps || []);
         for (const tp of trackable) {
             if (systemComps.has(tp.compName)) continue;
             if (isAmbiguousAggregatePropRef(tp.propRef)) continue;
             if (tp.readonly) continue;
+            if (userExcluded.has(tp.propRef)) continue;
             const cur = this.readPropFromNodeByPropRef(tp.propRef);
             if (cur === undefined) continue;
             (out as any)[tp.propRef] = cloneValueByType(cur, tp.cocosType);
