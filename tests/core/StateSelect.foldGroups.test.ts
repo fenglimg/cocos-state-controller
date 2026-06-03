@@ -77,7 +77,7 @@ describe("StateSelect inspector 折叠组结构", () => {
         const moved = [
             "excludedPropsDisplay", "addExcludeTrigger",
             "recordTrigger", "cancelRecordTrigger",
-            "swapValueWithNext", "copyValueToNext", "moveValueToNext",
+            "swapValueWithNext", "copyValueToNext",
         ];
         for (const key of moved) {
             expect({ key, visible: sa[key + DELIMETER + "visible"] }).toEqual({ key, visible: undefined });
@@ -102,7 +102,7 @@ describe("StateSelect inspector 折叠组结构", () => {
         expect(ctrl.isRecording).toBe(false);
     });
 
-    it("valueOps 折叠组: swap/copy/move 代理到 owner 同名访问器", () => {
+    it("valueOps 折叠组: swap/copy 代理到 owner 同名访问器", () => {
         const { ctrl, select } = setup();
         const cid = (ctrl as any).ctrlId;
         // 种子: A(state0) 有 propData, B(state1) 空

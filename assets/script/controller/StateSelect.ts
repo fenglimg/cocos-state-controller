@@ -1808,22 +1808,6 @@ export class StateSelect extends cc.Component {
         return true;
     }
 
-    /**
-     * 专项A-2: 移动单节点某 state 的值数据到另一 state (节点级局部操作).
-     * fromState→toState 后清空源槽位; 不增删 state 数量、不碰 selectedIndex/其他节点.
-     */
-    public moveStateValues(fromState: number, toState: number, ctrlId?: number): boolean {
-        const pageData = this.validateStateValueOp(fromState, toState, ctrlId);
-        if (!pageData) return false;
-        if (fromState === toState) return true;
-        const source = pageData[fromState];
-        if (source !== void 0) pageData[toState] = source; else delete pageData[toState];
-        delete pageData[fromState];
-        this.updateChangedProp();
-        this.reapplyCurrentStateIfAffected([fromState, toState]);
-        return true;
-    }
-
     // #endregion
 
     /** 🔧 新增：处理状态删除逻辑 */
@@ -3471,16 +3455,6 @@ export class StateSelect extends cc.Component {
         if (!CC_EDITOR) return;
         const p = this.getCurrNextStatePair();
         if (p) this.copyStateValues(p.cur, p.next);
-    }
-
-    /** 专项A-2: 移动当前 state 的值数据到下一 state (节点级局部操作, 清空当前). */
-    /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
-    public get moveValueToNext(): boolean { return false; }
-
-    public set moveValueToNext(_v: boolean) {
-        if (!CC_EDITOR) return;
-        const p = this.getCurrNextStatePair();
-        if (p) this.moveStateValues(p.cur, p.next);
     }
     // #endregion
 

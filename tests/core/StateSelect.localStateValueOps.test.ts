@@ -116,32 +116,12 @@ describe("专项A-2 StateSelect 单节点各 state 值 swap/copy/move", () => {
         expect(ctrl.states.length).toBe(3);
     });
 
-    it("moveStateValues: A1→B1 后源槽位清空, 目标拿到原值", () => {
-        const { ctrl, select } = setup();
-        const cid = ctrl.ctrlId;
-        seedPage(select, cid, {
-            0: { "cc.Node.opacity": 100 },
-            1: { "cc.Node.opacity": 200 },
-        });
-
-        const ok = select.moveStateValues(0, 1, cid);
-        expect(ok).toBe(true);
-
-        const page = (select as any)._ctrlData[cid];
-        expect(page[1]["cc.Node.opacity"]).toBe(100);
-        // 源槽位清空 (无任何 prop 值; 当前 state 槽位可能被 updateChangedProp 懒重建为空 {})
-        expect(Object.keys(page[0] || {}).length).toBe(0);
-        expect(ctrl.states.length).toBe(3);
-        expect(ctrl.selectedIndex).toBe(0);
-    });
-
     it("越界 state index 被拒 (返回 false, 不破坏数据)", () => {
         const { ctrl, select } = setup();
         const cid = ctrl.ctrlId;
         seedPage(select, cid, { 0: { "cc.Node.opacity": 100 } });
         expect(select.swapStateValues(0, 9, cid)).toBe(false);
         expect(select.copyStateValues(-1, 0, cid)).toBe(false);
-        expect(select.moveStateValues(0, 5, cid)).toBe(false);
         // 数据未动
         expect((select as any)._ctrlData[cid][0]["cc.Node.opacity"]).toBe(100);
     });
@@ -150,7 +130,7 @@ describe("专项A-2 StateSelect 单节点各 state 值 swap/copy/move", () => {
         const { ctrl, select } = setup();
         const cid = ctrl.ctrlId;
         seedPage(select, cid, { 1: { "cc.Node.opacity": 123 } });
-        expect(select.moveStateValues(1, 1, cid)).toBe(true);
+        expect(select.copyStateValues(1, 1, cid)).toBe(true);
         expect((select as any)._ctrlData[cid][1]["cc.Node.opacity"]).toBe(123);
     });
 
@@ -161,7 +141,7 @@ describe("专项A-2 StateSelect 单节点各 state 值 swap/copy/move", () => {
             return attrs[key + DELIMETER + "visible"];
         }
 
-        for (const key of ["swapValueWithNext", "copyValueToNext", "moveValueToNext"]) {
+        for (const key of ["swapValueWithNext", "copyValueToNext"]) {
             it(`[${key}] @property 对 inspector 可见 (visible !== false)`, () => {
                 expect(getVisibleAttr(StateSelect, key)).not.toBe(false);
             });

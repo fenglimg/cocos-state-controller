@@ -75,8 +75,4 @@ export class SelectValueOpsGroup {
     @property({ displayName: "⎘ 复制值到下一 state", tooltip: "把本节点当前 state 的值数据深拷到下一 state (仅本节点, 不改 state 数量/选中)" })
     public get copyValueToNext(): boolean { return false; }
     public set copyValueToNext(v: boolean) { if (this.owner) this.owner.copyValueToNext = v; }
-
-    @property({ displayName: "➜ 移动值到下一 state", tooltip: "把本节点当前 state 的值数据移到下一 state 并清空当前 (仅本节点, 不改 state 数量/选中)" })
-    public get moveValueToNext(): boolean { return false; }
-    public set moveValueToNext(v: boolean) { if (this.owner) this.owner.moveValueToNext = v; }
 }
