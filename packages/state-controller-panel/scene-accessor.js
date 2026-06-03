@@ -372,9 +372,36 @@ module.exports = {
             }
         }
         walk(scene);
-        
+
         const topology = handlers.buildTopology(ctrlsInfo, selectsInfo);
         event.reply(null, topology);
+    },
+
+    /**
+     * 支柱 B: 新增一条跨控制器联动声明 (写序列化 _bindingsData + 标脏).
+     * payload = { uuid(源ctrl节点), sourceStateId, targetCtrlId, targetStateId }
+     */
+    'add-binding'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl || typeof ctrl.addBinding !== 'function') return event.reply('ctrl not found', false);
+        const ok = ctrl.addBinding(payload.sourceStateId, payload.targetCtrlId, payload.targetStateId);
+        event.reply(null, ok);
+        if (ok) {
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+        }
+    },
+
+    /** 支柱 B: 删除一条联动. payload = { uuid, sourceStateId, targetCtrlId } */
+    'remove-binding'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl || typeof ctrl.removeBinding !== 'function') return event.reply('ctrl not found', false);
+        const ok = ctrl.removeBinding(payload.sourceStateId, payload.targetCtrlId);
+        event.reply(null, ok);
+        if (ok) {
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+        }
     },
 
     /**

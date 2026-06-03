@@ -323,3 +323,38 @@
 .ctrl-list { display: flex; flex-direction: column; gap: 8px; max-width: 360px; margin: 0 auto; }
 .ctrl-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; background: #fff; border: var(--border-thin); box-shadow: 2px 2px 0 #000; }
 .ctrl-name { font-weight: 700; }
+
+/* ====================================================
+   联动关系图 (支柱 B)
+   ==================================================== */
+#view-bindings { padding: 14px; gap: 14px; overflow: auto; }
+.bindings-form {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 14px; background: var(--bg-card);
+    border: var(--border-thick); box-shadow: var(--shadow-hard);
+}
+.bind-sep { font-weight: 700; font-size: 12px; color: var(--text-dim); }
+.bindings-graph { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.bind-group-cap {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; text-transform: uppercase;
+    padding: 6px 10px; background: var(--accent-blue); color: #fff; border: var(--border-thin);
+    box-shadow: 2px 2px 0 #000; align-self: flex-start;
+}
+.bind-edge {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 14px; background: var(--bg-card);
+    border: var(--border-thick); box-shadow: var(--shadow-hard);
+}
+.bind-edge:hover { transform: translate(-2px,-2px); box-shadow: var(--shadow-hard-lg); transition: var(--transition); }
+.bind-node {
+    display: inline-flex; flex-direction: column; gap: 2px;
+    padding: 6px 12px; border: var(--border-thin); box-shadow: 2px 2px 0 #000;
+}
+.bind-node.bind-src { background: var(--primary); }
+.bind-node.bind-tgt { background: var(--accent-green); }
+.bind-node .bind-ctrl { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; }
+.bind-node .bind-state { font-size: 11px; font-weight: 700; }
+.bind-arrow { font-family: 'Space Grotesk'; font-weight: 700; font-size: 18px; }
+.bind-edge.broken .bind-tgt { background: var(--accent-pink); }
+.btn-del-binding { margin-left: auto; }

@@ -24,6 +24,15 @@ module.exports = {
         editorActions: '#editor-actions',
         viewOverview: '#view-overview',
         viewEditor: '#view-editor',
+        tabBindings: '#tab-bindings',
+        viewBindings: '#view-bindings',
+        bindSourceCtrl: '#bind-source-ctrl',
+        bindSourceState: '#bind-source-state',
+        bindTargetCtrl: '#bind-target-ctrl',
+        bindTargetState: '#bind-target-state',
+        btnAddBinding: '#btn-add-binding',
+        bindingsGraph: '#bindings-graph',
+        bindingsEmpty: '#bindings-empty',
         filterLevel: '#filter-level',
         searchInput: '#search-input',
         // 观测总览
@@ -76,6 +85,7 @@ module.exports = {
         tplMatrixRow: '#tpl-matrix-row',
         tplMatrixCell: '#tpl-matrix-cell',
         tplIssueItem: '#tpl-issue-item',
+        tplBindingEdge: '#tpl-binding-edge',
     },
 
     ready() {
@@ -126,10 +136,16 @@ module.exports = {
         // --- tab 切换 ---
         this.$tabOverview.addEventListener('click', () => this.switchView('overview'));
         this.$tabEditor.addEventListener('click', () => this.switchView('editor'));
+        this.$tabBindings.addEventListener('click', () => this.switchView('bindings'));
 
         // --- 观测过滤 / 搜索 ---
         this.$filterLevel.addEventListener('change', () => this.renderTopology());
         this.$searchInput.addEventListener('input', () => this.renderTopology());
+
+        // --- 联动关系表单 ---
+        this.$bindSourceCtrl.addEventListener('change', () => this._fillStateOptions(this.$bindSourceCtrl, this.$bindSourceState));
+        this.$bindTargetCtrl.addEventListener('change', () => this._fillStateOptions(this.$bindTargetCtrl, this.$bindTargetState));
+        this.$btnAddBinding.addEventListener('click', () => this._addBindingFromForm());
 
         // --- 反向高亮: 编辑器选中节点 → 总览定位 (存 handler, close 时解绑防泄漏) ---
         this._onEditorSelected = (type, ids) => {
@@ -175,15 +191,17 @@ module.exports = {
 
     switchView(view) {
         this.activeView = view;
-        const ov = view === 'overview';
-        this.$tabOverview.classList.toggle('is-active', ov);
-        this.$tabEditor.classList.toggle('is-active', !ov);
-        this.$overviewActions.style.display = ov ? 'flex' : 'none';
-        this.$editorActions.style.display = ov ? 'none' : 'flex';
-        this.$viewOverview.style.display = ov ? 'flex' : 'none';
-        this.$viewEditor.style.display = ov ? 'none' : 'flex';
-        if (ov) this.refreshTopology();
-        else this.refreshCtrlList();
+        this.$tabOverview.classList.toggle('is-active', view === 'overview');
+        this.$tabEditor.classList.toggle('is-active', view === 'editor');
+        this.$tabBindings.classList.toggle('is-active', view === 'bindings');
+        this.$overviewActions.style.display = view === 'overview' ? 'flex' : 'none';
+        this.$editorActions.style.display = view === 'editor' ? 'flex' : 'none';
+        this.$viewOverview.style.display = view === 'overview' ? 'flex' : 'none';
+        this.$viewEditor.style.display = view === 'editor' ? 'flex' : 'none';
+        this.$viewBindings.style.display = view === 'bindings' ? 'flex' : 'none';
+        if (view === 'overview') this.refreshTopology();
+        else if (view === 'editor') this.refreshCtrlList();
+        else this.refreshBindings();
     },
 
     // ============================================================
@@ -512,6 +530,110 @@ module.exports = {
     },
 
     // ============================================================
+    // 联动关系图 (支柱 B)
+    // ============================================================
+    refreshBindings() {
+        if (this.activeView !== 'bindings') return;
+        this._callScene('list-scene-topology', null, (err, topology) => {
+            if (err) { if (!this._initialFetch) Editor.warn(err); return; }
+            this.topology = topology || { controllers: [] };
+            this.renderBindings();
+        });
+    },
+
+    renderBindings() {
+        const ctrls = (this.topology && this.topology.controllers) || [];
+        const byId = {};
+        ctrls.forEach(c => { byId[c.ctrlId] = c; });
+        this._ctrlById = byId;
+
+        this._fillCtrlOptions(this.$bindSourceCtrl);
+        this._fillCtrlOptions(this.$bindTargetCtrl);
+        this._fillStateOptions(this.$bindSourceCtrl, this.$bindSourceState);
+        this._fillStateOptions(this.$bindTargetCtrl, this.$bindTargetState);
+
+        this.$bindingsGraph.innerHTML = '';
+        let any = false;
+        ctrls.forEach(src => {
+            const binds = src.bindings || [];
+            if (!binds.length) return;
+            any = true;
+            const cap = document.createElement('div');
+            cap.className = 'bind-group-cap';
+            cap.textContent = `🎮 ${src.ctrlName || src.ctrlId}`;
+            this.$bindingsGraph.appendChild(cap);
+            binds.forEach(b => {
+                const tgt = byId[b.targetCtrlId];
+                const frag = document.importNode(this.$tplBindingEdge.content, true);
+                const edge = frag.querySelector('.bind-edge');
+                if (!tgt) edge.classList.add('broken');
+                frag.querySelector('.bind-src .bind-ctrl').textContent = src.ctrlName || src.ctrlId;
+                frag.querySelector('.bind-src .bind-state').textContent = this._stateName(src, b.sourceStateId);
+                frag.querySelector('.bind-tgt .bind-ctrl').textContent = tgt ? (tgt.ctrlName || tgt.ctrlId) : `? (id ${b.targetCtrlId})`;
+                frag.querySelector('.bind-tgt .bind-state').textContent = tgt ? this._stateName(tgt, b.targetStateId) : `state ${b.targetStateId}`;
+                frag.querySelector('.btn-del-binding').addEventListener('click', () => this._removeBinding(src, b));
+                this.$bindingsGraph.appendChild(frag);
+            });
+        });
+        this.$bindingsEmpty.style.display = any ? 'none' : 'flex';
+    },
+
+    _stateName(ctrl, stateId) {
+        const s = (ctrl.states || []).find(st => st.stateId === stateId);
+        return s ? (s.name || `#${s.index + 1}`) : `id ${stateId}`;
+    },
+
+    _fillCtrlOptions(sel) {
+        const ctrls = (this.topology && this.topology.controllers) || [];
+        const prev = sel.value;
+        sel.innerHTML = '';
+        ctrls.forEach(c => {
+            const o = document.createElement('option');
+            o.value = String(c.ctrlId);
+            o.textContent = c.ctrlName || `Controller ${c.ctrlId}`;
+            sel.appendChild(o);
+        });
+        if (prev && ctrls.some(c => String(c.ctrlId) === prev)) sel.value = prev;
+    },
+
+    _fillStateOptions(ctrlSel, stateSel) {
+        const ctrl = this._ctrlById && this._ctrlById[ctrlSel.value];
+        const prev = stateSel.value;
+        stateSel.innerHTML = '';
+        if (!ctrl) return;
+        (ctrl.states || []).forEach(s => {
+            const o = document.createElement('option');
+            o.value = String(s.stateId);
+            o.textContent = s.name || `#${s.index + 1}`;
+            stateSel.appendChild(o);
+        });
+        if (prev && (ctrl.states || []).some(s => String(s.stateId) === prev)) stateSel.value = prev;
+    },
+
+    _addBindingFromForm() {
+        const srcId = Number(this.$bindSourceCtrl.value);
+        const tgtId = Number(this.$bindTargetCtrl.value);
+        const sStateId = Number(this.$bindSourceState.value);
+        const tStateId = Number(this.$bindTargetState.value);
+        const src = this._ctrlById && this._ctrlById[srcId];
+        if (!src || isNaN(srcId) || isNaN(tgtId) || isNaN(sStateId) || isNaN(tStateId)) {
+            Editor.warn('联动参数不完整, 请确认场景里有控制器与状态');
+            return;
+        }
+        this._callScene('add-binding', { uuid: src.uuid, sourceStateId: sStateId, targetCtrlId: tgtId, targetStateId: tStateId }, (err) => {
+            if (err) Editor.warn(err);
+            this.refreshBindings();
+        });
+    },
+
+    _removeBinding(src, b) {
+        this._callScene('remove-binding', { uuid: src.uuid, sourceStateId: b.sourceStateId, targetCtrlId: b.targetCtrlId }, (err) => {
+            if (err) Editor.warn(err);
+            this.refreshBindings();
+        });
+    },
+
+    // ============================================================
     // 编辑视图 (保留既有能力)
     // ============================================================
     _fetchInspectorFlags() {
@@ -792,10 +914,11 @@ module.exports = {
     // 主进程 / scene-script 广播
     // ============================================================
     messages: {
-        'scene:reloaded'() { this.refreshTopology(); this.refreshCtrlList(); },
-        'state-controller-panel:scene-ready'() { this.refreshTopology(); this.refreshCtrlList(); },
+        'scene:reloaded'() { this.refreshTopology(); this.refreshBindings(); this.refreshCtrlList(); },
+        'state-controller-panel:scene-ready'() { this.refreshTopology(); this.refreshBindings(); this.refreshCtrlList(); },
         'state-controller-panel:on-state-changed'(event, payload) {
             this.refreshTopology();
+            this.refreshBindings();
             if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
         'state-controller-panel:on-recording-changed'(event, payload) {
@@ -808,6 +931,7 @@ module.exports = {
         },
         'state-controller-panel:on-data-changed'(event, payload) {
             this.refreshTopology();
+            this.refreshBindings();
             if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
     },

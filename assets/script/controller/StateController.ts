@@ -9,6 +9,8 @@ import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
 import { CtrlRecordGroup, CtrlStateOpsGroup } from "./props/CtrlInspectorGroups";
+// 支柱 B: 可序列化跨控制器联动 — 复用运行时 binding capability 接线 (无循环依赖: 该 capability 不 import 本类).
+import { MultiCtrlBindingCapability } from "./capabilities/MultiCtrlBindingCapability";
 
 cc.Enum(EnumStateName);
 
@@ -44,6 +46,28 @@ export class StateController extends cc.Component {
     /** 控制器唯一id，如果使用uuid每次打开编辑器就会变 */
     @property({ visible: false })
     public ctrlId = Date.now();
+
+    /**
+     * 支柱 B: 序列化的跨控制器联动声明. JSON 串 [{sourceStateId,targetCtrlId,targetStateId}].
+     * 用 targetCtrlId(数字)代替对象引用以便进 .fire/.prefab 序列化; 运行时 start() 时
+     * rehydrateBindings 解析 id→ctrl 对象, 复用 MultiCtrlBindingCapability 接线.
+     */
+    @property({ visible: false })
+    private _bindingsData: string = "";
+
+    /** 支柱 B: ctrlId → 实例 全局注册表, 供 binding 按 id 解析目标控制器. */
+    private static _byId: { [id: number]: StateController } = {};
+    public static getById(id: number): StateController | null {
+        return (typeof id === "number" && StateController._byId[id]) || null;
+    }
+    private static _register(ctrl: StateController): void {
+        if (ctrl && typeof ctrl.ctrlId === "number") StateController._byId[ctrl.ctrlId] = ctrl;
+    }
+    private static _unregister(ctrl: StateController): void {
+        if (ctrl && typeof ctrl.ctrlId === "number" && StateController._byId[ctrl.ctrlId] === ctrl) {
+            delete StateController._byId[ctrl.ctrlId];
+        }
+    }
 
     /** 历史状态名字 */
     @property({ visible: false })
@@ -672,6 +696,7 @@ export class StateController extends cc.Component {
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     protected __preload() {
+        StateController._register(this);   // 支柱 B: 编辑器期也登记, 供 binding 解析 + 面板观测
         if (!CC_EDITOR) {
             return;
         }
@@ -749,6 +774,7 @@ export class StateController extends cc.Component {
     }
 
     protected onLoad() {
+        StateController._register(this);   // 支柱 B: 运行时也登记 (start() rehydrate 需按 id 解析目标)
         if (!CC_EDITOR) {
             // Wave 3: runtime 启动 capability hook (HomePage 等用此跳到指定 state)
             CapabilityRegistry.dispatch("onRuntimeInit", { ctrl: this });
@@ -757,7 +783,18 @@ export class StateController extends cc.Component {
         this.updateState(EnumUpdateType.State);
     }
 
+    /**
+     * 支柱 B: 运行时把序列化 binding 解析并接线. 放在 start() 而非 onLoad —
+     * Cocos 保证所有组件 onLoad 先于任意 start, 故此刻全场景控制器都已登记进 _byId,
+     * 跨控制器目标按 id 解析不受加载顺序影响.
+     */
+    protected start() {
+        if (CC_EDITOR) return;
+        this.rehydrateBindings();
+    }
+
     protected onDestroy() {
+        StateController._unregister(this);   // 支柱 B
         if (!CC_EDITOR) {
             return;
         }
@@ -773,6 +810,67 @@ export class StateController extends cc.Component {
             cc.director.off(cc.Director.EVENT_BEFORE_SCENE_LAUNCH, this._onSceneBeforeLaunch, this);
         }
         this.updateState(EnumUpdateType.Delete);
+    }
+
+    // ===== 支柱 B: 可序列化跨控制器联动 API =====
+
+    /** 读出序列化的联动声明 (容错: 坏数据返回空). */
+    public getBindings(): { sourceStateId: number; targetCtrlId: number; targetStateId: number }[] {
+        if (!this._bindingsData) return [];
+        try {
+            const arr = JSON.parse(this._bindingsData);
+            if (!Array.isArray(arr)) return [];
+            return arr
+                .filter(b => b && typeof b.sourceStateId === "number" && typeof b.targetCtrlId === "number" && typeof b.targetStateId === "number")
+                .map(b => ({ sourceStateId: b.sourceStateId, targetCtrlId: b.targetCtrlId, targetStateId: b.targetStateId }));
+        } catch (e) {
+            return [];
+        }
+    }
+
+    private _saveBindings(list: { sourceStateId: number; targetCtrlId: number; targetStateId: number }[]): void {
+        this._bindingsData = JSON.stringify(list);
+    }
+
+    /** 新增/更新一条联动: 本控制器切到 sourceStateId → 目标控制器(targetCtrlId)切到 targetStateId. 同 (源态,目标) 覆盖. */
+    public addBinding(sourceStateId: number, targetCtrlId: number, targetStateId: number): boolean {
+        if (typeof sourceStateId !== "number" || typeof targetCtrlId !== "number" || typeof targetStateId !== "number") return false;
+        const list = this.getBindings();
+        const i = list.findIndex(b => b.sourceStateId === sourceStateId && b.targetCtrlId === targetCtrlId);
+        if (i >= 0) list[i].targetStateId = targetStateId;
+        else list.push({ sourceStateId, targetCtrlId, targetStateId });
+        this._saveBindings(list);
+        return true;
+    }
+
+    /** 删除一条联动. */
+    public removeBinding(sourceStateId: number, targetCtrlId: number): boolean {
+        const list = this.getBindings();
+        const i = list.findIndex(b => b.sourceStateId === sourceStateId && b.targetCtrlId === targetCtrlId);
+        if (i < 0) return false;
+        list.splice(i, 1);
+        this._saveBindings(list);
+        return true;
+    }
+
+    /** 清空本控制器全部联动 (序列化 + 运行时接线). */
+    public clearBindings(): void {
+        this._bindingsData = "";
+        MultiCtrlBindingCapability.clearAllBindings(this);
+    }
+
+    /**
+     * 把序列化 binding 解析成运行时接线 (复用 MultiCtrlBindingCapability). 幂等: 先清后接, 重复调用不叠加.
+     * 目标 ctrlId 未登记 (未加载) 时跳过该条, 不抛.
+     */
+    public rehydrateBindings(): void {
+        MultiCtrlBindingCapability.clearAllBindings(this);
+        const list = this.getBindings();
+        for (let i = 0; i < list.length; i++) {
+            const b = list[i];
+            const target = StateController.getById(b.targetCtrlId);
+            if (target) MultiCtrlBindingCapability.addBinding(this, b.sourceStateId, target, b.targetStateId);
+        }
     }
 
     /** 选择的状态名字 */

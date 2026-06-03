@@ -365,6 +365,8 @@ function buildTopology(ctrlsInfo, selectsInfo) {
             states: snap.states,
             selectedIndex: snap.selectedIndex,
             isRecording: snap.isRecording,
+            // 支柱 B: 该控制器的跨控制器联动声明 [{sourceStateId,targetCtrlId,targetStateId}].
+            bindings: (ctrl && typeof ctrl.getBindings === 'function') ? ctrl.getBindings() : [],
             members: []
         };
 

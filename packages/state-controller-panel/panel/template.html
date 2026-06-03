@@ -4,6 +4,7 @@
         <div class="nav-tabs">
             <button id="tab-overview" class="tab-btn is-active">场景观测总览</button>
             <button id="tab-editor" class="tab-btn">单控制器编辑</button>
+            <button id="tab-bindings" class="tab-btn">联动关系</button>
         </div>
         <div class="nav-actions">
             <!-- 观测模式操作 -->
@@ -134,7 +135,37 @@
     </div>
 </div>
 
+<!-- ===== 视图 3: 控制器联动关系图 ===== -->
+    <div id="view-bindings" class="view-container" style="display:none;">
+        <div class="bindings-form">
+            <span class="field-label">新增联动</span>
+            <select id="bind-source-ctrl" class="nb-select"></select>
+            <span class="bind-sep">切到</span>
+            <select id="bind-source-state" class="nb-select"></select>
+            <span class="bind-sep">触发 ▶</span>
+            <select id="bind-target-ctrl" class="nb-select"></select>
+            <span class="bind-sep">切到</span>
+            <select id="bind-target-state" class="nb-select"></select>
+            <button id="btn-add-binding" class="nb-btn nb-btn-primary">+ 添加联动</button>
+        </div>
+        <div id="bindings-graph" class="bindings-graph"></div>
+        <div id="bindings-empty" class="empty-tip" style="display:none;">
+            <h3>还没有任何跨控制器联动</h3>
+            <p>用上方表单建立「A 切到某状态 → B 自动切到某状态」的声明式联动。</p>
+        </div>
+    </div>
+
 <!-- ===== 可复用模板 ===== -->
+
+<!-- 联动关系边 -->
+<template id="tpl-binding-edge">
+    <div class="bind-edge">
+        <span class="bind-node bind-src"><span class="bind-ctrl"></span><span class="bind-state"></span></span>
+        <span class="bind-arrow">──▶</span>
+        <span class="bind-node bind-tgt"><span class="bind-ctrl"></span><span class="bind-state"></span></span>
+        <button class="nb-btn btn-small btn-del-binding">✕</button>
+    </div>
+</template>
 
 <!-- 仪表盘卡片 -->
 <template id="tpl-dashboard-card">
