@@ -527,11 +527,12 @@ function buildResidentScript() {
             const isMixed = badgeData.kind === 'mixed';
             
             let badgeHTML = '';
-            if (isExcluded) badgeHTML = '<span style="background:rgba(136,136,136,0.2);color:#aaa;border:1px solid rgba(136,136,136,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">已排除</span>';
-            else if (isLoose) badgeHTML = '<span style="background:rgba(224,86,86,0.2);color:#e05656;border:1px solid rgba(224,86,86,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">未受控</span>';
-            else if (isMixed) badgeHTML = '<span style="background:rgba(229,161,58,0.2);color:#e5a13a;border:1px solid rgba(229,161,58,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">部分未受控</span>';
-            else if (badgeData.override) badgeHTML = '<span style="background:rgba(229,161,58,0.2);color:#e5a13a;border:1px solid rgba(229,161,58,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">已覆盖 Default</span>';
-            else if (badgeData.varies) badgeHTML = '<span style="background:rgba(90,177,239,0.2);color:#5ab1ef;border:1px solid rgba(90,177,239,0.4);padding:2px 6px;border-radius:4px;font-size:10px;margin-left:8px;">状态驱动</span>';
+            const PILL = 'border:2px solid #000;padding:1px 6px;font-size:10px;font-weight:700;margin-left:8px;';
+            if (isExcluded) badgeHTML = '<span style="background:#9a9a9a;color:#000;' + PILL + '">已排除</span>';
+            else if (isLoose) badgeHTML = '<span style="background:#FF6B6B;color:#000;' + PILL + '">未受控</span>';
+            else if (isMixed) badgeHTML = '<span style="background:#FFDE4D;color:#000;' + PILL + '">部分未受控</span>';
+            else if (badgeData.override) badgeHTML = '<span style="background:#FFDE4D;color:#000;' + PILL + '">已覆盖 Default</span>';
+            else if (badgeData.varies) badgeHTML = '<span style="background:#4D96FF;color:#fff;' + PILL + '">状态驱动</span>';
 
             const display = badgeData.display || (badgeData.refs && badgeData.refs[0]) || 'Property';
 
@@ -666,19 +667,19 @@ function buildResidentScript() {
 
             let svg = '';
             if (isExcluded) {
-                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="#888" stroke-width="1.5"/><line x1="4" y1="4" x2="12" y2="12" stroke="#888" stroke-width="1.5"/></svg>';
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" fill="#9a9a9a" stroke="#000" stroke-width="1.5"/><line x1="4.5" y1="11.5" x2="11.5" y2="4.5" stroke="#000" stroke-width="2"/></svg>';
                 row.style.opacity = '0.5';
             } else if (isLoose) {
-                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 1 L15 13 H1 Z" fill="none" stroke="#e05656" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="10" stroke="#e05656" stroke-width="1.5"/><circle cx="8" cy="12" r="0.8" fill="#e05656"/></svg>';
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 1.5 L14.8 13.5 L1.2 13.5 Z" fill="#FF6B6B" stroke="#000" stroke-width="1.5" stroke-linejoin="miter"/><rect x="7.15" y="6" width="1.7" height="3.4" fill="#000"/><rect x="7.15" y="10.4" width="1.7" height="1.7" fill="#000"/></svg>';
                 row.style.opacity = '';
             } else if (isMixed) {
-                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6" fill="none" stroke="#e5a13a" stroke-width="1.5"/><path d="M8 2 A 6 6 0 0 1 8 14 Z" fill="#e5a13a"/></svg>';
+                svg = '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="2.5" y="2.5" width="11" height="11" fill="#2b2b2b"/><path d="M2.5 2.5 L13.5 2.5 L2.5 13.5 Z" fill="#FFDE4D"/><line x1="13.5" y1="2.5" x2="2.5" y2="13.5" stroke="#000" stroke-width="1.5"/><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="#000" stroke-width="1.5"/></svg>';
                 row.style.opacity = '';
             } else if (varies || override) {
                 if (override) {
-                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4" fill="#5ab1ef"/><circle cx="8" cy="8" r="6.5" fill="none" stroke="#e5a13a" stroke-width="1.5"/></svg>';
+                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 0.8 L15.2 8 L8 15.2 L0.8 8 Z" fill="#FFDE4D" stroke="#000" stroke-width="1.5" stroke-linejoin="miter"/><path d="M8 4.2 L11.8 8 L8 11.8 L4.2 8 Z" fill="#4D96FF" stroke="#000" stroke-width="1" stroke-linejoin="miter"/></svg>';
                 } else {
-                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="4.5" fill="#5ab1ef"/></svg>';
+                    svg = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z" fill="#4D96FF" stroke="#000" stroke-width="1.5" stroke-linejoin="miter"/></svg>';
                 }
                 row.style.opacity = '';
             } else {
@@ -688,7 +689,7 @@ function buildResidentScript() {
             container.innerHTML = svg;
 
             if (isDirty) {
-                container.style.boxShadow = 'inset 3px 0 0 #e5a13a';
+                container.style.boxShadow = 'inset 3px 0 0 #FFDE4D';
                 row.setAttribute('data-sci-dirty', '1');
             } else {
                 container.style.boxShadow = 'none';
@@ -893,9 +894,9 @@ function enableInspectorMark(flags) {
     forEachWCSimple('window.__SCI && window.__SCI.setFlags && window.__SCI.setFlags(' + JSON.stringify(f) + ');');
     Editor.log('[sc-inspector] Inspector 增强已开 (M1+M2a+P2b). flags=' + JSON.stringify(f)
         + '\n  视觉系统重构: 统一左侧提示容器, 支持 Hover 呈现多状态值表。'
-        + '\n  ● 蓝点 = 状态机驱动; 蓝点套黄环 = 当前 state 覆盖 default;'
-        + '\n  琥珀色左边框 = 录制脏值;'
-        + '\n  ⊘ 灰 = 已排除; ⚠ 红 = 掉出控制; ◐ 黄 = 部分子项未受控。');
+        + '\n  ◆ 蓝菱 = 状态机驱动; 蓝菱套黄菱 = 当前 state 覆盖 default;'
+        + '\n  黄色左边框 = 录制脏值;'
+        + '\n  ■ 灰方块带斜杠 = 已排除; ▲ 粉三角 = 掉出控制; ◧ 黄半方块 = 部分子项未受控。');
 }
 
 function setInspectorFlags(flags) {

@@ -114,16 +114,12 @@
                     <div id="record-badge" class="record-badge">Idle</div>
                 </div>
 
-                <div class="prop-grid">
-                    <section class="prop-panel">
-                        <button id="btn-followed-toggle" class="prop-panel-title" type="button">▾ 已跟随属性 <span id="followed-count">(0)</span></button>
-                        <div id="followed-props" class="prop-list"></div>
-                    </section>
-                    <section class="prop-panel">
-                        <button id="btn-ready-toggle" class="prop-panel-title" type="button">▾ 可接入属性 <span id="ready-count">(0)</span></button>
-                        <div id="ready-props" class="prop-list"></div>
-                    </section>
+                <div class="editor-matrix-cap">
+                    <span>受控属性 · 各状态值</span>
+                    <label class="toggle-label em-showall"><input type="checkbox" id="chk-show-all-props"> 显示全部受控属性</label>
+                    <span class="cap-hint">💥 跨状态变动高亮 · 点属性看详情 · ✕ 取消跟随</span>
                 </div>
+                <div id="editor-matrix" class="editor-matrix"></div>
             </section>
 
             <section id="empty-tip" class="empty-tip">
@@ -152,6 +148,21 @@
             <h3>还没有任何跨控制器联动</h3>
             <p>用上方表单建立「A 切到某状态 → B 自动切到某状态」的声明式联动。</p>
         </div>
+    </div>
+
+    <!-- ===== 属性详情抽屉 (点矩阵属性行展开, 逐状态看全值) ===== -->
+    <div id="prop-detail" class="prop-detail" style="display:none;">
+        <div class="pd-backdrop" id="pd-backdrop"></div>
+        <aside class="pd-panel">
+            <div class="pd-head">
+                <div class="pd-titles">
+                    <div id="pd-name" class="pd-name"></div>
+                    <div id="pd-type" class="pd-type"></div>
+                </div>
+                <button id="pd-close" class="nb-btn btn-small">✕</button>
+            </div>
+            <div id="pd-body" class="pd-body"></div>
+        </aside>
     </div>
 </div>
 
@@ -225,15 +236,6 @@
         </div>
         <span class="record-dot" style="display:none;">●</span>
         <button class="nb-btn btn-small btn-del-state">✕</button>
-    </div>
-</template>
-
-<template id="tpl-prop-item">
-    <div class="prop-item">
-        <span class="prop-mark"></span>
-        <span class="prop-name"></span>
-        <span class="prop-value"></span>
-        <button class="nb-btn btn-small btn-prop-action"></button>
     </div>
 </template>
 

@@ -4,15 +4,6 @@ const SNAP_INDEX_KEY = 'sel' + 'ectedIndex';
 const NODE_UUID_KEY = 'sel' + 'ectUuid';
 const SET_INDEX_MSG = 'set-' + 'sel' + 'ected-index';
 
-const KNOWN_PROPS = [
-    { name: 'position', propType: 'cc.Node.position' },
-    { name: 'active', propType: 'cc.Node.active' },
-    { name: 'scale', propType: 'cc.Node.scale' },
-    { name: 'opacity', propType: 'cc.Node.opacity' },
-    { name: 'color', propType: 'cc.Node.color' },
-    { name: 'spriteFrame', propType: 'cc.Sprite.spriteFrame' },
-];
-
 const ANOMALY = { loose: 1, excluded: 1, mixed: 1 };
 
 module.exports = {
@@ -67,15 +58,17 @@ module.exports = {
         btnStartRecord: '#btn-start-record',
         btnStopRecord: '#btn-stop-record',
         btnCancelRecord: '#btn-cancel-record',
-        btnFollowedToggle: '#btn-followed-toggle',
-        btnReadyToggle: '#btn-ready-toggle',
-        followedCount: '#followed-count',
-        readyCount: '#ready-count',
-        followedProps: '#followed-props',
-        readyProps: '#ready-props',
+        editorMatrix: '#editor-matrix',
+        chkShowAllProps: '#chk-show-all-props',
+        // 属性详情抽屉
+        propDetail: '#prop-detail',
+        pdBackdrop: '#pd-backdrop',
+        pdClose: '#pd-close',
+        pdName: '#pd-name',
+        pdType: '#pd-type',
+        pdBody: '#pd-body',
         // 模板
         tplStateItem: '#tpl-state-item',
-        tplPropItem: '#tpl-prop-item',
         tplCtrlItem: '#tpl-ctrl-item',
         tplDashboardCard: '#tpl-dashboard-card',
         tplTreeCtrl: '#tpl-tree-ctrl',
@@ -93,7 +86,6 @@ module.exports = {
         this.currentCtrlUuid = null;
         this.currentSnapshot = null;
         this.ctrlItems = [];
-        this.folded = { followed: false, ready: false };
         this._initialFetch = true;
         // 观测视图状态
         this.activeView = 'overview';
@@ -166,7 +158,7 @@ module.exports = {
         this.$btnNextCtrl.addEventListener('click', () => this._stepCtrl(1));
         // 下拉直选控制器 / 状态 (替代旧的「点击跳下一个」)
         this.$ctrlSwitchSelect.addEventListener('change', () => {
-            if (this.$ctrlSwitchSelect.value) this.setCurrentCtrl(this.$ctrlSwitchSelect.value);
+            if (this.$ctrlSwitchSelect.value) this.setCurrentCtrl(this.$ctrlSwitchSelect.value, true);
         });
         this.$statePickSelect.addEventListener('change', () => {
             const idx = Number(this.$statePickSelect.value);
@@ -183,8 +175,9 @@ module.exports = {
                 this.refreshSnapshot();
             });
         });
-        this.$btnFollowedToggle.addEventListener('click', () => { this.folded.followed = !this.folded.followed; this.renderProps(); });
-        this.$btnReadyToggle.addEventListener('click', () => { this.folded.ready = !this.folded.ready; this.renderProps(); });
+        this.$chkShowAllProps.addEventListener('change', () => this.renderEditorMatrix());
+        this.$pdClose.addEventListener('click', () => this._closePropDetail());
+        this.$pdBackdrop.addEventListener('click', () => this._closePropDetail());
 
         this.$chkInspectorMaster.addEventListener('change', () => {
             this._updateInspectorSubToggles();
@@ -208,7 +201,7 @@ module.exports = {
         this.$viewEditor.style.display = view === 'editor' ? 'flex' : 'none';
         this.$viewBindings.style.display = view === 'bindings' ? 'flex' : 'none';
         if (view === 'overview') this.refreshTopology();
-        else if (view === 'editor') this.refreshCtrlList();
+        else if (view === 'editor') { this.refreshCtrlList(); this.refreshTopology(); }
         else this.refreshBindings();
     },
 
@@ -216,11 +209,12 @@ module.exports = {
     // 观测总览
     // ============================================================
     refreshTopology() {
-        if (this.activeView !== 'overview') return;
+        if (this.activeView === 'bindings') return;
         this._callScene('list-scene-topology', null, (err, topology) => {
             if (err) { if (!this._initialFetch) Editor.warn(err); return; }
             this.topology = topology || { controllers: [] };
-            this.renderTopology();
+            if (this.activeView === 'overview') this.renderTopology();
+            else if (this.activeView === 'editor') this.renderEditorMatrix();
         });
     },
 
@@ -405,45 +399,67 @@ module.exports = {
         }
         this.$matrixEmpty.style.display = 'none';
         this.$valueMatrix.style.display = 'table';
+        this._buildMatrix(this.$matrixHead, this.$matrixBody, ctrl, props, { focusPropRef });
+    },
 
-        // 表头: 属性列 + 各状态列 (无 Default 列)
-        this.$matrixHead.innerHTML = '';
+    // 共享矩阵渲染: headTr=<tr> / tbody=<tbody>. opts.onCancel(prop) 启用行尾「取消跟随」.
+    _buildMatrix(headTr, tbody, ctrl, props, opts) {
+        opts = opts || {};
+        const states = ctrl.states || [];
+        const selIdx = (opts.selectedIndex !== undefined) ? opts.selectedIndex : ctrl.selectedIndex;
+
+        headTr.innerHTML = '';
         const thProp = document.createElement('th');
         thProp.textContent = '受控属性';
-        this.$matrixHead.appendChild(thProp);
+        headTr.appendChild(thProp);
         states.forEach(state => {
             const thFrag = document.importNode(this.$tplMatrixTh.content, true);
             const th = thFrag.querySelector('th');
             th.textContent = state.name || `#${state.index + 1}`;
-            if (state.index === ctrl.selectedIndex) th.classList.add('col-highlight');
+            if (state.index === selIdx) th.classList.add('col-highlight');
             th.title = '点击切换到该状态';
             th.addEventListener('click', () => this._gotoState(ctrl, state));
-            this.$matrixHead.appendChild(thFrag);
+            headTr.appendChild(thFrag);
         });
 
-        // 行
-        this.$matrixBody.innerHTML = '';
+        tbody.innerHTML = '';
         props.forEach(prop => {
             const rowFrag = document.importNode(this.$tplMatrixRow.content, true);
             const tr = rowFrag.querySelector('tr');
             if (prop.variesAcrossStates) tr.classList.add('row-changed');
             tr.dataset.propRef = prop.propRef;
-            tr.querySelector('.prop-name').textContent = prop.display;
-            tr.querySelector('.prop-type').textContent = prop.compName || '';
+            const propCell = tr.querySelector('.matrix-prop');
+            propCell.querySelector('.prop-name').textContent = prop.display;
+            propCell.querySelector('.prop-type').textContent = prop.compName || '';
+            // 点属性名格 → 详情抽屉 (逐状态看全值)
+            propCell.classList.add('clickable');
+            propCell.title = '点击查看各状态完整值';
+            propCell.addEventListener('click', (e) => {
+                if (e.target.closest('.em-cancel')) return;
+                this._openPropDetail(ctrl, prop, selIdx);
+            });
+            if (opts.onCancel) {
+                const btn = document.createElement('button');
+                btn.className = 'nb-btn btn-small em-cancel';
+                btn.textContent = '✕';
+                btn.title = '取消跟随该属性';
+                btn.addEventListener('click', (e) => { e.stopPropagation(); opts.onCancel(prop); });
+                propCell.appendChild(btn);
+            }
 
             states.forEach(state => {
                 const cellFrag = document.importNode(this.$tplMatrixCell.content, true);
                 const td = cellFrag.querySelector('td');
-                if (state.index === ctrl.selectedIndex) td.classList.add('col-highlight');
+                if (state.index === selIdx) td.classList.add('col-highlight');
                 const explicit = prop.valueByState ? prop.valueByState[state.index] : undefined;
                 const isGhost = explicit === undefined || explicit === null;
                 const val = isGhost ? prop.defaultValue : explicit;
                 this._fillCell(td, val, isGhost, prop.variesAcrossStates && !isGhost);
                 tr.appendChild(td);
             });
-            this.$matrixBody.appendChild(tr);
+            tbody.appendChild(tr);
 
-            if (focusPropRef && prop.propRef === focusPropRef) {
+            if (opts.focusPropRef && prop.propRef === opts.focusPropRef) {
                 tr.classList.add('row-focus');
                 setTimeout(() => { try { tr.scrollIntoView({ block: 'nearest' }); } catch (e) {} }, 0);
             }
@@ -479,6 +495,9 @@ module.exports = {
         if (!wrap) { td.textContent = '—'; td.style.opacity = '.45'; return; }
         if (isGhost) wrap.classList.add('ghost-val');
         if (changed && wrap.classList.contains('val-vector')) wrap.classList.add('changed');
+        // 长值(UUID/资源)截断后靠 title 看全
+        const full = wrap.textContent || '';
+        if (full) td.title = isGhost ? `${full}（未录制, 回退默认）` : full;
         td.appendChild(wrap);
     },
 
@@ -683,7 +702,7 @@ module.exports = {
         const now = this.ctrlItems.findIndex(item => item.uuid === this.currentCtrlUuid);
         const base = now >= 0 ? now : 0;
         const next = (base + step + this.ctrlItems.length) % this.ctrlItems.length;
-        this.setCurrentCtrl(this.ctrlItems[next].uuid);
+        this.setCurrentCtrl(this.ctrlItems[next].uuid, true);
     },
     _stepState() {
         if (!this.currentCtrlUuid || !this.currentSnapshot) return;
@@ -706,7 +725,7 @@ module.exports = {
             this.ctrlItems.forEach(item => {
                 const node = document.importNode(this.$tplCtrlItem.content, true);
                 node.querySelector('.ctrl-name').textContent = this._ctrlLabel(item);
-                node.querySelector('.btn-use-ctrl').addEventListener('click', () => this.setCurrentCtrl(item.uuid));
+                node.querySelector('.btn-use-ctrl').addEventListener('click', () => this.setCurrentCtrl(item.uuid, true));
                 this.$ctrlList.appendChild(node);
             });
             if (!this.currentCtrlUuid || !this.ctrlItems.some(item => item.uuid === this.currentCtrlUuid)) {
@@ -716,7 +735,7 @@ module.exports = {
             }
         });
     },
-    setCurrentCtrl(uuid) {
+    setCurrentCtrl(uuid, selectNode) {
         this.currentCtrlUuid = uuid;
         this.currentSnapshot = null;
         if (!uuid) {
@@ -726,6 +745,8 @@ module.exports = {
             this._renderCtrlHeader();
             return;
         }
+        // 用户显式切控制器 → 场景里同步选中该控制器节点 (uuid 即节点 uuid)
+        if (selectNode) { try { Editor.Selection.select('node', uuid); } catch (e) { /* 静默 */ } }
         this.$emptyTip.style.display = 'none';
         this.$stateDetail.style.display = 'flex';
         this._renderCtrlHeader();
@@ -738,7 +759,10 @@ module.exports = {
             if (ctrlUuid !== this.currentCtrlUuid) return;
             if (err || !snapshot) { Editor.warn('未能获取 controller 快照: ', err); this.setCurrentCtrl(null); return; }
             this.currentSnapshot = snapshot;
-            if (this.activeView === 'editor') this.renderUI();
+            if (this.activeView === 'editor') {
+                this.renderUI();
+                this.refreshTopology();   // 矩阵真数据来自 topology, 录制/切状态后必须同步重取
+            }
         });
     },
     renderUI() {
@@ -746,7 +770,7 @@ module.exports = {
         this._renderCtrlHeader();
         this.renderStates();
         this.renderDetail();
-        this.renderProps();
+        this.renderEditorMatrix();
     },
     renderStates() {
         const snap = this.currentSnapshot;
@@ -807,50 +831,127 @@ module.exports = {
         this.$btnStopRecord.style.display = recording ? 'inline-flex' : 'none';
         this.$btnCancelRecord.style.display = recording ? 'inline-flex' : 'none';
     },
-    renderProps() {
-        if (!this.currentSnapshot) return;
-        const groups = this._propGroups(this.currentSnapshot);
-        this.$followedCount.textContent = `(${groups.followed.length})`;
-        this.$readyCount.textContent = `(${groups.ready.length})`;
-        this.$btnFollowedToggle.firstChild.nodeValue = this.folded.followed ? '▸ 已跟随属性 ' : '▾ 已跟随属性 ';
-        this.$btnReadyToggle.firstChild.nodeValue = this.folded.ready ? '▸ 可接入属性 ' : '▾ 可接入属性 ';
-        this.$followedProps.innerHTML = '';
-        this.$readyProps.innerHTML = '';
-        this.$followedProps.style.display = this.folded.followed ? 'none' : 'flex';
-        this.$readyProps.style.display = this.folded.ready ? 'none' : 'flex';
-        this._renderPropGroup(this.$followedProps, groups.followed, { mark: '●', action: '☐ 取消跟随', method: 'remove-property', empty: '暂无已跟随属性' });
-        this._renderPropGroup(this.$readyProps, groups.ready, { mark: '○', action: '☑ 加入跟随', method: 'add-property', empty: '暂无可接入属性' });
+    // 当前控制器在 topology 里的节点 (含 members/states/valueByState 真数据)
+    _currentTopologyCtrl() {
+        const ctrls = (this.topology && this.topology.controllers) || [];
+        return ctrls.find(c => c.uuid === this.currentCtrlUuid) || null;
     },
-    _renderPropGroup(container, items, cfg) {
-        if (!items.length) {
-            const empty = document.createElement('div');
-            empty.className = 'prop-empty';
-            empty.textContent = cfg.empty;
-            container.appendChild(empty);
+    // 单控制器主区: 复用 topology 真数据, 按 member 铺 属性×状态 diff 矩阵
+    renderEditorMatrix() {
+        const host = this.$editorMatrix;
+        if (!host) return;
+        host.innerHTML = '';
+        const ctrl = this._currentTopologyCtrl();
+        if (!ctrl) {
+            // topology 尚未到达; refreshTopology 回调会再次渲染
+            if (!this.topology) this.refreshTopology();
+            host.innerHTML = '<div class="prop-empty">正在加载受控属性…</div>';
             return;
         }
-        items.forEach(prop => {
-            const node = document.importNode(this.$tplPropItem.content, true);
-            node.querySelector('.prop-mark').textContent = cfg.mark;
-            node.querySelector('.prop-name').textContent = prop.name;
-            node.querySelector('.prop-value').textContent = prop.valueText || '';
-            const btn = node.querySelector('.btn-prop-action');
-            btn.textContent = cfg.action;
-            btn.addEventListener('click', () => this._mutateProp(cfg.method, prop));
-            container.appendChild(node);
+        // 选中状态以 snapshot 为权威 (避免 topology/snapshot selectedIndex 短暂错位高亮错列)
+        const selIdx = this.currentSnapshot ? this.currentSnapshot.selectedIndex : ctrl.selectedIndex;
+        // 默认只显示「存在跨状态变动」的属性; 勾选则显示全部已受控 (含各状态同值的)
+        const showAll = !!(this.$chkShowAllProps && this.$chkShowAllProps.checked);
+        const pick = showAll ? (p => this._propHasData(p)) : (p => p.variesAcrossStates);
+        const members = (ctrl.members || [])
+            .map(m => ({ m, props: (m.props || []).filter(pick) }))
+            .filter(x => x.props.length);
+        const hasAnyFollowed = (ctrl.members || []).some(m => (m.props || []).some(p => this._propHasData(p)));
+        if (!members.length) {
+            host.innerHTML = !hasAnyFollowed
+                ? '<div class="prop-empty">该控制器还没有受控属性。点「🔴 录制」后在场景里改属性即可自动跟随。</div>'
+                : '<div class="prop-empty">已跟随的属性在各状态值相同, 暂无跨状态变动。勾选上方「显示全部受控属性」可查看并取消跟随。</div>';
+            return;
+        }
+        members.forEach(({ m: member, props }) => {
+            const block = document.createElement('div');
+            block.className = 'em-member';
+
+            const title = document.createElement('div');
+            title.className = 'em-member-title';
+            title.textContent = `📦 ${member.nodeName || '(node)'}`;
+            title.title = member.nodePath || '点击在场景中选中';
+            title.addEventListener('click', () => { try { Editor.Selection.select('node', member.nodeUuid); } catch (e) { /* 静默 */ } });
+            block.appendChild(title);
+
+            const scroll = document.createElement('div');
+            scroll.className = 'matrix-scroll em-scroll';
+            const table = document.createElement('table');
+            table.className = 'matrix-table';
+            const thead = document.createElement('thead');
+            const headTr = document.createElement('tr');
+            thead.appendChild(headTr);
+            const tbody = document.createElement('tbody');
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            scroll.appendChild(table);
+            block.appendChild(scroll);
+
+            this._buildMatrix(headTr, tbody, ctrl, props, {
+                selectedIndex: selIdx,
+                onCancel: (prop) => this._cancelFollow(prop, member),
+            });
+            host.appendChild(block);
         });
     },
-    _mutateProp(method, prop) {
+    // 该 prop 是否真被某状态显式录过 (任一状态 valueByState 有非空值)
+    _propHasData(prop) {
+        const vbs = prop.valueByState;
+        if (!vbs) return false;
+        for (const k in vbs) { if (vbs[k] !== undefined && vbs[k] !== null) return true; }
+        return false;
+    },
+    // 取消跟随: 对该 prop 的每个 leaf ref 调 remove-property (togglePropertyControl 接受 propRef 字符串)
+    _cancelFollow(prop, member) {
         if (!this.currentCtrlUuid) return;
-        const nodeUuid = prop.nodeUuid || this._activeNodeUuid() || this.currentCtrlUuid;
-        if (!nodeUuid) { Editor.warn('未找到可操作节点'); return; }
-        const payload = { ctrlUuid: this.currentCtrlUuid, propType: prop.propType };
-        payload[NODE_UUID_KEY] = nodeUuid;
-        this._callScene(method, payload, (err) => {
-            if (err) Editor.warn(err);
-            this.refreshSnapshot();
+        const refs = (prop.refs && prop.refs.length) ? prop.refs : [prop.propRef];
+        let pending = refs.length;
+        refs.forEach(ref => {
+            const payload = { ctrlUuid: this.currentCtrlUuid, propType: ref };
+            payload[NODE_UUID_KEY] = member.nodeUuid;
+            this._callScene('remove-property', payload, (err) => {
+                if (err) Editor.warn(err);
+                if (--pending === 0) { this.refreshTopology(); this.refreshSnapshot(); }
+            });
         });
     },
+    // 属性详情抽屉: 逐状态铺完整值 (大色块/资源全 id/向量分轴), 不截断
+    _openPropDetail(ctrl, prop, selIdx) {
+        this.$pdName.textContent = prop.display || '';
+        this.$pdType.textContent = prop.compName || '';
+        const sel = (selIdx !== undefined) ? selIdx : ctrl.selectedIndex;
+        const body = this.$pdBody;
+        body.innerHTML = '';
+        (ctrl.states || []).forEach(state => {
+            const row = document.createElement('div');
+            row.className = 'pd-state';
+            if (state.index === sel) row.classList.add('is-current');
+
+            const label = document.createElement('div');
+            label.className = 'pd-state-name';
+            label.textContent = state.name || `#${state.index + 1}`;
+
+            const valBox = document.createElement('div');
+            valBox.className = 'pd-state-val';
+            const explicit = prop.valueByState ? prop.valueByState[state.index] : undefined;
+            const isGhost = explicit === undefined || explicit === null;
+            const val = isGhost ? prop.defaultValue : explicit;
+            const v = this._renderValue(val);
+            if (v) { if (isGhost) v.classList.add('ghost-val'); valBox.appendChild(v); }
+            else valBox.textContent = '—';
+            if (isGhost) {
+                const tag = document.createElement('span');
+                tag.className = 'pd-ghost-tag';
+                tag.textContent = '未录制 · 默认';
+                valBox.appendChild(tag);
+            }
+            row.appendChild(label);
+            row.appendChild(valBox);
+            body.appendChild(row);
+        });
+        this.$propDetail.style.display = 'block';
+    },
+    _closePropDetail() { this.$propDetail.style.display = 'none'; },
     _goState(state) {
         if (!state || !this.currentCtrlUuid) return;
         if (typeof state.stateId === 'number') {
@@ -880,60 +981,6 @@ module.exports = {
         }
         this.$btnPrevCtrl.disabled = count <= 1;
         this.$btnNextCtrl.disabled = count <= 1;
-    },
-    _activeNodeUuid() {
-        if (!Editor.Selection || typeof Editor.Selection.curSelection !== 'function') return null;
-        const nodes = Editor.Selection.curSelection('node');
-        return nodes && nodes.length ? nodes[0] : null;
-    },
-    _propGroups(snap) {
-        const rawProps = Array.isArray(snap.props) ? snap.props : null;
-        let followed = [];
-        let ready = [];
-        if (rawProps) {
-            rawProps.forEach(raw => {
-                const entry = this._propEntry(raw);
-                if (!entry) return;
-                if (raw && typeof raw === 'object' && raw.followed === false) ready.push(entry);
-                else followed.push(entry);
-            });
-        }
-        const followedSources = snap.followedProps || snap.controlledProps;
-        if (Array.isArray(followedSources)) followed = followedSources.map(raw => this._propEntry(raw)).filter(Boolean);
-        const readySources = snap.readyProps || snap.availableProps || snap.applicableProps;
-        if (Array.isArray(readySources)) {
-            ready = readySources.map(raw => this._propEntry(raw)).filter(Boolean);
-        } else {
-            const used = {};
-            followed.forEach(prop => { used[prop.propType] = true; });
-            ready = KNOWN_PROPS.filter(prop => !used[prop.propType]).map(prop => this._propEntry(prop));
-        }
-        return { followed, ready };
-    },
-    _propEntry(raw) {
-        if (!raw && raw !== 0) return null;
-        if (typeof raw === 'string' || typeof raw === 'number') {
-            return { name: String(raw), propType: raw, valueText: '', nodeUuid: null };
-        }
-        const propType = raw.propType || raw.type || raw.name || raw.propName;
-        if (!propType && propType !== 0) return null;
-        return {
-            name: raw.name || raw.propName || String(propType),
-            propType,
-            valueText: raw.valueText || raw.displayValue || this._formatValue(raw.value),
-            nodeUuid: raw.nodeUuid || raw.uuid || raw.targetUuid || raw[NODE_UUID_KEY] || null,
-        };
-    },
-    _formatValue(value) {
-        if (value === undefined || value === null) return '';
-        if (typeof value === 'string') return value;
-        if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-        if (Array.isArray(value)) return `(${value.join(', ')})`;
-        if (typeof value === 'object') {
-            if ('x' in value && 'y' in value) return `(${value.x}, ${value.y}${'z' in value ? ', ' + value.z : ''})`;
-            if ('r' in value && 'g' in value && 'b' in value) return `rgb(${value.r}, ${value.g}, ${value.b})`;
-        }
-        return String(value);
     },
 
     // ============================================================

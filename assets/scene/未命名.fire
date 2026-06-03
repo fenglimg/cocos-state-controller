@@ -73,15 +73,21 @@
       },
       {
         "__id__": 5
+      },
+      {
+        "__id__": 16
+      },
+      {
+        "__id__": 22
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 16
+        "__id__": 34
       },
       {
-        "__id__": 17
+        "__id__": 35
       },
       {
         "__id__": 8
@@ -254,9 +260,9 @@
     "_opacity": 255,
     "_color": {
       "__type__": "cc.Color",
-      "r": 255,
-      "g": 255,
-      "b": 255,
+      "r": 83,
+      "g": 251,
+      "b": 11,
       "a": 255
     },
     "_contentSize": {
@@ -314,7 +320,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+      "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -408,9 +414,9 @@
           "cc.Node.opacity": 255,
           "cc.Node.color": {
             "__type__": "cc.Color",
-            "r": 224,
-            "g": 0,
-            "b": 0,
+            "r": 83,
+            "g": 251,
+            "b": 11,
             "a": 255
           },
           "cc.Node.anchorX": 0.5,
@@ -427,7 +433,7 @@
           "cc.Sprite.srcBlendFactor": 770,
           "cc.Sprite.dstBlendFactor": 771,
           "cc.Sprite.spriteFrame": {
-            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+            "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061"
           },
           "cc.Sprite.type": 0,
           "cc.Sprite.fillType": 0,
@@ -470,7 +476,10 @@
             "cc.Sprite.fillStart": "cc.Sprite.fillStart",
             "cc.Sprite.fillRange": "cc.Sprite.fillRange",
             "cc.Sprite.trim": "cc.Sprite.trim",
-            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ"
           },
           "cc.Node.name": "New Sprite(Splash)",
           "cc.Node.active": true,
@@ -494,8 +503,8 @@
           "cc.Node.color": {
             "__type__": "cc.Color",
             "r": 255,
-            "g": 0,
-            "b": 0,
+            "g": 255,
+            "b": 255,
             "a": 255
           },
           "cc.Node.anchorX": 0.5,
@@ -512,7 +521,7 @@
           "cc.Sprite.srcBlendFactor": 770,
           "cc.Sprite.dstBlendFactor": 771,
           "cc.Sprite.spriteFrame": {
-            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+            "__uuid__": "1a32fc76-f0bd-4f66-980f-56929c0ca0b3"
           },
           "cc.Sprite.type": 0,
           "cc.Sprite.fillType": 0,
@@ -526,7 +535,6 @@
           "cc.Sprite.trim": true,
           "cc.Sprite.sizeMode": 0
         },
-        "2": {},
         "$$default$$": {
           "$$controlledProps$$": {
             "cc.Node.name": "cc.Node.name",
@@ -642,9 +650,12 @@
       "__id__": 2
     },
     "_enabled": true,
-    "stateIdAuto": 2,
+    "stateIdAuto": 3,
     "ctrlId": 1780312515529,
-    "_historyStateName": {},
+    "_bindingsData": "[{\"sourceStateId\":1,\"targetCtrlId\":1780476153618,\"targetStateId\":1}]",
+    "_historyStateName": {
+      "2": "State_3"
+    },
     "_ctrlName": "ctrl_1780312515529",
     "_selectedIndex": 0,
     "_states": [
@@ -662,6 +673,956 @@
       "__id__": 12
     },
     "_id": "b1zVY8YbBDbJ73iDpC3z2j"
+  },
+  {
+    "__type__": "StateValue",
+    "name": "1",
+    "stateId": 0
+  },
+  {
+    "__type__": "StateValue",
+    "name": "2",
+    "stateId": 1
+  },
+  {
+    "__type__": "CtrlStateOpsGroup"
+  },
+  {
+    "__type__": "CtrlRecordGroup"
+  },
+  {
+    "__type__": "SelectExcludeGroup"
+  },
+  {
+    "__type__": "SelectRecordGroup"
+  },
+  {
+    "__type__": "SelectValueOpsGroup"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "New Sprite(Splash)",
+    "_objFlags": 0,
+    "_parent": {
+      "__id__": 2
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 17
+      },
+      {
+        "__id__": 18
+      }
+    ],
+    "_prefab": null,
+    "_opacity": 255,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 235,
+      "g": 0,
+      "b": 0,
+      "a": 255
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 100,
+      "height": 100
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_trs": {
+      "__type__": "TypedArray",
+      "ctor": "Float64Array",
+      "array": [
+        362.864,
+        85.676,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "_eulerAngles": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_skewX": 0,
+    "_skewY": 0,
+    "_is3DNode": false,
+    "_groupIndex": 0,
+    "groupIndex": 0,
+    "_id": "9dMZ43pf5CGopHj61db4YC"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 16
+    },
+    "_enabled": true,
+    "_materials": [
+      {
+        "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+      }
+    ],
+    "_srcBlendFactor": 770,
+    "_dstBlendFactor": 771,
+    "_spriteFrame": {
+      "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+    },
+    "_type": 0,
+    "_sizeMode": 0,
+    "_fillType": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_atlas": null,
+    "_id": "66l4O70DJDjLg3sn5czaFD"
+  },
+  {
+    "__type__": "0f622mLcVNFIKa7pSGbG4+G",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 16
+    },
+    "_enabled": true,
+    "_ctrlsMap": {
+      "1780312515529": {
+        "__id__": 8
+      }
+    },
+    "_currCtrlId": 1780312515529,
+    "_root": {
+      "__id__": 2
+    },
+    "_propKey": 0,
+    "_propValue": null,
+    "_currentDisplayProp": 0,
+    "_isDeleteCurr": false,
+    "_ctrlData": {
+      "1780312515529": {
+        "0": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 362.864,
+          "cc.Node.y": 85.676,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 235,
+            "g": 0,
+            "b": 0,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        },
+        "1": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 0,
+          "cc.Node.y": 0,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        },
+        "$$default$$": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 0,
+          "cc.Node.y": 0,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        }
+      }
+    },
+    "_userExcludedProps": [],
+    "excludeGroup": {
+      "__id__": 19
+    },
+    "recording": {
+      "__id__": 20
+    },
+    "valueOps": {
+      "__id__": 21
+    },
+    "_id": "a4Oy+ugc1OS5Ebe75JO1jZ"
+  },
+  {
+    "__type__": "SelectExcludeGroup"
+  },
+  {
+    "__type__": "SelectRecordGroup"
+  },
+  {
+    "__type__": "SelectValueOpsGroup"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "New Node",
+    "_objFlags": 0,
+    "_parent": {
+      "__id__": 2
+    },
+    "_children": [
+      {
+        "__id__": 23
+      }
+    ],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 26
+      }
+    ],
+    "_prefab": null,
+    "_opacity": 255,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 0,
+      "height": 0
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_trs": {
+      "__type__": "TypedArray",
+      "ctor": "Float64Array",
+      "array": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "_eulerAngles": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_skewX": 0,
+    "_skewY": 0,
+    "_is3DNode": false,
+    "_groupIndex": 0,
+    "groupIndex": 0,
+    "_id": "78wFwWYTRJKLTaohHYXj2i"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "New Sprite(Splash)",
+    "_objFlags": 0,
+    "_parent": {
+      "__id__": 22
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 24
+      },
+      {
+        "__id__": 25
+      }
+    ],
+    "_prefab": null,
+    "_opacity": 255,
+    "_color": {
+      "__type__": "cc.Color",
+      "r": 255,
+      "g": 255,
+      "b": 255,
+      "a": 255
+    },
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 100,
+      "height": 100
+    },
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
+    },
+    "_trs": {
+      "__type__": "TypedArray",
+      "ctor": "Float64Array",
+      "array": [
+        0,
+        -239.851,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "_eulerAngles": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_skewX": 0,
+    "_skewY": 0,
+    "_is3DNode": false,
+    "_groupIndex": 0,
+    "groupIndex": 0,
+    "_id": "e23eEqjupGy5tP3mKwK/wO"
+  },
+  {
+    "__type__": "cc.Sprite",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 23
+    },
+    "_enabled": true,
+    "_materials": [
+      {
+        "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+      }
+    ],
+    "_srcBlendFactor": 770,
+    "_dstBlendFactor": 771,
+    "_spriteFrame": {
+      "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+    },
+    "_type": 0,
+    "_sizeMode": 0,
+    "_fillType": 0,
+    "_fillCenter": {
+      "__type__": "cc.Vec2",
+      "x": 0,
+      "y": 0
+    },
+    "_fillStart": 0,
+    "_fillRange": 0,
+    "_isTrimmedMode": true,
+    "_atlas": null,
+    "_id": "772pJuw8JNab6I+evOqixN"
+  },
+  {
+    "__type__": "0f622mLcVNFIKa7pSGbG4+G",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 23
+    },
+    "_enabled": true,
+    "_ctrlsMap": {
+      "1780476153618": {
+        "__id__": 26
+      }
+    },
+    "_currCtrlId": 1780476153618,
+    "_root": {
+      "__id__": 22
+    },
+    "_propKey": 0,
+    "_propValue": null,
+    "_currentDisplayProp": 0,
+    "_isDeleteCurr": false,
+    "_ctrlData": {
+      "1780476153618": {
+        "0": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 0,
+          "cc.Node.y": -239.851,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        },
+        "1": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 0,
+          "cc.Node.y": -239.851,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 0,
+            "b": 0,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        },
+        "$$default$$": {
+          "$$controlledProps$$": {
+            "cc.Node.name": "cc.Node.name",
+            "cc.Node.active": "cc.Node.active",
+            "cc.Node.groupIndex": "cc.Node.groupIndex",
+            "cc.Node.group": "cc.Node.group",
+            "cc.Node.x": "cc.Node.x",
+            "cc.Node.y": "cc.Node.y",
+            "cc.Node.z": "cc.Node.z",
+            "cc.Node.angle": "cc.Node.angle",
+            "cc.Node.quat": "cc.Node.quat",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ",
+            "cc.Node.skewX": "cc.Node.skewX",
+            "cc.Node.skewY": "cc.Node.skewY",
+            "cc.Node.opacity": "cc.Node.opacity",
+            "cc.Node.color": "cc.Node.color",
+            "cc.Node.anchorX": "cc.Node.anchorX",
+            "cc.Node.anchorY": "cc.Node.anchorY",
+            "cc.Node.width": "cc.Node.width",
+            "cc.Node.height": "cc.Node.height",
+            "cc.Node.zIndex": "cc.Node.zIndex",
+            "cc.Node.is3DNode": "cc.Node.is3DNode",
+            "cc.Sprite.materials": "cc.Sprite.materials",
+            "cc.Sprite.srcBlendFactor": "cc.Sprite.srcBlendFactor",
+            "cc.Sprite.dstBlendFactor": "cc.Sprite.dstBlendFactor",
+            "cc.Sprite.spriteFrame": "cc.Sprite.spriteFrame",
+            "cc.Sprite.type": "cc.Sprite.type",
+            "cc.Sprite.fillType": "cc.Sprite.fillType",
+            "cc.Sprite.fillCenter": "cc.Sprite.fillCenter",
+            "cc.Sprite.fillStart": "cc.Sprite.fillStart",
+            "cc.Sprite.fillRange": "cc.Sprite.fillRange",
+            "cc.Sprite.trim": "cc.Sprite.trim",
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+          },
+          "cc.Node.name": "New Sprite(Splash)",
+          "cc.Node.active": true,
+          "cc.Node.groupIndex": 0,
+          "cc.Node.group": "default",
+          "cc.Node.x": 0,
+          "cc.Node.y": -239.851,
+          "cc.Node.z": 0,
+          "cc.Node.angle": 0,
+          "cc.Node.quat": {
+            "__type__": "cc.Quat",
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 1
+          },
+          "cc.Node.scaleX": 1,
+          "cc.Node.scaleY": 1,
+          "cc.Node.scaleZ": 1,
+          "cc.Node.skewX": 0,
+          "cc.Node.skewY": 0,
+          "cc.Node.opacity": 255,
+          "cc.Node.color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 255
+          },
+          "cc.Node.anchorX": 0.5,
+          "cc.Node.anchorY": 0.5,
+          "cc.Node.width": 100,
+          "cc.Node.height": 100,
+          "cc.Node.zIndex": 0,
+          "cc.Node.is3DNode": false,
+          "cc.Sprite.materials": [
+            {
+              "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432"
+            }
+          ],
+          "cc.Sprite.srcBlendFactor": 770,
+          "cc.Sprite.dstBlendFactor": 771,
+          "cc.Sprite.spriteFrame": {
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
+          },
+          "cc.Sprite.type": 0,
+          "cc.Sprite.fillType": 0,
+          "cc.Sprite.fillCenter": {
+            "__type__": "cc.Vec2",
+            "x": 0,
+            "y": 0
+          },
+          "cc.Sprite.fillStart": 0,
+          "cc.Sprite.fillRange": 0,
+          "cc.Sprite.trim": true,
+          "cc.Sprite.sizeMode": 0
+        }
+      }
+    },
+    "_userExcludedProps": [],
+    "excludeGroup": {
+      "__id__": 31
+    },
+    "recording": {
+      "__id__": 32
+    },
+    "valueOps": {
+      "__id__": 33
+    },
+    "_id": "77su+8LyxBGp4+B3NuptGH"
+  },
+  {
+    "__type__": "16b3eGr+epPCaxvqS1ugP3u",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 22
+    },
+    "_enabled": true,
+    "stateIdAuto": 2,
+    "ctrlId": 1780476153618,
+    "_bindingsData": "",
+    "_historyStateName": {},
+    "_ctrlName": "ctrl_1780476153618",
+    "_selectedIndex": 0,
+    "_states": [
+      {
+        "__id__": 27
+      },
+      {
+        "__id__": 28
+      }
+    ],
+    "stateOps": {
+      "__id__": 29
+    },
+    "recording": {
+      "__id__": 30
+    },
+    "_id": "daSa9FtHRNg4UBI4yhK+cQ"
   },
   {
     "__type__": "StateValue",
