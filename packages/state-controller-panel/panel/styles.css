@@ -75,9 +75,23 @@
     font-size: 11px; font-weight: 700; text-transform: uppercase;
     color: #000; opacity: .7;
 }
-.toggle-label { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: 12px; cursor: pointer; }
-.toggle-group { display: flex; gap: 8px; }
+.toggle-label { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 12px; cursor: pointer; }
+.toggle-group { display: flex; gap: 10px; }
 .toggle-group.is-disabled { opacity: .4; pointer-events: none; }
+/* 撞色新丑风勾选框 (替代默认蓝勾, 配合黄底 nav) */
+.toggle-label input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
+    background: #fff; border: var(--border-thin); box-shadow: 2px 2px 0 #000;
+    cursor: pointer; position: relative; transition: var(--transition);
+}
+.toggle-label input[type="checkbox"]:checked { background: var(--accent-green); }
+.toggle-label input[type="checkbox"]:checked::after {
+    content: '✓'; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #000;
+}
+.toggle-label input[type="checkbox"]:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
 
 /* ---------- 通用 NB 控件 ---------- */
 .nb-btn {
