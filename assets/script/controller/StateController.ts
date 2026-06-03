@@ -421,7 +421,7 @@ export class StateController extends cc.Component {
     public stateOps = new CtrlStateOpsGroup();
 
     /** 录制折叠组 — inspector 可折叠区域, 代理到本类 recordTrigger / cancelRecordTrigger. */
-    @property({ type: CtrlRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制与撤销本次录制" })
+    @property({ type: CtrlRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制 (回退整次录制用编辑器 Ctrl+Z)" })
     public recording = new CtrlRecordGroup();
 
     /** 🔧 调整当前选中状态的顺序 */

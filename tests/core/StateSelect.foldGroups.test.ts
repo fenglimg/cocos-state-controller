@@ -74,9 +74,11 @@ describe("StateSelect inspector 折叠组结构", () => {
 
     it("旧触发器已从 StateSelect 顶层 @property 移除 (改由折叠组承载)", () => {
         const sa = attrsOf(StateSelect);
+        // cancelRecordTrigger 仍是 StateSelect 上的普通访问器(顶层不直显), 但 2026-06-03 起折叠组也不再
+        // 直显它的按钮(回退改用 Ctrl+Z), 故不列入"折叠组承载"清单.
         const moved = [
             "excludedPropsDisplay", "addExcludeTrigger",
-            "recordTrigger", "cancelRecordTrigger",
+            "recordTrigger",
             "swapValueWithNext", "copyValueToNext",
         ];
         for (const key of moved) {

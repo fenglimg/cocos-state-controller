@@ -51,13 +51,9 @@ export class SelectExcludeGroup {
 export class SelectRecordGroup {
     public owner: StateSelect = null;
 
-    @property({ displayName: "🔴 录制", tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state" })
+    @property({ displayName: "🔴 录制", tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state. 要回退整次录制用编辑器 Ctrl+Z" })
     public get recordTrigger() { return this.owner ? this.owner.recordTrigger : false; }
     public set recordTrigger(v: boolean) { if (this.owner) this.owner.recordTrigger = v; }
-
-    @property({ displayName: "⤺ 撤销本次录制", tooltip: "丢弃本次录制改动, 回到录制开始前的状态" })
-    public get cancelRecordTrigger() { return false; }
-    public set cancelRecordTrigger(v: boolean) { if (this.owner) this.owner.cancelRecordTrigger = v; }
 }
 
 /**

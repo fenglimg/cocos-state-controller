@@ -3427,7 +3427,7 @@ export class StateSelect extends cc.Component {
     public excludeGroup = new SelectExcludeGroup();
 
     /** 录制折叠组 (与 StateController 共享同一录制态). */
-    @property({ type: SelectRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制与撤销本次录制" })
+    @property({ type: SelectRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制 (回退整次录制用编辑器 Ctrl+Z)" })
     public recording = new SelectRecordGroup();
 
     /** 值搬运折叠组 (当前 state ↔ 下一 state 的节点级值操作). */
@@ -3465,10 +3465,10 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * 撤销本次录制 (TASK-002): 镜像 StateController.cancelRecordTrigger.
-     * 让用户在 StateSelect inspector 上也能撤销, 与 StateController inspector 共享同一录制态。
+     * 撤销本次录制 (TASK-002): 镜像 StateController.cancelRecordTrigger, 调 ctrl.cancelRecording。
+     * 2026-06-03: 已从 inspector 移除按钮 — 回退整次录制改用编辑器原生 Ctrl+Z (避免自建撤销与原生 undo 双重撤销)。
+     * 访问器 + cancelRecording 底层保留 (panel/测试仍可用), 仅不在折叠组直显。
      */
-    /** 普通访问器, inspector 可见性由 recording 折叠组代理. */
     public get cancelRecordTrigger() {
         return false;
     }

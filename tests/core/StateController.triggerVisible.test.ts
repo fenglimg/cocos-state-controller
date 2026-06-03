@@ -51,7 +51,8 @@ function setup() {
 
 describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
     const opsTriggers = ["moveStateUp", "moveStateDown", "duplicateCurrentState", "deleteCurrentState"];
-    const recordTriggers = ["recordTrigger", "cancelRecordTrigger"];
+    // 2026-06-03: cancelRecordTrigger 按钮已从 inspector 移除 (回退用 Ctrl+Z), recording 组只剩 recordTrigger.
+    const recordTriggers = ["recordTrigger"];
 
     it("4 个状态操作触发器已从 StateController 顶层 @property 移除 (改由 stateOps 折叠组承载)", () => {
         for (const key of opsTriggers) {
@@ -76,7 +77,7 @@ describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
         }
     });
 
-    it("recording 折叠组对 inspector 可见, 组内录制/撤销触发器 visible !== false", () => {
+    it("recording 折叠组对 inspector 可见, 组内录制触发器 visible !== false", () => {
         const { ctrl } = setup();
         expect((ctrl as any).recording).toBeTruthy();
         expect(getVisibleAttr(StateController, "recording")).not.toBe(false);
