@@ -314,9 +314,12 @@ export class StateSelect extends cc.Component {
             { name: "(选一个加入排除)", value: 0 },
             ...addList.map((r, i) => ({ name: r, value: i + 1 })),
         ];
-        // 动态 enumList 注入到 excludeGroup 折叠组类上 (可见的 addExcludeTrigger 在该组上).
+        // 动态 enumList 必须注入到 excludeGroup 折叠组「类」上 (SelectExcludeGroup), 不能注入到实例.
+        // 编辑器读取嵌套 facade 的枚举选项走类的 __attrs__; 注入到实例只会写到 instance.__attrs__ 的
+        // own key (jest 经同一实例回读能过, 但编辑器读不到 → 下拉空 → 无法添加). 注入到类后, 实例的
+        // __attrs__ 原型链 (Object.create(类attrs)) 同样能读到, 两条读路径都成立.
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
-        cc.Class.Attr.setClassAttr(this.excludeGroup, "addExcludeTrigger", "enumList", addEnum);
+        cc.Class.Attr.setClassAttr(SelectExcludeGroup, "addExcludeTrigger", "enumList", addEnum);
     }
     // #endregion W6-4
 

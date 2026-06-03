@@ -32,10 +32,13 @@ const ControllerMod = require("../../assets/script/controller/StateController");
 const SelectMod = require("../../assets/script/controller/StateSelect");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const IntrospectionMod = require("../../assets/script/controller/PrefabIntrospection");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const SelectGroupsMod = require("../../assets/script/controller/props/SelectInspectorGroups");
 
 const { StateController } = ControllerMod;
 const { StateSelect } = SelectMod;
 const { SYSTEM_EXCLUDE } = IntrospectionMod;
+const { SelectExcludeGroup } = SelectGroupsMod;
 
 // 自定义 @ccclass fixture: 用于覆盖 inspector 排除新增 prop 的下拉过滤
 const ccL = (globalThis as any).cc;
@@ -144,8 +147,12 @@ describe("W6-4 inspector 排除清单 UI", () => {
 
     it("refreshExcludeEnumLists: addExcludeTrigger.enumList 含 sentinel + 当前跟随中, 不含已排除", () => {
         const { select } = setup();
-        // 折叠组重构后: 可见的 addExcludeTrigger 在 excludeGroup 上, enumList 注入到该组类.
-        const attrs = ccL.Class.Attr.getClassAttrs((select as any).excludeGroup);
+        void select;
+        // 折叠组重构后: 可见的 addExcludeTrigger 在 excludeGroup 上, enumList 必须注入到该组「类」
+        // (SelectExcludeGroup), 不是实例. 编辑器读嵌套 facade 枚举选项走类 __attrs__; 注入到实例
+        // 编辑器读不到 → 下拉空. 这里直接断言类的 own key, 才能复现/守住该回归 (读实例会被原型链
+        // 兜底而无法区分 instance/class 注入).
+        const attrs = ccL.Class.Attr.getClassAttrs(SelectExcludeGroup);
         const addEnumList = attrs["addExcludeTrigger$_$enumList"];
         expect(Array.isArray(addEnumList)).toBe(true);
         // 第 0 项是 sentinel
