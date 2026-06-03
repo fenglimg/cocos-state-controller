@@ -346,10 +346,11 @@ function probeInspector() {
 // P2a: 不再无脑贴 ◆; 注入侧解析每行 propRef → 发主进程 → 场景按 tracked/excluded 分类回传 → 按身份着色.
 function buildResidentScript() {
     const fn = function () {
-        const VER = 12;
+        const VER = 13;
         const old = window.__SCI;
         if (old && old.version === VER) { old.apply(); return 'same-version'; }
         if (old && old.observer) { try { old.observer.disconnect(); } catch (e) {} }
+        if (old && old.heartbeat) { try { clearInterval(old.heartbeat); } catch (e) {} }
         const SCI = window.__SCI = old || {};
         SCI.version = VER;
         SCI.observer = null;
@@ -773,6 +774,9 @@ function buildResidentScript() {
             const panel = SCI.getPanel();
             if (!panel) return;
             const sr = panel.shadowRoot;
+            // 记下当前接上的 panel/shadowRoot, 供 ensureConnected 检测是否被换掉.
+            SCI.panel = panel;
+            SCI.sr = sr;
             if (!sr.__sciClick) {
                 sr.addEventListener('click', function (e) {
                     const f = window.__SCI && window.__SCI.onClick; if (f) f(e);
@@ -812,8 +816,26 @@ function buildResidentScript() {
             });
         };
 
+        // 重发现: inspector dock 被 Cocos 重建后, observer/hover/click 会挂在死的旧 shadowRoot 上
+        // (项目开久后标记/hover 失效、需重载项目的根因). 心跳周期调用此函数, 检测当前 panel/shadowRoot
+        // 是否被换掉或监听丢失, 一旦发现就丢弃旧 observer 并在新 shadowRoot 上重连 + 重绘.
+        SCI.ensureConnected = function () {
+            if (!SCI.enabled) return;
+            const p = SCI.getPanel();
+            if (!p) return;
+            const sr = p.shadowRoot;
+            if (p !== SCI.panel || sr !== SCI.sr || !sr.__sciHover) {
+                if (SCI.observer) { try { SCI.observer.disconnect(); } catch (e) {} SCI.observer = null; }
+                SCI.connect();
+                SCI.apply();
+            }
+        };
+
         SCI.clear = function () {
             SCI.enabled = false;
+            if (SCI.heartbeat) { try { clearInterval(SCI.heartbeat); } catch (e) {} SCI.heartbeat = null; }
+            SCI.panel = null;
+            SCI.sr = null;
             if (SCI.observer) { try { SCI.observer.disconnect(); } catch (e) {} }
             SCI.hideTip();
             if (SCI.tip && SCI.tip.parentNode) { try { SCI.tip.parentNode.removeChild(SCI.tip); } catch (e) {} SCI.tip = null; }
@@ -837,6 +859,8 @@ function buildResidentScript() {
             if (SCI.getPanel()) { SCI.enabled = true; SCI.connect(); SCI.apply(); return; }
             if (tries++ < 20) setTimeout(wait, 300);
         })();
+        // 心跳重发现 (要点1 修复): 即使初次 wait 已接上, dock 重建后也能自动重连, 无需重载项目.
+        SCI.heartbeat = setInterval(function () { SCI.ensureConnected(); }, 1500);
 
         return 'inited';
     };
