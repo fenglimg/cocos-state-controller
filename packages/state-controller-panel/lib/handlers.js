@@ -340,6 +340,120 @@ function installBroadcastBridge(ctrl, send) {
     };
 }
 
+/**
+ * 聚合场景拓扑树
+ * @param {Array} ctrlsInfo [{ uuid, ctrl }]
+ * @param {Array} selectsInfo [{ nodeUuid, nodeName, nodePath, select, getRowsInfo }]
+ * @returns 拓扑树对象
+ */
+function buildTopology(ctrlsInfo, selectsInfo) {
+    const topology = { controllers: [] };
+    if (!ctrlsInfo) return topology;
+
+    for (let i = 0; i < ctrlsInfo.length; i++) {
+        const cInfo = ctrlsInfo[i];
+        const ctrl = cInfo.ctrl;
+        if (!ctrl) continue;
+
+        const snap = getCtrlSnapshot(ctrl);
+        if (!snap) continue;
+
+        const cNode = {
+            uuid: cInfo.uuid,
+            ctrlId: ctrl.ctrlId,
+            ctrlName: snap.ctrlName,
+            states: snap.states,
+            selectedIndex: snap.selectedIndex,
+            isRecording: snap.isRecording,
+            members: []
+        };
+
+        for (let j = 0; j < selectsInfo.length; j++) {
+            const sInfo = selectsInfo[j];
+            const select = sInfo.select;
+            if (!select || !select._ctrlsMap) continue;
+
+            // 成员节点是否接入了这个 controller
+            if (select._ctrlsMap[ctrl.ctrlId]) {
+                const sv = getPropStateValues(select, ctrl);
+                const rowsInfo = sInfo.getRowsInfo ? sInfo.getRowsInfo() : [];
+                const props = [];
+
+                for (let r = 0; r < rowsInfo.length; r++) {
+                    const row = rowsInfo[r];
+                    const refs = row.refs || [];
+                    const kind = row.kind;
+                    
+                    let varies = false, override = false, hasData = false;
+                    const combinedValueByState = {};
+                    let combinedDefault = undefined;
+
+                    if (refs.length === 1) {
+                        const p = sv.props && sv.props[refs[0]];
+                        if (p) {
+                            combinedDefault = p.defaultValue;
+                            if (sv.states) {
+                                for(let s = 0; s < sv.states.length; s++) {
+                                    const sIdx = sv.states[s].index;
+                                    combinedValueByState[sIdx] = p.valueByState ? p.valueByState[sIdx] : undefined;
+                                }
+                            }
+                        }
+                        if (p) {
+                            hasData = true;
+                            if (p.variesAcrossStates) varies = true;
+                            if (p.overriddenAtCurrent) override = true;
+                        }
+                    } else if (refs.length > 1) {
+                        combinedDefault = {};
+                        for (let k = 0; k < refs.length; k++) {
+                            const ref = refs[k];
+                            const p = sv.props && sv.props[ref];
+                            const refName = ref.split('.').pop();
+                            combinedDefault[refName] = p ? p.defaultValue : undefined;
+                            
+                            if (sv.states) {
+                                for(let s = 0; s < sv.states.length; s++) {
+                                    const sIdx = sv.states[s].index;
+                                    if (!combinedValueByState[sIdx]) combinedValueByState[sIdx] = {};
+                                    combinedValueByState[sIdx][refName] = p && p.valueByState ? p.valueByState[sIdx] : undefined;
+                                }
+                            }
+                            if (p) {
+                                hasData = true;
+                                if (p.variesAcrossStates) varies = true;
+                                if (p.overriddenAtCurrent) override = true;
+                            }
+                        }
+                    }
+
+                    props.push({
+                        propRef: refs.join(','),
+                        display: row.display,
+                        compName: row.compName,
+                        kind: kind,
+                        variesAcrossStates: varies,
+                        overriddenAtCurrent: override,
+                        valueByState: combinedValueByState,
+                        defaultValue: combinedDefault,
+                        refs: refs
+                    });
+                }
+
+                cNode.members.push({
+                    nodeUuid: sInfo.nodeUuid,
+                    nodeName: sInfo.nodeName,
+                    nodePath: sInfo.nodePath,
+                    props: props
+                });
+            }
+        }
+        
+        topology.controllers.push(cNode);
+    }
+    return topology;
+}
+
 module.exports = {
     getCtrlSnapshot: getCtrlSnapshot,
     setSelectedIndex: setSelectedIndex,
@@ -353,4 +467,5 @@ module.exports = {
     installBroadcastBridge: installBroadcastBridge,
     getPropStateValues: getPropStateValues,
     serializeStateValue: serializeStateValue,
+    buildTopology: buildTopology,
 };

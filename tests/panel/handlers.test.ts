@@ -239,4 +239,54 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(h.addState(null, "X")).toBe(-1);
         expect(h.removeState(null, 0)).toBe(false);
     });
+
+    it("buildTopology 聚合控制器与成员节点信息", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const { ctrl, select, selectNode } = setupCtrl();
+        
+        // 模拟 select._ctrlsMap
+        select._ctrlsMap = { [ctrl.ctrlId]: ctrl };
+        
+        const ctrlsInfo = [
+            { uuid: "ctrl-uuid-1", ctrl: ctrl }
+        ];
+        
+        const selectsInfo = [
+            {
+                nodeUuid: "select-uuid-1",
+                nodeName: selectNode.name,
+                nodePath: "Root/CtrlNode/SelectNode",
+                select: select,
+                getRowsInfo: () => [
+                    {
+                        display: "Position",
+                        refs: ["cc.Node.x", "cc.Node.y"],
+                        kind: "tracked",
+                        compName: "cc.Node"
+                    }
+                ]
+            }
+        ];
+
+        const topology = h.buildTopology(ctrlsInfo, selectsInfo);
+        
+        expect(topology).toBeDefined();
+        expect(topology.controllers.length).toBe(1);
+        
+        const cNode = topology.controllers[0];
+        expect(cNode.uuid).toBe("ctrl-uuid-1");
+        expect(cNode.ctrlId).toBe(ctrl.ctrlId);
+        expect(cNode.members.length).toBe(1);
+        
+        const mNode = cNode.members[0];
+        expect(mNode.nodeUuid).toBe("select-uuid-1");
+        expect(mNode.nodeName).toBe("SelectNode");
+        expect(mNode.props.length).toBe(1);
+        
+        const pNode = mNode.props[0];
+        expect(pNode.display).toBe("Position");
+        expect(pNode.kind).toBe("tracked");
+        expect(pNode.refs).toEqual(["cc.Node.x", "cc.Node.y"]);
+    });
 });

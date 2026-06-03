@@ -1,102 +1,214 @@
-<div class="panel-shell">
-    <aside class="sidebar">
-        <div id="states-list" class="states-list"></div>
-
-        <div class="sidebar-footer">
-            <button id="btn-add-state" class="btn btn-wide btn-primary">+ Add New State</button>
+<div class="panel-shell" id="app">
+    <!-- ===== 顶部导航条 ===== -->
+    <header class="top-nav">
+        <div class="nav-tabs">
+            <button id="tab-overview" class="tab-btn is-active">场景观测总览</button>
+            <button id="tab-editor" class="tab-btn">单控制器编辑</button>
         </div>
-    </aside>
-
-    <main class="main-content">
-        <div class="main-toolbar">
-            <span class="field-label">控制器 id</span>
-            <div id="ctrl-switch-wrap" class="ctrl-switch-wrap">
-                <button id="btn-prev-ctrl" class="btn btn-icon" title="上一个控制器">‹</button>
-                <button id="btn-ctrl-switch" class="btn ctrl-switch" title="切换控制器">未连接 ▾</button>
-                <button id="btn-next-ctrl" class="btn btn-icon" title="下一个控制器">›</button>
+        <div class="nav-actions">
+            <!-- 观测模式操作 -->
+            <div id="overview-actions" class="actions-group">
+                <select id="filter-level" class="nb-select" title="过滤级别">
+                    <option value="default">默认 (变化/异常)</option>
+                    <option value="abnormal">只看异常</option>
+                    <option value="all">显示全部</option>
+                </select>
+                <input type="text" id="search-input" class="nb-input" placeholder="搜索节点 / 属性…">
             </div>
-        </div>
-
-        <div class="inspector-toolbar">
-            <span class="field-label">Inspector 增强</span>
-            <label class="toggle-label"><input type="checkbox" id="chk-inspector-master"> 总开关</label>
-            <div class="toggle-group" id="inspector-sub-toggles">
-                <label class="toggle-label"><input type="checkbox" id="chk-inspector-viz"> 状态可视化</label>
-                <label class="toggle-label"><input type="checkbox" id="chk-inspector-dirty"> 录制脏值</label>
-                <label class="toggle-label"><input type="checkbox" id="chk-inspector-exclude"> 排除徽标</label>
-            </div>
-        </div>
-
-        <section id="state-detail" class="state-detail" style="display: none;">
-            <div class="shared-strip">
-                <div class="strip-field">
-                    <span class="field-label">state</span>
-                    <button id="btn-state-pick" class="btn state-pick">-- ▾</button>
-                </div>
-                <div class="record-actions">
-                    <button id="btn-start-record" class="btn btn-record">🔴 录制</button>
-                    <button id="btn-stop-record" class="btn btn-stop" style="display: none;">⏹ 停止并保存</button>
-                    <button id="btn-cancel-record" class="btn btn-cancel" style="display: none;">⤺ 撤销本次录制</button>
+            <!-- 编辑模式操作 (inspector 增强 flags) -->
+            <div id="editor-actions" class="actions-group" style="display:none;">
+                <span class="field-label">Inspector 增强</span>
+                <label class="toggle-label"><input type="checkbox" id="chk-inspector-master"> 总开关</label>
+                <div class="toggle-group" id="inspector-sub-toggles">
+                    <label class="toggle-label"><input type="checkbox" id="chk-inspector-viz"> 可视化</label>
+                    <label class="toggle-label"><input type="checkbox" id="chk-inspector-dirty"> 脏值</label>
+                    <label class="toggle-label"><input type="checkbox" id="chk-inspector-exclude"> 排除徽标</label>
                 </div>
             </div>
+        </div>
+    </header>
 
-            <div class="detail-head">
-                <div>
-                    <div class="eyebrow">当前详情</div>
-                    <h2 id="state-title" class="state-title">--</h2>
+    <!-- ===== 视图 1: 场景观测总览 ===== -->
+    <div id="view-overview" class="view-container">
+        <!-- 仪表盘: 每个控制器当前所在状态 -->
+        <section id="dashboard-grid" class="dashboard-grid"></section>
+
+        <div class="overview-body">
+            <!-- 左: 拓扑树 -->
+            <aside class="topology-panel">
+                <div class="panel-cap">拓扑树</div>
+                <div id="topology-tree" class="topology-tree"></div>
+            </aside>
+
+            <!-- 中: 值矩阵 -->
+            <main class="matrix-container">
+                <div class="matrix-title-bar">
+                    <h2 id="matrix-title">选择一个成员节点</h2>
+                    <span class="matrix-hint">💥 跨状态有变动高亮</span>
                 </div>
-                <div id="record-badge" class="record-badge">Idle</div>
+                <div class="matrix-scroll">
+                    <table id="value-matrix" class="matrix-table">
+                        <thead><tr id="matrix-head"></tr></thead>
+                        <tbody id="matrix-body"></tbody>
+                    </table>
+                    <div id="matrix-empty" class="matrix-empty">
+                        <p>在左侧拓扑树点选一个<strong>成员节点</strong>,这里铺出它在各状态的属性值矩阵。</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- 右: 体检 / 问题清单 -->
+            <aside class="issues-panel">
+                <div class="issues-header">
+                    <h2>异常清单</h2>
+                    <span id="issues-count" class="issues-count">0</span>
+                </div>
+                <div id="issues-list" class="issue-list"></div>
+            </aside>
+        </div>
+
+        <div id="overview-empty" class="empty-tip" style="display:none;">
+            <h3>场景里还没有控制器</h3>
+            <p>给节点挂上 StateController 并接入控制后, 这里会列出全部观测信息。</p>
+        </div>
+    </div>
+
+    <!-- ===== 视图 2: 单控制器编辑 (保留既有能力) ===== -->
+    <div id="view-editor" class="view-container" style="display:none;">
+        <aside class="sidebar">
+            <div id="states-list" class="states-list"></div>
+            <div class="sidebar-footer">
+                <button id="btn-add-state" class="nb-btn nb-btn-primary btn-wide">+ 新增状态</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="main-toolbar">
+                <span class="field-label">当前控制器</span>
+                <div id="ctrl-switch-wrap" class="ctrl-switch-wrap">
+                    <button id="btn-prev-ctrl" class="nb-btn btn-icon" title="上一个">‹</button>
+                    <button id="btn-ctrl-switch" class="nb-btn ctrl-switch" title="切换控制器">未连接 ▾</button>
+                    <button id="btn-next-ctrl" class="nb-btn btn-icon" title="下一个">›</button>
+                </div>
             </div>
 
-            <div class="prop-grid">
-                <section class="prop-panel">
-                    <button id="btn-followed-toggle" class="prop-panel-title" type="button">▾ 已跟随属性 <span id="followed-count">(0)</span></button>
-                    <div id="followed-props" class="prop-list"></div>
-                </section>
+            <section id="state-detail" class="state-detail" style="display:none;">
+                <div class="shared-strip">
+                    <div class="strip-field">
+                        <span class="field-label">state</span>
+                        <button id="btn-state-pick" class="nb-btn state-pick">-- ▾</button>
+                    </div>
+                    <div class="record-actions">
+                        <button id="btn-start-record" class="nb-btn btn-record">🔴 录制</button>
+                        <button id="btn-stop-record" class="nb-btn btn-stop" style="display:none;">⏹ 停止并保存</button>
+                        <button id="btn-cancel-record" class="nb-btn btn-cancel" style="display:none;">⤺ 撤销本次录制</button>
+                    </div>
+                </div>
 
-                <section class="prop-panel">
-                    <button id="btn-ready-toggle" class="prop-panel-title" type="button">▾ 可接入属性 <span id="ready-count">(0)</span></button>
-                    <div id="ready-props" class="prop-list"></div>
-                </section>
-            </div>
-        </section>
+                <div class="detail-head">
+                    <div>
+                        <div class="eyebrow">当前详情</div>
+                        <h2 id="state-title" class="state-title">--</h2>
+                    </div>
+                    <div id="record-badge" class="record-badge">Idle</div>
+                </div>
 
-        <section id="empty-tip" class="empty-tip">
-            <h3>请在场景中选中带 StateController 的节点</h3>
-            <p>或从下方列表选择：</p>
-            <div id="ctrl-list" class="ctrl-list"></div>
-        </section>
-    </main>
+                <div class="prop-grid">
+                    <section class="prop-panel">
+                        <button id="btn-followed-toggle" class="prop-panel-title" type="button">▾ 已跟随属性 <span id="followed-count">(0)</span></button>
+                        <div id="followed-props" class="prop-list"></div>
+                    </section>
+                    <section class="prop-panel">
+                        <button id="btn-ready-toggle" class="prop-panel-title" type="button">▾ 可接入属性 <span id="ready-count">(0)</span></button>
+                        <div id="ready-props" class="prop-list"></div>
+                    </section>
+                </div>
+            </section>
+
+            <section id="empty-tip" class="empty-tip">
+                <h3>请在场景中选中带 StateController 的节点</h3>
+                <p>或从下方列表选择:</p>
+                <div id="ctrl-list" class="ctrl-list"></div>
+            </section>
+        </main>
+    </div>
 </div>
 
+<!-- ===== 可复用模板 ===== -->
+
+<!-- 仪表盘卡片 -->
+<template id="tpl-dashboard-card">
+    <div class="db-card">
+        <div class="db-title"></div>
+        <div class="db-value"><span class="status-dot"></span><span class="db-state-name"></span></div>
+    </div>
+</template>
+
+<!-- 拓扑树: 控制器头 -->
+<template id="tpl-tree-ctrl">
+    <div class="tree-ctrl"><span class="tree-caret">▾</span><span class="tree-ctrl-icon">🎮</span><span class="tree-ctrl-name"></span></div>
+</template>
+
+<!-- 拓扑树: 成员节点 -->
+<template id="tpl-tree-node">
+    <div class="tree-node"><span class="tree-node-icon">📦</span><span class="tree-node-name"></span></div>
+</template>
+
+<!-- 拓扑树: 受控属性行 -->
+<template id="tpl-tree-prop">
+    <div class="tree-prop">
+        <span class="tree-prop-name"></span>
+        <span class="kind-badge"></span>
+    </div>
+</template>
+
+<!-- 矩阵: 表头状态列 -->
+<template id="tpl-matrix-th"><th class="state-col"></th></template>
+
+<!-- 矩阵: 属性行 -->
+<template id="tpl-matrix-row">
+    <tr>
+        <td class="matrix-prop"><div class="prop-name"></div><div class="prop-type"></div></td>
+    </tr>
+</template>
+
+<!-- 矩阵: 值格 -->
+<template id="tpl-matrix-cell"><td class="matrix-cell"></td></template>
+
+<!-- 问题清单条目 -->
+<template id="tpl-issue-item">
+    <div class="issue-item">
+        <div class="issue-title"><span class="badge-type"></span><span class="issue-prop"></span></div>
+        <div class="issue-desc"><span class="issue-node"></span></div>
+        <button class="nb-btn btn-issue-jump">定位 →</button>
+    </div>
+</template>
+
+<!-- ===== 编辑视图既有模板 (保留) ===== -->
 <template id="tpl-state-item">
     <div class="state-item">
-        <div class="state-thumb">Img</div>
+        <div class="state-thumb"></div>
         <div class="state-meta">
-            <div class="state-name">State_Name</div>
-            <div class="state-sub">state</div>
+            <div class="state-name"></div>
+            <div class="state-sub"></div>
         </div>
-        <div class="state-actions">
-            <span class="record-dot" title="录制中">●</span>
-            <button class="btn btn-icon btn-del-state" title="删除">Del</button>
-        </div>
+        <span class="record-dot" style="display:none;">●</span>
+        <button class="nb-btn btn-small btn-del-state">✕</button>
     </div>
 </template>
 
 <template id="tpl-prop-item">
     <div class="prop-item">
-        <div class="prop-main">
-            <span class="prop-mark">●</span>
-            <span class="prop-name">propName</span>
-            <span class="prop-value">--</span>
-        </div>
-        <button class="btn btn-small btn-prop-action">☐ 取消跟随</button>
+        <span class="prop-mark"></span>
+        <span class="prop-name"></span>
+        <span class="prop-value"></span>
+        <button class="nb-btn btn-small btn-prop-action"></button>
     </div>
 </template>
 
 <template id="tpl-ctrl-item">
     <div class="ctrl-item">
-        <span class="ctrl-name">CtrlName</span>
-        <button class="btn btn-small btn-use-ctrl">选择</button>
+        <span class="ctrl-name"></span>
+        <button class="nb-btn btn-small btn-use-ctrl">选择</button>
     </div>
 </template>

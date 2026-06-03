@@ -287,6 +287,97 @@ module.exports = {
     },
 
     /**
+     * 新增观测树聚合查询. 返回整个场景的控制器-成员-属性拓扑结构.
+     */
+    'list-scene-topology'(event) {
+        if (typeof cc === 'undefined' || !cc.director || !cc.director.getScene) {
+            return event.reply(null, { controllers: [] });
+        }
+        const scene = cc.director.getScene();
+        if (!scene) return event.reply(null, { controllers: [] });
+
+        const ctrlsInfo = [];
+        const selectsInfo = [];
+
+        function getNodePath(node) {
+            let path = node.name;
+            let curr = node.parent;
+            while (curr && curr.parent) { 
+                path = curr.name + '/' + path;
+                curr = curr.parent;
+            }
+            return path;
+        }
+
+        function walk(node) {
+            if (!node) return;
+            const ctrl = node.getComponent('StateController');
+            if (ctrl) {
+                ctrlsInfo.push({ uuid: node.uuid, ctrl: ctrl });
+                ensureBridge(ctrl);
+            }
+            const select = node.getComponent('StateSelect');
+            if (select) {
+                selectsInfo.push({
+                    nodeUuid: node.uuid,
+                    nodeName: node.name,
+                    nodePath: getNodePath(node),
+                    select: select,
+                    getRowsInfo: function() {
+                        const userExcluded = {};
+                        const ue = select._userExcludedProps || [];
+                        for (let i = 0; i < ue.length; i++) userExcluded[ue[i]] = 1;
+                        const canCtrl = typeof select.isPropertyControlledByPropRef === 'function';
+
+                        function classify(propRef) {
+                            if (userExcluded[propRef]) return 'excluded';
+                            let ctrled = false;
+                            if (canCtrl) { try { ctrled = !!select.isPropertyControlledByPropRef(propRef); } catch (e) { ctrled = false; } }
+                            return ctrled ? 'tracked' : 'loose';
+                        }
+                        
+                        function rowKind(refs) {
+                            let t = 0, e = 0, l = 0;
+                            for (let i = 0; i < refs.length; i++) {
+                                const k = classify(refs[i]);
+                                if (k === 'tracked') t++; else if (k === 'excluded') e++; else l++;
+                            }
+                            if (l > 0) return (t > 0 || e > 0) ? 'mixed' : 'loose';
+                            if (e > 0) return (t > 0) ? 'mixed' : 'excluded';
+                            return 'tracked';
+                        }
+
+                        const rows = enumInspectorRows(node);
+                        const result = [];
+                        for (let i = 0; i < rows.length; i++) {
+                            const kind = rowKind(rows[i].refs);
+                            let compName = rows[i].scope === 'node' ? 'cc.Node' : '';
+                            if (rows[i].scope !== 'node' && node._components && node._components[rows[i].scope]) {
+                                const comp = node._components[rows[i].scope];
+                                compName = comp.__classname__ || (comp.constructor && comp.constructor.name) || '';
+                            }
+                            result.push({
+                                display: rows[i].display,
+                                refs: rows[i].refs,
+                                kind: kind,
+                                compName: compName
+                            });
+                        }
+                        return result;
+                    }
+                });
+            }
+            if (node.children) {
+                for (let i = 0; i < node.children.length; i++) walk(node.children[i]);
+            }
+        }
+        walk(scene);
+        
+        const topology = handlers.buildTopology(ctrlsInfo, selectsInfo);
+        event.reply(null, topology);
+    },
+
+    /**
      * P2b: inspector 注入层查询 "选中节点上**非全受控**的属性行".
      *
      * 语义反转 (用户决策): auto-opt-in 让绝大多数属性受控 → 标记受控是噪音; 真正有价值的是**例外**:
