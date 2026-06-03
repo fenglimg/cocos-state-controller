@@ -387,6 +387,17 @@ export class StateSelect extends cc.Component {
      */
     private _initialPropDataKeys: Set<string> | null = null;
 
+    /**
+     * 录制开始时被排除 prop 的纯节点值快照 (propRef → 录制前节点上的值).
+     *
+     * 用户裁定: 任何被排除的属性, 录制结束(停止 stop 或取消 cancel)后都应还原到录制前 —— 排除 =
+     * 录制期间完全不影响该属性, 不管最终保存还是丢弃. 已跟随 prop 的改后值在 stop 时正常 commit, 不受影响.
+     * 被排除 prop 不进 _snapshot/_initialSnapshot/_fullSnapshot (不变量#8: 排除不进状态数据), 所以
+     * stop/cancel 走 ctrlData 那条路够不到它们; 这里单独拍一份, 由 restoreExcludedSnapshotToNode 写回节点.
+     * 非 @property, 不序列化, onRecordingStart 拍, onRecordingStop/applyRecordingSnapshot 收尾时还原+清.
+     */
+    private _excludedSnapshot: { [propRef: string]: any } | null = null;
+
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
     private parentCheckInterval: ReturnType<typeof setInterval> = null;
@@ -2272,6 +2283,9 @@ export class StateSelect extends cc.Component {
     public applyRecordingSnapshot(ctrl: StateController, fromState: number): void {
         if (!CC_EDITOR) return;
         if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
+        // 被排除 prop 走独立节点快照还原 (ctrlData 回滚那条路够不到, 因为它们不进状态数据).
+        // 放最前: 即使下面因没拍 controlled snapshot 早退, 被排除 prop 也要还原.
+        this.restoreExcludedSnapshotToNode();
         if (this._initialSnapshot == null) {
             // 录制开始时没拍 snapshot (e.g. 控制器关联尚未建立), 直接清场, no-op 回滚
             this._snapshot = null;
@@ -2323,6 +2337,23 @@ export class StateSelect extends cc.Component {
     }
 
     /**
+     * 把 _excludedSnapshot (录制开始时被排除 prop 的节点值) 写回节点, 然后清空.
+     *
+     * 停止(stop)与取消(cancel)收尾都调: 被排除 prop 不进 ctrlData, updateState(State) 又会跳过被排除
+     * prop (applyPropRefKeysToNode 过滤), 所以这里直接写节点的还原不会被后续 updateState 覆盖.
+     * 幂等, 无快照时安全 no-op.
+     */
+    private restoreExcludedSnapshotToNode(): void {
+        const snap = this._excludedSnapshot;
+        this._excludedSnapshot = null;
+        if (!snap || !this.node) return;
+        for (const propRef of Object.keys(snap)) {
+            const tp = this.resolveTrackableProp(propRef);
+            this.writeNodeValueByPropRef(propRef, cloneValueByType(snap[propRef], tp ? tp.cocosType : undefined));
+        }
+    }
+
+    /**
      * 切 state 前 (录制中): commit diff 到 fromState.
      * 由 StateController.selectedIndex setter → updateState(StateWillChange, fromIdx) 派发。
      */
@@ -2366,6 +2397,8 @@ export class StateSelect extends cc.Component {
         // TASK-002: 拍一份独立的不可变 snapshot 给 cancel 用 (_snapshot 在 commit 路径会被刷新)
         this._initialSnapshot = this.readControlledPropsFromNode(ctrl);
         this._fullSnapshot = this.readAllApplicablePropsFromNode();
+        // 被排除 prop 单独拍纯节点值快照, 供 cancel 还原节点 (不进 ctrlData / _fullSnapshot).
+        this._excludedSnapshot = this.readExcludedPropsFromNode();
         // #S3: 记录录制前 propData 本就存在的 key, cancel 时据此区分"回滚已有值" vs "删除依赖 default 的硬编码".
         const curPd = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
         this._initialPropDataKeys = new Set(
@@ -2416,6 +2449,10 @@ export class StateSelect extends cc.Component {
             this.promptUntrackedAfterStop(ctrl, untracked);
         }
 
+        // 用户裁定: 停止(保存)也把被排除 prop 还原到录制前 —— 排除 = 录制期间完全不影响该属性,
+        // 不管最终是保存(stop)还是丢弃(cancel). 已跟随 prop 的改后值由上面 commitRecordingDiff 正常提交,
+        // 不受影响. (restore 内含清快照.)
+        this.restoreExcludedSnapshotToNode();
         this._snapshot = null;
         this._fullSnapshot = null;
         // TASK-002: 同步清初始 snapshot
@@ -2513,6 +2550,25 @@ export class StateSelect extends cc.Component {
             const cur = this.readPropFromNodeByPropRef(tp.propRef);
             if (cur === undefined) continue;
             (out as any)[tp.propRef] = cloneValueByType(cur, tp.cocosType);
+        }
+        return out;
+    }
+
+    /**
+     * 读用户排除清单里每个 prop 的当前节点值 (propRef → value), 供 cancel 还原节点用.
+     *
+     * 与 _fullSnapshot 互补: _fullSnapshot 故意**不含**被排除 prop (不变量#8), 这里**只含**被排除 prop.
+     * 仅取 _userExcludedProps (用户主动排除的); SYSTEM_EXCLUDE 是引擎内部 plumbing, 用户不感知也不该回写.
+     * cocosType 用 resolveTrackableProp 反查 (失败则 undefined, cloneValueByType 退化为浅拷, 对 number 无碍).
+     */
+    private readExcludedPropsFromNode(): { [propRef: string]: any } {
+        const out: { [propRef: string]: any } = {};
+        if (!this.node) return out;
+        for (const propRef of this._userExcludedProps || []) {
+            const cur = this.readPropFromNodeByPropRef(propRef);
+            if (cur === undefined) continue;
+            const tp = this.resolveTrackableProp(propRef);
+            out[propRef] = cloneValueByType(cur, tp ? tp.cocosType : undefined);
         }
         return out;
     }

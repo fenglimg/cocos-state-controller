@@ -204,10 +204,12 @@ describe("W6 回归测试 — 双轨设计 + AMBIGUOUS 整体路径冲突", () =
     });
 
     // ============================================================
-    // BUG 10 (bonus, user 原始 case 核心): 排 cc.Node.x 后 x 不应被任何路径恢复 (Position 老路径已废)
-    // 注: y 行为不在 acceptance 内 — Recording commit 到 fromState 是正确语义, y 跟随后值跟着 commit
+    // BUG 10 (bonus, user 原始 case 核心): 排 cc.Node.x 后, 录制改 x → 录制结束(stop/cancel) x 还原到录制前.
+    // 用户裁定 (2026-06-03): 排除 = 录制期间完全不影响该属性, 结束时还原到录制前 (见 feedback_exclude_restore_on_cancel).
+    // 旧断言曾期望 x 保留录制中改后值 (那时排除 prop 录制完全不被碰); 新规则收紧为"还原".
+    // 注: y (跟随中) 不在 acceptance 内 — Recording commit 到 fromState 是正确语义, y 跟随后值跟着 commit.
     // ============================================================
-    it("[BUG-10] 端到端: 排 cc.Node.x, state 切回时 x 不应被 Position 老路径恢复", () => {
+    it("[BUG-10] 端到端: 排 cc.Node.x, 录制改 x → 结束后 x 还原到录制前 (旧聚合 Position 路径也不该乱碰)", () => {
         const { ctrl, select, selectNode } = setup();
         selectNode.x = 0;
         selectNode.y = 0;
@@ -217,11 +219,11 @@ describe("W6 回归测试 — 双轨设计 + AMBIGUOUS 整体路径冲突", () =
             (ctrl as any).startRecording();
             selectNode.x = 100;
             selectNode.y = 200;
-            (ctrl as any).selectedIndex = 1;
+            (ctrl as any).selectedIndex = 1; // 切 state 自动 stop → 被排除 x 还原到录制前 0
             (ctrl as any).stopRecording();
         } catch { /* swallow recording infra */ }
         (ctrl as any).selectedIndex = 0;
-        // X 方案核心: x 维持 100, Position 老路径已不再 apply Vec3 把 x 拽回去
-        expect(selectNode.x).toBe(100);
+        // 新规则: 被排除的 x 录制结束还原到录制前 0; 旧聚合 Position 路径也不会 apply Vec3 把它拽到别处.
+        expect(selectNode.x).toBe(0);
     });
 });
