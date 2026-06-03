@@ -373,6 +373,15 @@ module.exports = {
         }
         walk(scene);
 
+        // 支柱 B: 编辑器期也把序列化 binding 接上运行时监听, 让面板切状态能即时预览联动
+        // (rehydrate 幂等; 此刻全场景控制器都已 __preload 登记进 _byId, 目标按 id 可解析).
+        for (let i = 0; i < ctrlsInfo.length; i++) {
+            const c = ctrlsInfo[i].ctrl;
+            if (c && typeof c.rehydrateBindings === 'function') {
+                try { c.rehydrateBindings(); } catch (e) { /* 静默 */ }
+            }
+        }
+
         const topology = handlers.buildTopology(ctrlsInfo, selectsInfo);
         event.reply(null, topology);
     },
@@ -385,6 +394,7 @@ module.exports = {
         const ctrl = getCtrlByUuid(payload && payload.uuid);
         if (!ctrl || typeof ctrl.addBinding !== 'function') return event.reply('ctrl not found', false);
         const ok = ctrl.addBinding(payload.sourceStateId, payload.targetCtrlId, payload.targetStateId);
+        if (ok && typeof ctrl.rehydrateBindings === 'function') { try { ctrl.rehydrateBindings(); } catch (e) {} }
         event.reply(null, ok);
         if (ok) {
             if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
@@ -397,6 +407,7 @@ module.exports = {
         const ctrl = getCtrlByUuid(payload && payload.uuid);
         if (!ctrl || typeof ctrl.removeBinding !== 'function') return event.reply('ctrl not found', false);
         const ok = ctrl.removeBinding(payload.sourceStateId, payload.targetCtrlId);
+        if (ok && typeof ctrl.rehydrateBindings === 'function') { try { ctrl.rehydrateBindings(); } catch (e) {} }
         event.reply(null, ok);
         if (ok) {
             if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');

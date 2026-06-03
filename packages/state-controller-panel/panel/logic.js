@@ -59,9 +59,9 @@ module.exports = {
         emptyTip: '#empty-tip',
         ctrlList: '#ctrl-list',
         btnPrevCtrl: '#btn-prev-ctrl',
-        btnCtrlSwitch: '#btn-ctrl-switch',
+        ctrlSwitchSelect: '#ctrl-switch-select',
         btnNextCtrl: '#btn-next-ctrl',
-        btnStatePick: '#btn-state-pick',
+        statePickSelect: '#state-pick-select',
         stateTitle: '#state-title',
         recordBadge: '#record-badge',
         btnStartRecord: '#btn-start-record',
@@ -163,9 +163,17 @@ module.exports = {
             });
         });
         this.$btnPrevCtrl.addEventListener('click', () => this._stepCtrl(-1));
-        this.$btnCtrlSwitch.addEventListener('click', () => this._stepCtrl(1));
         this.$btnNextCtrl.addEventListener('click', () => this._stepCtrl(1));
-        this.$btnStatePick.addEventListener('click', () => this._stepState());
+        // 下拉直选控制器 / 状态 (替代旧的「点击跳下一个」)
+        this.$ctrlSwitchSelect.addEventListener('change', () => {
+            if (this.$ctrlSwitchSelect.value) this.setCurrentCtrl(this.$ctrlSwitchSelect.value);
+        });
+        this.$statePickSelect.addEventListener('change', () => {
+            const idx = Number(this.$statePickSelect.value);
+            const states = (this.currentSnapshot && this.currentSnapshot.states) || [];
+            const st = states.find(s => s.index === idx);
+            if (st) this._goState(st);
+        });
         this.$btnStartRecord.addEventListener('click', () => this._setRecording(true));
         this.$btnStopRecord.addEventListener('click', () => this._setRecording(false));
         this.$btnCancelRecord.addEventListener('click', () => {
@@ -782,10 +790,16 @@ module.exports = {
         const activeIndex = this._activeIndex(snap);
         const activeState = states.find(state => state.index === activeIndex);
         const name = activeState ? activeState.name : '--';
-        const pos = states.findIndex(state => state.index === activeIndex);
-        const caption = states.length ? `${pos + 1}/${states.length} · ${name}` : '--';
         const recording = !!snap.isRecording;
-        this.$btnStatePick.textContent = `${caption} ▾`;
+        const sel = this.$statePickSelect;
+        sel.innerHTML = '';
+        states.forEach(s => {
+            const o = document.createElement('option');
+            o.value = String(s.index);
+            o.textContent = s.name || `#${s.index + 1}`;
+            sel.appendChild(o);
+        });
+        if (states.length) sel.value = String(activeIndex);
         this.$stateTitle.textContent = name;
         this.$recordBadge.textContent = recording ? 'Recording' : 'Idle';
         this.$recordBadge.classList.toggle('is-live', recording);
@@ -848,10 +862,22 @@ module.exports = {
     _activeIndex(snap) { return typeof snap[SNAP_INDEX_KEY] === 'number' ? snap[SNAP_INDEX_KEY] : 0; },
     _ctrlLabel(item) { if (!item) return '未连接'; return item.ctrlName || `Controller ${item.ctrlId}`; },
     _renderCtrlHeader() {
-        const item = this.ctrlItems.find(ctrl => ctrl.uuid === this.currentCtrlUuid);
+        const sel = this.$ctrlSwitchSelect;
         const count = this.ctrlItems.length;
-        const label = item ? this._ctrlLabel(item) : '未连接';
-        this.$btnCtrlSwitch.textContent = count > 1 ? `${label} ▾` : label;
+        sel.innerHTML = '';
+        if (!count) {
+            const o = document.createElement('option');
+            o.textContent = '未连接';
+            sel.appendChild(o);
+        } else {
+            this.ctrlItems.forEach(item => {
+                const o = document.createElement('option');
+                o.value = item.uuid;
+                o.textContent = this._ctrlLabel(item);
+                sel.appendChild(o);
+            });
+            if (this.currentCtrlUuid) sel.value = this.currentCtrlUuid;
+        }
         this.$btnPrevCtrl.disabled = count <= 1;
         this.$btnNextCtrl.disabled = count <= 1;
     },

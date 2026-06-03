@@ -20,6 +20,9 @@
     --shadow-hard-lg: 6px 6px 0px #000000;
     --transition: all 0.13s ease-in-out;
     display: flex;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
     font-family: 'Space Grotesk', sans-serif;
     color: var(--text-main);
     font-size: 13px;
@@ -32,6 +35,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    width: 100%;
     height: 100%;
     background: var(--bg-main);
     overflow: hidden;
