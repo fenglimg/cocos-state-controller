@@ -173,7 +173,8 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
         expect(h.addProperty(ctrl, select, EnumPropName.Position)).toBe(true);
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
-        expect(propData["cc.Node.position"]).toBeDefined();
+        // 聚合根治: Position 拆子项存储 (decompose 模型)
+        expect(propData["cc.Node.x"]).toBeDefined();
     });
 
     it("removeProperty handler 调用 select.togglePropertyControl(propType, false)", () => {

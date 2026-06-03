@@ -78,10 +78,10 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 12
+        "__id__": 16
       },
       {
-        "__id__": 13
+        "__id__": 17
       },
       {
         "__id__": 8
@@ -273,8 +273,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        179.36,
-        116.068,
+        -312.58,
+        -15.66,
         0,
         0,
         0,
@@ -314,7 +314,7 @@
     "_srcBlendFactor": 770,
     "_dstBlendFactor": 771,
     "_spriteFrame": {
-      "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061"
+      "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
     },
     "_type": 0,
     "_sizeMode": 0,
@@ -349,7 +349,7 @@
     },
     "_propKey": 0,
     "_propValue": null,
-    "_currentDisplayProp": 0,
+    "_currentDisplayProp": 7,
     "_isDeleteCurr": false,
     "_ctrlData": {
       "1780312515529": {
@@ -362,9 +362,6 @@
             "cc.Node.z": "cc.Node.z",
             "cc.Node.angle": "cc.Node.angle",
             "cc.Node.quat": "cc.Node.quat",
-            "cc.Node.scaleX": "cc.Node.scaleX",
-            "cc.Node.scaleY": "cc.Node.scaleY",
-            "cc.Node.scaleZ": "cc.Node.scaleZ",
             "cc.Node.skewX": "cc.Node.skewX",
             "cc.Node.skewY": "cc.Node.skewY",
             "cc.Node.opacity": "cc.Node.opacity",
@@ -385,14 +382,15 @@
             "cc.Sprite.fillStart": "cc.Sprite.fillStart",
             "cc.Sprite.fillRange": "cc.Sprite.fillRange",
             "cc.Sprite.trim": "cc.Sprite.trim",
-            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ"
           },
           "cc.Node.name": "New Sprite(Splash)",
           "cc.Node.active": true,
           "cc.Node.groupIndex": 0,
           "cc.Node.group": "default",
-          "cc.Node.x": -235.514,
-          "cc.Node.y": 91.947,
           "cc.Node.z": 0,
           "cc.Node.angle": 0,
           "cc.Node.quat": {
@@ -410,9 +408,9 @@
           "cc.Node.opacity": 255,
           "cc.Node.color": {
             "__type__": "cc.Color",
-            "r": 239,
-            "g": 15,
-            "b": 15,
+            "r": 224,
+            "g": 0,
+            "b": 0,
             "a": 255
           },
           "cc.Node.anchorX": 0.5,
@@ -429,7 +427,7 @@
           "cc.Sprite.srcBlendFactor": 770,
           "cc.Sprite.dstBlendFactor": 771,
           "cc.Sprite.spriteFrame": {
-            "__uuid__": "5c3bb932-6c3c-468f-88a9-c8c61d458641"
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
           },
           "cc.Sprite.type": 0,
           "cc.Sprite.fillType": 0,
@@ -449,14 +447,9 @@
             "cc.Node.active": "cc.Node.active",
             "cc.Node.groupIndex": "cc.Node.groupIndex",
             "cc.Node.group": "cc.Node.group",
-            "cc.Node.x": "cc.Node.x",
-            "cc.Node.y": "cc.Node.y",
             "cc.Node.z": "cc.Node.z",
             "cc.Node.angle": "cc.Node.angle",
             "cc.Node.quat": "cc.Node.quat",
-            "cc.Node.scaleX": "cc.Node.scaleX",
-            "cc.Node.scaleY": "cc.Node.scaleY",
-            "cc.Node.scaleZ": "cc.Node.scaleZ",
             "cc.Node.skewX": "cc.Node.skewX",
             "cc.Node.skewY": "cc.Node.skewY",
             "cc.Node.opacity": "cc.Node.opacity",
@@ -483,8 +476,6 @@
           "cc.Node.active": true,
           "cc.Node.groupIndex": 0,
           "cc.Node.group": "default",
-          "cc.Node.x": 427.473,
-          "cc.Node.y": 138.727,
           "cc.Node.z": 0,
           "cc.Node.angle": 0,
           "cc.Node.quat": {
@@ -503,8 +494,8 @@
           "cc.Node.color": {
             "__type__": "cc.Color",
             "r": 255,
-            "g": 255,
-            "b": 255,
+            "g": 0,
+            "b": 0,
             "a": 255
           },
           "cc.Node.anchorX": 0.5,
@@ -521,7 +512,7 @@
           "cc.Sprite.srcBlendFactor": 770,
           "cc.Sprite.dstBlendFactor": 771,
           "cc.Sprite.spriteFrame": {
-            "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061"
+            "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91"
           },
           "cc.Sprite.type": 0,
           "cc.Sprite.fillType": 0,
@@ -542,14 +533,9 @@
             "cc.Node.active": "cc.Node.active",
             "cc.Node.groupIndex": "cc.Node.groupIndex",
             "cc.Node.group": "cc.Node.group",
-            "cc.Node.x": "cc.Node.x",
-            "cc.Node.y": "cc.Node.y",
             "cc.Node.z": "cc.Node.z",
             "cc.Node.angle": "cc.Node.angle",
             "cc.Node.quat": "cc.Node.quat",
-            "cc.Node.scaleX": "cc.Node.scaleX",
-            "cc.Node.scaleY": "cc.Node.scaleY",
-            "cc.Node.scaleZ": "cc.Node.scaleZ",
             "cc.Node.skewX": "cc.Node.skewX",
             "cc.Node.skewY": "cc.Node.skewY",
             "cc.Node.opacity": "cc.Node.opacity",
@@ -570,7 +556,10 @@
             "cc.Sprite.fillStart": "cc.Sprite.fillStart",
             "cc.Sprite.fillRange": "cc.Sprite.fillRange",
             "cc.Sprite.trim": "cc.Sprite.trim",
-            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode"
+            "cc.Sprite.sizeMode": "cc.Sprite.sizeMode",
+            "cc.Node.scaleX": "cc.Node.scaleX",
+            "cc.Node.scaleY": "cc.Node.scaleY",
+            "cc.Node.scaleZ": "cc.Node.scaleZ"
           },
           "cc.Node.name": "New Sprite(Splash)",
           "cc.Node.active": true,
@@ -634,6 +623,15 @@
       "cc.Node.x",
       "cc.Node.y"
     ],
+    "excludeGroup": {
+      "__id__": 13
+    },
+    "recording": {
+      "__id__": 14
+    },
+    "valueOps": {
+      "__id__": 15
+    },
     "_id": "1d/Xo7RO1HMYJqbNHWnwJT"
   },
   {
@@ -646,22 +644,23 @@
     "_enabled": true,
     "stateIdAuto": 2,
     "ctrlId": 1780312515529,
-    "_historyStateName": {
-      "2": ""
-    },
+    "_historyStateName": {},
     "_ctrlName": "ctrl_1780312515529",
-    "_selectedIndex": 1,
+    "_selectedIndex": 0,
     "_states": [
       {
         "__id__": 9
       },
       {
         "__id__": 10
-      },
-      {
-        "__id__": 11
       }
     ],
+    "stateOps": {
+      "__id__": 11
+    },
+    "recording": {
+      "__id__": 12
+    },
     "_id": "b1zVY8YbBDbJ73iDpC3z2j"
   },
   {
@@ -675,9 +674,19 @@
     "stateId": 1
   },
   {
-    "__type__": "StateValue",
-    "name": "3",
-    "stateId": 0
+    "__type__": "CtrlStateOpsGroup"
+  },
+  {
+    "__type__": "CtrlRecordGroup"
+  },
+  {
+    "__type__": "SelectExcludeGroup"
+  },
+  {
+    "__type__": "SelectRecordGroup"
+  },
+  {
+    "__type__": "SelectValueOpsGroup"
   },
   {
     "__type__": "cc.Canvas",

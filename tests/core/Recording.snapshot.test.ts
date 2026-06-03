@@ -84,10 +84,11 @@ describe("StateSelect snapshot lifecycle (Wave 2 T05)", () => {
 
         const snap = (select as any)._snapshot;
         expect(snap).toBeDefined();
-        // snapshot 应包含 Color
-        expect(snap[EnumPropName.Color]).toBeDefined();
-        expect(snap[EnumPropName.Color].r).toBe(255);
-        expect(snap[EnumPropName.Color].g).toBe(0);
+        // T2 双轨统一: 内置 Color 收敛 propRef 单一路径, snapshot (readControlledPropsFromNode)
+        // 按 string propRef key 存 (typeof ctrlVal==="string" 分支), 不再是 EnumPropName 数字 key.
+        expect(snap["cc.Node.color"]).toBeDefined();
+        expect(snap["cc.Node.color"].r).toBe(255);
+        expect(snap["cc.Node.color"].g).toBe(0);
     });
 
     it("未受控的 prop 不进 snapshot", () => {

@@ -111,8 +111,9 @@ describe("Capability core baseline (Wave 2 T29)", () => {
         expect(() => ctrl.stopRecording()).not.toThrow();
 
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
-        expect(propData["cc.Node.position"]).toBeDefined();
-        expect(propData["cc.Node.position"].x).toBe(100);
+        // 聚合根治: Position 拆子项 cc.Node.x/y/z 存储 (与 auto-opt 一致, 用户本意 x/y/z 独立控制)
+        expect(propData["cc.Node.x"]).toBe(100);
+        expect(propData["cc.Node.y"]).toBe(200);
 
         // 重注册回内置 capability
         require("../../assets/script/controller/capabilities/PropertyControlCapability");

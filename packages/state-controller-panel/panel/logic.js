@@ -56,12 +56,18 @@ module.exports = {
 
         this._fetchInspectorFlags();
         this._bindEvents();
+        this._initialRefresh();
+    },
 
-        setTimeout(() => {
-            if (!this.currentSnapshot && !this.$ctrlList.children.length) {
-                this.refreshCtrlList();
-            }
-        }, 300);
+    // 初次拉取 ctrl 列表: 纯事件驱动, 绝不盲调.
+    // scene-script (scene-accessor) 仅在场景加载后注册; 无场景时盲调 callSceneScript('list-ctrls')
+    // 会触发 Cocos 核心 "message not found" 告警. 故先问主进程场景是否就绪:
+    //   就绪 → 立即拉 (scene-script 已注册, 安全);
+    //   未就绪 → 什么都不调, 等主进程 scene:ready 转发的 'state-controller-panel:scene-ready' 补拉.
+    _initialRefresh() {
+        Editor.Ipc.sendToMain('state-controller-panel:is-scene-ready', (err, ready) => {
+            if (!err && ready) this.refreshCtrlList();
+        });
     },
 
     close() {
@@ -532,6 +538,12 @@ module.exports = {
 
     messages: {
         'scene:reloaded'() {
+            this.refreshCtrlList();
+        },
+        // 场景就绪后补拉 (主进程 scene:ready 显式转发): 覆盖"面板先于场景打开"——
+        // 此刻 scene-script 已注册, 调用安全无告警. 用包名命名空间消息, 不依赖 Cocos 是否把
+        // 原生 scene:ready 投递给面板 (scene:reloaded 已证实可达, scene:ready 不确定).
+        'state-controller-panel:scene-ready'() {
             this.refreshCtrlList();
         },
         'state-controller-panel:on-state-changed'(event, payload) {

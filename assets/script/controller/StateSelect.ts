@@ -34,6 +34,7 @@ const {
 import { StateComponentProps } from "./props/StateComponentProps";
 import { StateNodeProps } from "./props/StateNodeProps";
 import { StateWidgetProps } from "./props/StateWidgetProps";
+import { SelectExcludeGroup, SelectRecordGroup, SelectValueOpsGroup } from "./props/SelectInspectorGroups";
 import { StateController } from "./StateController";
 import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
@@ -86,7 +87,9 @@ type TCtrl = {
     [stateId: string]: TPage
 };
 
-@ccclass("StateSelect")
+// 项目内 Component 脚本不传类名: 引擎按 frame.script(文件名 "StateSelect")自动注册,
+// 避免 editor 告警 3616. getComponent('StateSelect') 与 cid 序列化不受影响.
+@ccclass
 @menu("State/StateSelect")
 @executeInEditMode()
 @disallowMultiple()
@@ -178,7 +181,7 @@ export class StateSelect extends cc.Component {
      * W6-4: inspector 显示当前所有被排除的 prop (SYSTEM_EXCLUDE + _userExcludedProps).
      * Readonly 列表, 用户在下方 + 添加排除 / - 恢复跟随 下拉操作.
      */
-    @property({ displayName: "排除跟随", tooltip: "当前被排除的 prop 列表 (系统 + 用户). 系统部分不可恢复.", readonly: true })
+    /** 普通访问器 (含 reconcile 副作用), inspector 可见性由 excludeGroup 折叠组代理. */
     public get excludedPropsDisplay(): string[] {
         // W6-4 C 方案: inspector 渲染时机做 reconcile (idempotent, O(N) 小数组). 用户在 _userExcludedProps
         // 数组 inspector +/- 后, 这里 diff 上次快照 → 触发 togglePropertyControl 同步跟随状态.
@@ -258,7 +261,7 @@ export class StateSelect extends cc.Component {
      * 处理逻辑: 反查 _addExcludeOptions[value-1] 得 propRef → push 到 _userExcludedProps (cocos 数组同步).
      * 移除跟随由 reconcileUserExcluded 在下一次 inspector 渲染时统一做. 删除走 cocos 数组原生 - 按钮 (不再有 removeExcludeTrigger).
      */
-    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单 (用 cocos 数组 - 按钮恢复跟随)" })
+    /** 普通访问器, inspector 可见性 + 动态 enumList 由 excludeGroup 折叠组代理. */
     public get addExcludeTrigger(): number {
         return 0;
     }
@@ -311,8 +314,9 @@ export class StateSelect extends cc.Component {
             { name: "(选一个加入排除)", value: 0 },
             ...addList.map((r, i) => ({ name: r, value: i + 1 })),
         ];
+        // 动态 enumList 注入到 excludeGroup 折叠组类上 (可见的 addExcludeTrigger 在该组上).
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
-        cc.Class.Attr.setClassAttr(this, "addExcludeTrigger", "enumList", addEnum);
+        cc.Class.Attr.setClassAttr(this.excludeGroup, "addExcludeTrigger", "enumList", addEnum);
     }
     // #endregion W6-4
 
@@ -335,13 +339,8 @@ export class StateSelect extends cc.Component {
      * 加项通常通过 "+ 添加排除" 下拉 (sentinel 防误触, 选项带 propRef 提示);
      * 也可以直接点数组 + 自己手输, 但只有合法 propRef (在 listTrackableProps 内) 才会被 reconcile 应用.
      */
-    @property({
-        type: [cc.String],
-        displayName: "用户排除清单",
-        tooltip: "用户手动排除的 prop 列表 (除 SYSTEM_EXCLUDE 外). 用 +/- 按钮增删数组项 (不要直接编辑文本: 加项请走 '+ 添加排除' 下拉). 删项 = 重新跟随.",
-        visible: true,
-        readonly: true,
-    })
+    // 序列化字段, inspector 不直显 (visible:false) — 由 excludeGroup.userExcludedProps 代理同一份数组引用展示/编辑.
+    @property({ type: [cc.String], visible: false })
     public _userExcludedProps: string[] = [];
 
     /** reconcile 用的上次快照, 用于 diff 触发 togglePropertyControl */
@@ -377,6 +376,13 @@ export class StateSelect extends cc.Component {
      * 字段非 @property, 不序列化, onRecordingStart 拍, onRecordingStop/cancelRecording 清.
      */
     private _initialSnapshot: TProp | null = null;
+
+    /**
+     * #S3: 录制开始时 fromState propData 中**本就存在**的非 $$ key 集 (propRef / number)。
+     * cancelRecording 时, 对"录制前依赖 default(不在此集)"的 key 删除而非硬写, 保持动态 default 兜底。
+     * 非 @property, onRecordingStart 拍, applyRecordingSnapshot/onRecordingStop 清。
+     */
+    private _initialPropDataKeys: Set<string> | null = null;
 
     /** 用于检测父节点变化 */
     private lastParent: cc.Node = null;
@@ -569,6 +575,10 @@ export class StateSelect extends cc.Component {
         this.nodeProps.owner = this;
         this.componentProps.owner = this;
         this.widgetProps.owner = this;
+        // inspector 折叠组 facade 的 owner 回引
+        this.excludeGroup.owner = this;
+        this.recording.owner = this;
+        this.valueOps.owner = this;
 
         // IMPL-001.6: 通知控制器缓存失效
         this.notifyControllerCacheDirty();
@@ -717,7 +727,9 @@ export class StateSelect extends cc.Component {
         for (const tp of trackable) {
             // state controller 自身组件不接入
             if (systemComps.has(tp.compName)) continue;
-            // W6-axis-decomp X 方案: AMBIGUOUS 整体 propRef 不接入, 让子项独立
+            // W6-axis-decomp X 方案: AMBIGUOUS 整体 propRef 不接入, 让子项独立 (SPEC line52 auto-opt 跳过聚合)。
+            // (#V1 驳回: euler 子项全 SYSTEM_EXCLUDE → 默认不自动接入, 此为 spec 设计; euler 仍可手动
+            //  togglePropertyControl(Euler) 接入, 走整体聚合回退保 z。auto-opt 接入 euler 会破坏 roundTrip 且违 spec。)
             if (isAmbiguousAggregatePropRef(tp.propRef)) continue;
             // readonly 字段 (getter only) 写不进去, 不接入
             if (tp.readonly) continue;
@@ -785,8 +797,9 @@ export class StateSelect extends cc.Component {
      * W6-2a: propRef 字符串版本的 isPropertyControlled. 查 ctrlData 内层 $$controlledProps$$
      * 是否含该 propRef 作 key.
      *
-     * 双 key 共存: 内置 prop 在 controlledProps 中 key 是 EnumPropName 反查 name (e.g. "Active"),
-     * 自定义 prop 在 controlledProps 中 key 是 propRef 字符串 (e.g. "MyComp.heat"). 本方法仅查后者.
+     * T2 双轨统一 (X方案) 后: 内置与自定义 prop 在 $$controlledProps$$ 中**都**用 propRef 字符串
+     * 作 key (内置 'cc.Node.active' / 自定义 'MyComp.heat', addPropertyControl 写 propRef 自指 key),
+     * 不再有 EnumPropName 反查名字 key ("Active") 的第二条轨. 本方法直接查 propRef key.
      */
     public isPropertyControlledByPropRef(propRef: string): boolean {
         const propData = this.getPropData();
@@ -824,10 +837,44 @@ export class StateSelect extends cc.Component {
                 if (defaultData && (defaultData as any)[propRef] === undefined) {
                     (defaultData as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
                 }
+                // #C6: 补种 default 时也补 default 的受控 flag —— 否则 apply 门控会把"有值无 flag"的
+                // default baseline 当成已取消而 skip(applyMissingDefault 兜底失效)。与 auto-opt 写 default flag 对齐。
+                if (defaultData) {
+                    (defaultData as any).$$controlledProps$$ = (defaultData as any).$$controlledProps$$ || {};
+                    (defaultData as any).$$controlledProps$$[propRef] = propRef;
+                }
+                // #T3: 录制中途接入 → 把 baseline 注入 _snapshot, 否则 commitRecordingDiff 只遍历
+                // _snapshot(录制开始时拍的)→ 新接入 prop 的后续改动 stop 时丢失。
+                const recCtrl = this.getCurrCtrl();
+                if (recCtrl && recCtrl.isRecording && this._snapshot
+                    && (this._snapshot as any)[propRef] === undefined) {
+                    (this._snapshot as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
+                }
             }
         } else {
-            delete propData.$$controlledProps$$[propRef];
-            // 数据保留, 与 EnumPropName 版 removePropertyControl 一致
+            // #C6: 取消是全局 (用户裁定: 控制 all-or-nothing) —— 移除所有 state + default 的 flag,
+            // 配合 applyPropRefKeysToNode 门控, 取消后该 prop 冻结(不随 state 变)。数据保留(可再接入)。
+            this.removeControlledFlagAllStates(propRef);
+        }
+    }
+
+    /**
+     * #C6: 全局移除某 propRef (及其 EnumPropName 名字 key) 的受控 flag —— 所有 state + default。
+     * 取消 = 该属性整体退出管理(双端一致), 之后 applyPropRefKeysToNode 门控不再 apply 它 → 冻结。
+     */
+    private removeControlledFlagAllStates(propRef: string, propType?: EnumPropName): void {
+        const ctrl = this.getCurrCtrl();
+        const pageData = this.getPageData();
+        const nameKey = propType !== undefined ? EnumPropName[propType] : undefined;
+        const removeFrom = (data: TProp | undefined) => {
+            const cp = data && (data as any).$$controlledProps$$;
+            if (!cp) return;
+            delete cp[propRef];
+            if (nameKey) delete cp[nameKey];
+        };
+        removeFrom(pageData.$$default$$);
+        if (ctrl) {
+            for (let i = 0; i < ctrl.states.length; i++) removeFrom(pageData[i]);
         }
     }
 
@@ -1044,6 +1091,38 @@ export class StateSelect extends cc.Component {
                 delete dict[propRef];
             }
         };
+        // #S4: 取某聚合 propRef 的子项 ref 列表 (用零探针调拆解函数, 仅取 key).
+        const ambiguousSubRefs = (aggRef: string): string[] => {
+            const probe = { x: 0, y: 0, z: 0, width: 0, height: 0 };
+            const decomposer = AMBIGUOUS_DECOMPOSE[aggRef];
+            const pairs = decomposer ? decomposer(probe) : null;
+            return pairs ? pairs.map(p => p[0]) : [];
+        };
+        // #S4: 迁 $$controlledProps$$ 的 key — 数字 key → propRef string key; 聚合(数字或 string)→ 子项 ref.
+        const sweepControlledPropsKeys = (cprops: any): void => {
+            if (!cprops || typeof cprops !== "object") return;
+            for (const key of Object.keys(cprops)) {
+                if (key.startsWith("$$")) continue;
+                if (!/^\d+$/.test(key)) continue; // 已是 string propRef key, 下面统一处理聚合
+                const num = Number(key);
+                if (dropSet.indexOf(num) !== -1) { delete cprops[key]; continue; }
+                const ref = enumToPropRef(num);
+                if (ref === undefined) continue;
+                if (isAmbiguousAggregatePropRef(ref)) {
+                    for (const sub of ambiguousSubRefs(ref)) cprops[sub] = sub;
+                } else {
+                    cprops[ref] = ref;
+                }
+                delete cprops[key];
+            }
+            // 聚合 string ref 残留 (老数据或迁移产物) → 展开为子项 ref, 与 propData 拆子项对齐.
+            for (const aggRef of Object.keys(AMBIGUOUS_DECOMPOSE)) {
+                if (cprops[aggRef] !== undefined) {
+                    for (const sub of ambiguousSubRefs(aggRef)) cprops[sub] = sub;
+                    delete cprops[aggRef];
+                }
+            }
+        };
         for (const ctrlIdKey of Object.keys(ctrlData)) {
             const ctrlPage = ctrlData[ctrlIdKey];
             if (!ctrlPage || typeof ctrlPage !== "object") {
@@ -1059,10 +1138,23 @@ export class StateSelect extends cc.Component {
                 // W6-axis-decomp X 方案: 接着拆 AMBIGUOUS 整体 propRef (Vec3/Vec2/Size) → 子项 key.
                 // 必须在 sweepPropDictionary 之后跑 — 老数字 key 先迁 string propRef, 再统一拆解.
                 sweepDecomposeAmbiguous(propData);
+                // #S4 (NA-8): $$controlledProps$$ 元桶也迁 — 数字 key → propRef string key, 聚合 → 子项 ref.
+                // 否则 C6 apply 门控对老 .fire 迁移数据 (propData 已迁 string, 但 controlledProps 仍数字) 全 skip.
+                sweepControlledPropsKeys(propData.$$controlledProps$$);
                 // 内层 $$propertyData$$: 同规则扫 (number key 也迁 string key, AMBIGUOUS 也拆)
                 if (propData.$$propertyData$$) {
                     sweepPropDictionary(propData.$$propertyData$$);
                     sweepDecomposeAmbiguous(propData.$$propertyData$$);
+                    // #U5: 迁移后把 $$propertyData$$ 的 string propRef 值合并到**顶层** propData ——
+                    // X 方案 apply (applyPropRefKeysToNode) 只读顶层 key, 老 .fire 的 $$propertyData$$
+                    // 子 bucket 值若不上提则永不 apply。已存在的顶层 key 优先(不覆盖)。
+                    const pdBucket = propData.$$propertyData$$ as any;
+                    for (const k of Object.keys(pdBucket)) {
+                        if (k.startsWith("$$")) continue;
+                        if ((propData as any)[k] === undefined) {
+                            (propData as any)[k] = pdBucket[k];
+                        }
+                    }
                 }
             }
         }
@@ -1151,6 +1243,41 @@ export class StateSelect extends cc.Component {
         }
     }
 
+    /**
+     * #F-4 (TASK-004): 某位置轴是否"当前受控且未排除" —— reparent 坐标转换的唯一判据.
+     * 受控 = isPropertyControlled(propRef) (当前 state $$controlledProps$$ 命中);
+     * 未排除 = 不在 _userExcludedProps + SYSTEM_EXCLUDE. 仅这两者皆满足才转换该轴,
+     * propData 残留 baseline (取消跟随/排除后留下) 不再触发转换.
+     */
+    private isAxisConvertible(axisRef: string): boolean {
+        // #S2: 受控判定按**全局**(default 或任一 state 的 controlledProps), 不依赖当前激活 state ——
+        // 否则激活一个新加的空 state 时, 当前 state 无 flag → 误判全轴不受控 → reparent 整体跳过,
+        // 其他 state 存的位置不被换算。
+        if (!this.isAxisControlledGlobally(axisRef)) return false;
+        if ((this._userExcludedProps || []).indexOf(axisRef) >= 0) return false;
+        if (SYSTEM_EXCLUDE.indexOf(axisRef) >= 0) return false;
+        return true;
+    }
+
+    /** #S2: 某 propRef 是否在全局(default 或任一 state)受控 —— reparent 换算判据, 与激活 state 无关. */
+    private isAxisControlledGlobally(propRef: string): boolean {
+        const pageData = this.getPageData();
+        const dd = pageData.$$default$$;
+        if (dd && (dd as any).$$controlledProps$$ && (dd as any).$$controlledProps$$[propRef] !== undefined) {
+            return true;
+        }
+        const ctrl = this.getCurrCtrl();
+        if (ctrl) {
+            for (let i = 0; i < ctrl.states.length; i++) {
+                const pdi = pageData[i];
+                if (pdi && (pdi as any).$$controlledProps$$ && (pdi as any).$$controlledProps$$[propRef] !== undefined) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** 父节点改变 */
     private parentChanged(oldParent: cc.Node) {
         this.transPosition(oldParent);
@@ -1172,19 +1299,14 @@ export class StateSelect extends cc.Component {
             // 新增：检查控制器承接
             this.handleControllerTransition(oldParent, currentParent);
 
-            // 只有当有Position属性被控制时才需要转换坐标.
-            // M3-2 修 #2 (M3-1 finding): W6-2c2/X 方案后 Position 以子项 cc.Node.x/y/z 存,
-            // 老聚合 number key [EnumPropName.Position] 已被 migration/sweepDecomposeAmbiguous 删除,
-            // 原 gate 读它恒 undefined → reparent 坐标转换永不触发. 改判子项 key.
-            const pageData = this.getPageData();
-            let hasPositionControl = false;
-            for (const state in pageData) {
-                const pd = pageData[state] as any;
-                if (pd && (pd["cc.Node.x"] !== undefined || pd["cc.Node.y"] !== undefined || pd["cc.Node.z"] !== undefined)) {
-                    hasPositionControl = true;
-                    break;
-                }
-            }
+            // 只有当有"当前受控且未排除"的位置轴时才需要转换坐标.
+            // M3-2 修 #2: Position 以子项 cc.Node.x/y/z 存, 改判子项 key.
+            // #F-4 修 (TASK-004): gate 不再按"pageData 有值 key"(残留数据)判定, 改按"受控未排除"判定 —
+            // 取消跟随/排除但 propData 残留 baseline 的轴不应触发坐标转换 (附录A 断言#3).
+            const hasPositionControl =
+                this.isAxisConvertible("cc.Node.x") ||
+                this.isAxisConvertible("cc.Node.y") ||
+                this.isAxisConvertible("cc.Node.z");
 
             if (hasPositionControl) {
                 this.parentChanged(oldParent);
@@ -1255,6 +1377,11 @@ export class StateSelect extends cc.Component {
                 // 4. 更新控制器映射和当前控制器ID
                 this.updateCtrlName(newParent);
                 this._currCtrlId = newCtrl.ctrlId;
+
+                // #T2: 跨 ctrl 移动后两边缓存都失效 —— 否则旧 ctrl 的 _stateSelectCache 仍含本 select(继续
+                // 误更新已移走的节点), 新 ctrl 缓存不含本 select(切 state 不接管本节点)。
+                oldCtrl.markCacheDirty();
+                newCtrl.markCacheDirty();
 
                 // 5. 更新界面
                 this.updateCtrlPage(newCtrl);
@@ -1537,8 +1664,9 @@ export class StateSelect extends cc.Component {
      * pageData[toIndex .. statesLength-2] 整体右移一格, 再把 fromIndex 的深拷贝写入 toIndex。
      * statesLength 是 *新* states 长度 (含刚插入的 copy state)。
      *
-     * 用 JSON.parse(JSON.stringify(x)) 一刀切深拷贝, 避免手抄字段漏掉嵌套结构 (Color/Size/Vec3 等
-     * 这里都已被 StatePropHandler 序列化为普通 object/number)。
+     * #C5: 用 deepClonePropData 逐 key 走 cloneValueByType 深拷 (按 cocosType 分发), 保活
+     * cc.Color/Vec3/Vec2/Size/Quat 类实例 —— propData 值在 X 方案下是**活 cc 实例**(cloneValueByType
+     * 写入), 旧的 JSON.parse(JSON.stringify) 会降级成普通对象导致 apply 时类型退化。
      */
     public updateStateCopy(ctrl: StateController, copyInfo: { fromIndex: number, toIndex: number }) {
         if (!CC_EDITOR) {
@@ -1586,10 +1714,10 @@ export class StateSelect extends cc.Component {
             }
         }
 
-        // 2) 深拷贝 fromIndex 槽位到 toIndex
+        // 2) 深拷贝 fromIndex 槽位到 toIndex (#C5: 逐 key cloneValueByType, 保活 cc 实例)
         const source = pageData[fromIndex];
         if (source != void 0) {
-            pageData[toIndex] = JSON.parse(JSON.stringify(source));
+            pageData[toIndex] = this.deepClonePropData(source);
         }
         else {
             delete pageData[toIndex];
@@ -1603,6 +1731,97 @@ export class StateSelect extends cc.Component {
             params: { fromIndex, toIndex, statesLength },
         });
     }
+
+    // #region 专项A-2: 单节点各 state 值 局部操作 (swap/copy/move)
+    /**
+     * 专项A-2: 校验两个 state 槽位 index 合法 (0..states.length-1).
+     * 单节点局部值操作的公共前置: 入参越界则拒绝, 不破坏数据.
+     */
+    private validateStateValueOp(stateA: number, stateB: number, ctrlId?: number): TPage | null {
+        if (!CC_EDITOR) return null;
+        const ctrl = ctrlId != void 0 ? this._ctrlsMap[ctrlId] : this.getCurrCtrl();
+        if (!ctrl || !ctrl.states) {
+            StateErrorManager.warn("局部值操作: 控制器无效", {
+                component: "StateSelect", method: "validateStateValueOp", params: { ctrlId },
+            });
+            return null;
+        }
+        const len = ctrl.states.length;
+        if (stateA < 0 || stateB < 0 || stateA >= len || stateB >= len
+            || !Number.isInteger(stateA) || !Number.isInteger(stateB)) {
+            StateErrorManager.warn("局部值操作: state 索引越界", {
+                component: "StateSelect", method: "validateStateValueOp",
+                params: { stateA, stateB, stateCount: len },
+            });
+            return null;
+        }
+        return this.getPageData(ctrl.ctrlId);
+    }
+
+    /**
+     * 专项A-2: 交换单节点两个 state 的值数据 (节点级局部操作).
+     * 只动 _ctrlData[ctrlId][stateA] ↔ [stateB] 的 propData, 不碰 selectedIndex、
+     * 不影响其他节点的 _ctrlData、不增删 state 数量结构. 如 swap A1↔B1.
+     */
+    public swapStateValues(stateA: number, stateB: number, ctrlId?: number): boolean {
+        const pageData = this.validateStateValueOp(stateA, stateB, ctrlId);
+        if (!pageData) return false;
+        if (stateA === stateB) return true;
+        const a = pageData[stateA];
+        const b = pageData[stateB];
+        if (b !== void 0) pageData[stateA] = b; else delete pageData[stateA];
+        if (a !== void 0) pageData[stateB] = a; else delete pageData[stateB];
+        this.updateChangedProp();
+        this.reapplyCurrentStateIfAffected([stateA, stateB]);
+        return true;
+    }
+
+    /** #S8: 局部值操作若涉及当前激活 state, 重新把该 state apply 到节点 (否则 inspector/节点显示脱节). */
+    private reapplyCurrentStateIfAffected(affected: number[]): void {
+        const ctrl = this.getCurrCtrl();
+        if (ctrl && affected.indexOf(ctrl.selectedIndex) >= 0) {
+            this.updateState(ctrl);
+        }
+    }
+
+    /**
+     * 专项A-2: 复制单节点某 state 的值数据到另一 state (深拷, 节点级局部操作).
+     * fromState→toState 深拷覆盖, 源保持不变且与目标独立; 源为空则清空目标. 如 copy A1→B1.
+     */
+    public copyStateValues(fromState: number, toState: number, ctrlId?: number): boolean {
+        const pageData = this.validateStateValueOp(fromState, toState, ctrlId);
+        if (!pageData) return false;
+        if (fromState === toState) return true;
+        const source = pageData[fromState];
+        if (source !== void 0) {
+            // #C5: 逐 key cloneValueByType 深拷, 保活 cc 类实例 (propData 存活 cc.Color/Vec3 等, 同 updateStateCopy).
+            pageData[toState] = this.deepClonePropData(source);
+        }
+        else {
+            delete pageData[toState];
+        }
+        this.updateChangedProp();
+        this.reapplyCurrentStateIfAffected([toState]);
+        return true;
+    }
+
+    /**
+     * 专项A-2: 移动单节点某 state 的值数据到另一 state (节点级局部操作).
+     * fromState→toState 后清空源槽位; 不增删 state 数量、不碰 selectedIndex/其他节点.
+     */
+    public moveStateValues(fromState: number, toState: number, ctrlId?: number): boolean {
+        const pageData = this.validateStateValueOp(fromState, toState, ctrlId);
+        if (!pageData) return false;
+        if (fromState === toState) return true;
+        const source = pageData[fromState];
+        if (source !== void 0) pageData[toState] = source; else delete pageData[toState];
+        delete pageData[fromState];
+        this.updateChangedProp();
+        this.reapplyCurrentStateIfAffected([fromState, toState]);
+        return true;
+    }
+
+    // #endregion
 
     /** 🔧 新增：处理状态删除逻辑 */
     private handleStateDelete(ctrl: StateController, deleteIndex: number) {
@@ -1635,11 +1854,15 @@ export class StateSelect extends cc.Component {
             return;
         }
 
+        // #C4: 迁移会左移并删除末槽, 故被删 state 的数据必须**在迁移前**捕获,
+        // 否则 cleanup 拿到的是已被 migrateStateData 删掉的槽 (undefined) → 整段成死代码。
+        const deletedStateData = pageData[deleteIndex];
+
         // 🔧 执行数据迁移：将后面的状态数据前移
         this.migrateStateData(pageData, deleteIndex, ctrl.states.length);
 
-        // 🔧 同步处理属性清理
-        this.cleanupDeletedStateProps(pageData, ctrl, ctrl.states.length);
+        // 🔧 同步处理属性清理 (#C4: 传入捕获的被删数据, 不再按已失效的槽 index 取)
+        this.cleanupDeletedStateProps(pageData, ctrl, deletedStateData);
 
         StateErrorManager.info("状态删除处理完成", {
             component: "StateSelect",
@@ -1667,27 +1890,49 @@ export class StateSelect extends cc.Component {
     }
 
     /** 🔧 新增：清理被删除状态的属性 */
-    private cleanupDeletedStateProps(pageData: TPage, ctrl: StateController, deletedStateIndex: number) {
-        // 🔧 获取被删除状态的属性数据
-        const deletedStateData = pageData[deletedStateIndex];
+    private cleanupDeletedStateProps(pageData: TPage, ctrl: StateController, deletedStateData: TProp | undefined) {
         if (!deletedStateData || typeof deletedStateData !== "object") {
             return;
         }
-
-        // 🔧 检查每个属性是否在其他状态中还存在
-        const propKeys = this.extractNumericPropKeys(deletedStateData);
         const defaultData = pageData.$$default$$;
-        for (const prop of propKeys) {
-            // 🔧 检查其他状态是否还有这个属性
-            const isUsedInOtherStates = this.isOtherHans(ctrl, prop);
-            if (!isUsedInOtherStates && defaultData && defaultData[prop] != void 0) {
-                // 🔧 如果其他状态都没有这个属性，从默认状态中删除
+        if (!defaultData) {
+            this.updateChangedProp();
+            return;
+        }
+
+        // 🔧 遗留 number key (老 .fire 兜底): 其他 state 都没有 → 从 default GC
+        const numKeys = this.extractNumericPropKeys(deletedStateData);
+        for (const prop of numKeys) {
+            if (!this.isOtherHans(ctrl, prop) && defaultData[prop] != void 0) {
                 delete defaultData[prop];
+            }
+        }
+
+        // #C4: string propRef key (X 方案主路径): 同样 GC default 孤儿
+        const refKeys = this.extractPropRefKeys(deletedStateData);
+        for (const propRef of refKeys) {
+            if (!this.isOtherHansByPropRef(ctrl, propRef)) {
+                if ((defaultData as any)[propRef] != void 0) delete (defaultData as any)[propRef];
+                // #V6: 同步清 default 的 $$controlledProps$$ flag, 否则 GC 了值却留受控标记(元桶泄漏)
+                const ddCp = (defaultData as any).$$controlledProps$$;
+                if (ddCp && ddCp[propRef] !== undefined) delete ddCp[propRef];
             }
         }
 
         // 🔧 更新已更改属性的显示
         this.updateChangedProp();
+    }
+
+    /** #C4: isOtherHans 的 string propRef 版本 — 某 propRef 是否仍存在于任一剩余 state. */
+    private isOtherHansByPropRef(ctrl: StateController, propRef: string): boolean {
+        const pageData = this.getPageData();
+        for (let i = 0, len = ctrl.states.length; i < len; i++) {
+            const propData = pageData[i];
+            if (propData && (propData as any)[propRef] != void 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** 🔧 新增：重排状态数据，保持属性与状态顺序一致 */
@@ -1789,12 +2034,15 @@ export class StateSelect extends cc.Component {
     }
 
     /**
-     * W6-2c2: 提取 propData 中所有 EnumPropName 数字 propType.
-     *   - string propRef key 反查 PROPREF_TO_ENUM 命中 → 返回对应 EnumPropName
-     *   - number key (老数据未迁) → 直接返回
-     *   - 自定义 propRef (不在反查表) / $$xxx$$ 元数据 → 跳过
+     * 提取 propData 中**仅遗留 number key** 对应的 EnumPropName.
      *
-     * 去重后返回. updateState 用这个把内置 prop 数据桥回 EnumPropName 老路径派发.
+     * T2 双轨统一 (X方案): 内置 prop 已收敛到 propRef 字符串单一路径 (与自定义对称),
+     * 由 applyPropRefKeysToNode 统一 apply (带 userExcl/sysExcl 排除过滤). 故本方法**不再**
+     * 把 string propRef key 反查桥回 ENUM/batchUpdateUI 路径 —— 那条桥曾导致:
+     *   - F-6: ENUM 路径无排除过滤, 排除的内置仍被 batchUpdateUI 写回;
+     *   - F-9: 内置同时被 batchUpdateUI(ENUM) + applyPropRefKeysToNode(propRef) 双写.
+     * 现仅返回 number key (尚未被 migrateLegacyCtrlData 迁走的老 .fire 数据兜底),
+     * 迁移后正常数据无 number key, 本方法通常返回空, 内置全部走 propRef apply 单轨.
      */
     private extractEnumPropTypes(data: TProp): EnumPropName[] {
         const seen = new Set<number>();
@@ -1808,14 +2056,8 @@ export class StateSelect extends cc.Component {
                     seen.add(num);
                     out.push(num as EnumPropName);
                 }
-                continue;
             }
-            // string propRef → 反查 EnumPropName
-            const enumNum = PROPREF_TO_ENUM[key];
-            if (enumNum !== undefined && !seen.has(enumNum)) {
-                seen.add(enumNum);
-                out.push(enumNum as EnumPropName);
-            }
+            // string propRef key 不再桥回 ENUM —— 由 applyPropRefKeysToNode 统一 apply (T2 收敛单轨)
         }
         return out;
     }
@@ -1850,6 +2092,11 @@ export class StateSelect extends cc.Component {
                 component: "StateSelect",
                 method: "updateState",
             });
+            return;
+        }
+        // #U8: 节点失效(销毁/null, 如场景切换/动态清理) → 整体优雅早退, 不继续 batchUpdateUI +
+        // applyPropRefKeysToNode 在死节点上写值刷大量 "写值失败" 警告。
+        if (!this.node || !this.node.isValid) {
             return;
         }
 
@@ -1958,11 +2205,18 @@ export class StateSelect extends cc.Component {
         if (!CC_EDITOR) return;
         if (type === EnumPropName.Non) return;
         const propData = this.getPropData();
-        // W6-2c2: 仅 controlled props 接受 commit (双 key 读: string propRef 优先, number fallback)
-        if (this.readPropByEnum(propData, type) === undefined) return;
+        // 仅 controlled props 接受 commit。聚合根治: AMBIGUOUS 走子项独立, 受控判定按"任一子项受控"
+        // (decompose 后 controlledProps 记子项 x/y/z, 聚合 key 不存在 → 不能用 readPropByEnum(聚合)判)。
+        const cr = enumToPropRef(type);
+        const crSubs = (cr !== undefined && isAmbiguousAggregatePropRef(cr))
+            ? this.getControllableAmbiguousSubRefs(cr) : [];
+        const controlled = crSubs.length > 0
+            ? crSubs.some(s => this.isPropertyControlledByPropRef(s))
+            : (this.readPropByEnum(propData, type) !== undefined); // 非聚合 / euler 走聚合 key 判
+        if (!controlled) return;
         const value = PropHandlerManager.getValue(type, this.node);
         if (value === undefined) return;
-        // W6-2c2: 写 string propRef key (写路径切 helper)
+        // writePropByEnum 对 AMBIGUOUS 自动拆子项写入 propData[x/y/z] (聚合 key 也写但 apply 被 #C6 门控跳过)
         this.writePropByEnum(propData, type, value);
         if (type === this.propKey) {
             this._propValue = value;
@@ -2039,17 +2293,40 @@ export class StateSelect extends cc.Component {
         }
         const propData = this.getPropData(fromState, ctrl.ctrlId);
         if (propData) {
-            const snap = this._initialSnapshot as TPropDictionary;
-            // W6-2c2: snapshot 内层仍按 EnumPropName 数字 key 存 (readControlledPropsFromNode 路径),
-            // 写回 propData 时按 writePropByEnum 切到 string propRef key.
+            const snap = this._initialSnapshot as any;
+            // #F-A 修 (TASK-003) + T2 双轨统一: snapshot 双 key 共存 — number key (遗留) 与
+            // string propRef key (readControlledPropsFromNode 对 typeof==string 的受控 prop 所存,
+            // T2 后内置+自定义都走这条). 原实现只 Number(key) 回滚, string key 被跳过 →
+            // 撤销录制对 string propRef 不回滚 (内置经 T2 后也中招, 见 Recording.cancel). 两类都回滚:
+            const origKeys = this._initialPropDataKeys;
             for (const key of Object.keys(snap)) {
-                const propType = Number(key);
-                if (!Number.isFinite(propType) || propType === EnumPropName.Non) continue;
-                this.writePropByEnum(propData, propType as EnumPropName, snap[propType]);
+                const num = Number(key);
+                const isNum = Number.isFinite(num) && !Number.isNaN(num);
+                const propRef = isNum ? enumToPropRef(num as EnumPropName) : key;
+                // #S3: 录制前 propData 本就有此 key → 回滚原值; 录制前依赖 default(不在 origKeys)→ 删除
+                // 录制中可能写入的硬编码, 保持动态 default 兜底。无 origKeys 记录(老路径)→ 退回全回滚。
+                const wasPresent = origKeys
+                    ? (origKeys.has(key) || (propRef !== undefined && origKeys.has(propRef)))
+                    : true;
+                if (!wasPresent) {
+                    if (propRef !== undefined) delete (propData as any)[propRef];
+                    if (isNum) delete (propData as any)[num];
+                    continue;
+                }
+                if (isNum) {
+                    // number key (遗留): writePropByEnum 切回 string propRef key 写入
+                    if (num === EnumPropName.Non) continue;
+                    this.writePropByEnum(propData, num as EnumPropName, snap[key]);
+                } else {
+                    // string propRef key: 直写顶层 propData[propRef] (cocosType-aware clone)
+                    const tp = this.resolveTrackableProp(propRef as string);
+                    (propData as any)[propRef as string] = cloneValueByType(snap[propRef as string], tp ? tp.cocosType : undefined);
+                }
             }
         }
         this._snapshot = null;
         this._initialSnapshot = null;
+        this._initialPropDataKeys = null;
         this._fullSnapshot = null;
         StateErrorManager.debug("撤销录制: snapshot 回滚到 ctrlData", {
             component: "StateSelect",
@@ -2102,6 +2379,11 @@ export class StateSelect extends cc.Component {
         // TASK-002: 拍一份独立的不可变 snapshot 给 cancel 用 (_snapshot 在 commit 路径会被刷新)
         this._initialSnapshot = this.readControlledPropsFromNode(ctrl);
         this._fullSnapshot = this.readAllApplicablePropsFromNode();
+        // #S3: 记录录制前 propData 本就存在的 key, cancel 时据此区分"回滚已有值" vs "删除依赖 default 的硬编码".
+        const curPd = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
+        this._initialPropDataKeys = new Set(
+            curPd ? Object.keys(curPd).filter(k => !k.startsWith("$$")) : [],
+        );
         StateErrorManager.debug("录制双 snapshot 已拍", {
             component: "StateSelect",
             method: "onRecordingStart",
@@ -2151,6 +2433,7 @@ export class StateSelect extends cc.Component {
         this._fullSnapshot = null;
         // TASK-002: 同步清初始 snapshot
         this._initialSnapshot = null;
+        this._initialPropDataKeys = null;
         StateErrorManager.debug("录制 snapshot 已清", {
             component: "StateSelect",
             method: "onRecordingStop",
@@ -2260,8 +2543,13 @@ export class StateSelect extends cc.Component {
     private detectUntrackedDirty(): Array<EnumPropName | string> {
         const out: Array<EnumPropName | string> = [];
         if (!this._fullSnapshot) return out;
+        // #T4: 被排除(用户+系统)的 prop 不算"未跟随 dirty" —— 排除即"故意不进录制范围"(不变量#8),
+        // 否则录制中途 setPropExcluded 的 prop 会被当 untracked → promptUntrackedAfterStop 提交 → 违反排除边界。
+        const userExcl = new Set(this._userExcludedProps || []);
+        const sysExcl = new Set(SYSTEM_EXCLUDE);
         for (const k of Object.keys(this._fullSnapshot)) {
             const propRef = k;
+            if (userExcl.has(propRef) || sysExcl.has(propRef)) continue; // #T4: 排除项跳过
             if (this.isPropertyControlled(propRef)) continue; // 已跟随 — commit 路径已处理
             const before = (this._fullSnapshot as any)[propRef];
             const current = this.readPropFromNodeByPropRef(propRef);
@@ -2405,6 +2693,12 @@ export class StateSelect extends cc.Component {
         if (!this._snapshot) return committed;
         const propData = this.getPropData(targetState, ctrl.ctrlId);
         const snap = this._snapshot;
+        // #T4: 录制中途被排除的 prop 不得 commit (不变量#8). 排除清单(用户+系统)在此过滤,
+        // 即使 _snapshot 录制开始时含该 key, 中途 setPropExcluded 后也不写回。
+        const userExcl = new Set(this._userExcludedProps || []);
+        const sysExcl = new Set(SYSTEM_EXCLUDE);
+        const isExcluded = (propRef: string | undefined): boolean =>
+            propRef !== undefined && (userExcl.has(propRef) || sysExcl.has(propRef));
         for (const key of Object.keys(snap)) {
             // W6-2a: 双 key 分发 — 数字 key 走老 PropHandlerManager, 字符串 propRef 走新路径.
             const num = Number(key);
@@ -2412,6 +2706,7 @@ export class StateSelect extends cc.Component {
                 // 老路径: EnumPropName 数字 key
                 const propType = num;
                 if (propType === EnumPropName.Non) continue;
+                if (isExcluded(enumToPropRef(propType as EnumPropName))) continue; // #T4
                 const currentValue = PropHandlerManager.getValue(propType as EnumPropName, this.node);
                 if (currentValue === undefined) continue;
                 const snapValue = (snap as TPropDictionary)[propType];
@@ -2429,6 +2724,7 @@ export class StateSelect extends cc.Component {
             } else {
                 // 新路径: propRef 字符串 key
                 const propRef = key;
+                if (isExcluded(propRef)) continue; // #T4: 排除的 prop 不 commit
                 const tp = this.resolveTrackableProp(propRef);
                 const currentValue = this.readNodeValueByPropRef(propRef);
                 if (currentValue === undefined) continue;
@@ -2438,6 +2734,13 @@ export class StateSelect extends cc.Component {
                     const cloned = cloneValueByType(currentValue, cocosType);
                     (propData as any)[propRef] = cloned;
                     (snap as any)[propRef] = cloned;
+                    // T2 双轨统一: 内置 prop 现走 propRef 分支提交. 若该 propRef 反查到 EnumPropName
+                    // (内置), push 进 committed —— 保证 onRecordingStop 静默 log / commit 计数与
+                    // 旧 number 分支等价 (自定义 propRef 无 EnumPropName 映射, 维持原先不计入的行为).
+                    const mappedEnum = PROPREF_TO_ENUM[propRef];
+                    if (mappedEnum !== undefined) {
+                        committed.push(mappedEnum as EnumPropName);
+                    }
                     StateErrorManager.debug("录制 diff 提交 (propRef)", {
                         component: "StateSelect",
                         method: "commitRecordingDiff",
@@ -2466,10 +2769,17 @@ export class StateSelect extends cc.Component {
         const sysExcl = new Set(SYSTEM_EXCLUDE);
         const apply = (data: TProp) => {
             if (!data) return;
+            // #C6/#S1: 取消控制(非排除)的 prop 不再 apply → 冻结(SPEC line53)。门控:controlledProps
+            // **存在**(即便空 {} = 全取消)→ 严格门控, 不含此 key 则 skip(冻结); controlledProps **缺失**
+            // (undefined, 真老 .fire 无元桶, 迁移后由 #S4 补全)→ 退回 apply all(向后兼容)。
+            // #S1 修: 用"存在与否"而非"非空", 否则全取消后 {} 退回 apply all → 误解冻。
+            const cprops = (data as any).$$controlledProps$$;
+            const hasControlledInfo = cprops !== undefined && cprops !== null;
             const keys = this.extractPropRefKeys(data);
             for (const propRef of keys) {
                 if (seen.has(propRef)) continue;
                 if (userExcl.has(propRef) || sysExcl.has(propRef)) continue;
+                if (hasControlledInfo && cprops[propRef] === undefined) continue;
                 const value = (data as any)[propRef];
                 if (value === undefined) continue;
                 const tp = this.resolveTrackableProp(propRef);
@@ -2552,6 +2862,27 @@ export class StateSelect extends cc.Component {
     }
 
     /** 获取某个控制器的状态数据 */
+    /**
+     * #C5: 深拷一个 state 的 propData, 逐 key 按 cocos type 分发 cloneValueByType —— 保活
+     * cc.Color/Vec3/Vec2/Size/Quat 类实例 (X 方案下 propData 值是活 cc 实例, JSON 深拷会降级成
+     * 普通对象导致 apply 时类型退化)。
+     *   - $$ 元 bucket ($$controlledProps$$/$$changedProp$$ 等, 值为纯 string/number map): JSON 浅深拷即可
+     *   - 其余 propRef/number key: cloneValueByType(value, resolveTrackableProp.cocosType)
+     */
+    private deepClonePropData(source: TProp): TProp {
+        const out: any = {};
+        for (const key of Object.keys(source)) {
+            const v = (source as any)[key];
+            if (key.startsWith("$$")) {
+                out[key] = (v !== null && typeof v === "object") ? JSON.parse(JSON.stringify(v)) : v;
+                continue;
+            }
+            const tp = this.resolveTrackableProp(key);
+            out[key] = cloneValueByType(v, tp ? tp.cocosType : undefined);
+        }
+        return out as TProp;
+    }
+
     private getPageData(ctrlId?: number): TPage {
         const targetCtrlId = ctrlId != void 0 ? ctrlId : this.currCtrlId;
         if (targetCtrlId == null) {
@@ -2658,26 +2989,41 @@ export class StateSelect extends cc.Component {
 
         const pageData = this.getPageData();
 
+        // #F-4 (TASK-004): 仅"当前受控且未排除"的轴参与坐标转换的写回. 取消跟随/排除但
+        // propData 残留 baseline 的轴不被转换 (附录A 断言#3). 受控态与 state 无关, 循环外算一次.
+        const convX = this.isAxisConvertible("cc.Node.x");
+        const convY = this.isAxisConvertible("cc.Node.y");
+        const convZ = this.isAxisConvertible("cc.Node.z");
+        if (!convX && !convY && !convZ) return;
+
+        // #V3: 缺轴兜底优先用 default 基线, 而非激活 state 的 live 节点坐标 —— 否则换算某 state 时
+        // 误用当前激活 state 的实时坐标污染该 state 的映射 (各 state 应按"自身值 > default > live"还原)。
+        const defData = (pageData as any).$$default$$ || {};
         for (const state in pageData) {
+            // 跳过非 default 元桶 ($$controlledProps$$/$$changedProp$$/$$lastProp$$/$$propertyData$$) —
+            // 它们的 "cc.Node.x" 值是 flag 字符串非坐标; 但 $$default$$ 是真基线, 必须参与换算
+            // (#V3: 缺轴 state 依赖 default, default 不转则那些 state 位置错)。
+            if (state.startsWith("$$") && state !== "$$default$$") continue;
             const propData = pageData[state] as any;
             if (!propData) continue;
-            // M3-2 修 #3 (M3-1 finding): Position 以子项 cc.Node.x/y/z 存 (X 方案), 聚合 key
-            // 'cc.Node.position'/number 2 已被 migration 删除, 老 readPropByEnum(Position) 恒 undefined →
-            // 坐标转换是死代码. 改读子项重组 Vec3 转换后写回子项 (缺轴用节点当前值兜底, 只回写存在的轴).
+            // M3-2 修 #3: Position 以子项 cc.Node.x/y/z 存. 读子项重组 Vec3 转换后写回**受控未排除**的轴
+            // (缺轴/排除轴用 default 基线兜底参与点换算, 缺 default 才退 live 节点值; 不回写其数据).
             const sx = propData["cc.Node.x"];
             const sy = propData["cc.Node.y"];
             const sz = propData["cc.Node.z"];
             if (sx === undefined && sy === undefined && sz === undefined) continue;
-            const px = sx !== undefined ? sx : this.node.x;
-            const py = sy !== undefined ? sy : this.node.y;
-            const pz = sz !== undefined ? sz : ((this.node as any).z || 0);
+            const fb = (sub: string, live: number) =>
+                defData[sub] !== undefined ? defData[sub] : live;
+            const px = sx !== undefined ? sx : fb("cc.Node.x", this.node.x);
+            const py = sy !== undefined ? sy : fb("cc.Node.y", this.node.y);
+            const pz = sz !== undefined ? sz : fb("cc.Node.z", (this.node as any).z || 0);
             try {
                 // 在 2.x 中，需要手动计算坐标转换
                 const worldPos = oldParent.convertToWorldSpaceAR(cc.v3(px, py, pz));
                 const localPos = parent.convertToNodeSpaceAR(worldPos);
-                if (sx !== undefined) propData["cc.Node.x"] = localPos.x;
-                if (sy !== undefined) propData["cc.Node.y"] = localPos.y;
-                if (sz !== undefined) propData["cc.Node.z"] = localPos.z;
+                if (convX && sx !== undefined) propData["cc.Node.x"] = localPos.x;
+                if (convY && sy !== undefined) propData["cc.Node.y"] = localPos.y;
+                if (convZ && sz !== undefined) propData["cc.Node.z"] = localPos.z;
             }
             catch (error) {
                 StateErrorManager.error("坐标转换过程中发生错误", {
@@ -2956,9 +3302,35 @@ export class StateSelect extends cc.Component {
         // W6-axis-decomp bridge: 看 propRef 等价 key (autoOptInCustomComponentProps 写的)
         const propRef = enumToPropRef(propTypeOrRef);
         if (propRef !== undefined) {
+            // 聚合根治 (C1/U3): AMBIGUOUS 聚合走子项独立 —— 全部子项受控才算"聚合受控"(用户本意:
+            // x/y/z 单独控制, 都算影响 position; 部分受控的 ◐ 视觉属专项B, 这里只给布尔基线)。
+            if (isAmbiguousAggregatePropRef(propRef)) {
+                // ANY 语义 (用户裁定): 任一子项受控即算"聚合受控"(isPropertyControlled 答"管不管"非"管全不全";
+                // 部分受控的精确表达=◐, 属专项B)。Euler 子项(rotationX/Y)全 SYSTEM_EXCLUDE → 无可控子项 →
+                // 回退查聚合 key 自身(euler 走整体聚合, 保 z, 见 getControllableAmbiguousSubRefs)。
+                const subs = this.getControllableAmbiguousSubRefs(propRef);
+                if (subs.length > 0) return subs.some(s => this.isPropertyControlledByPropRef(s));
+            }
             return this.isPropertyControlledByPropRef(propRef);
         }
         return false;
+    }
+
+    /** 聚合根治: 取某 AMBIGUOUS 聚合 propRef 的子项 ref 列表 (用零探针调拆解函数取 key). */
+    private getAmbiguousSubRefs(aggRef: string): string[] {
+        const decomposer = AMBIGUOUS_DECOMPOSE[aggRef];
+        if (!decomposer) return [];
+        const pairs = decomposer({ x: 0, y: 0, z: 0, width: 0, height: 0 });
+        return pairs ? pairs.map(p => p[0]) : [];
+    }
+
+    /**
+     * 聚合根治: 取**可控**子项 (排除 SYSTEM_EXCLUDE)。Euler 的 rotationX/rotationY 是 2.1 起废弃属性,
+     * 全在 SYSTEM_EXCLUDE → 返空 → 调用方回退"整体聚合"路径(euler 存全 eulerAngles vec3, 保 z 旋转);
+     * Position/Scale/Size/Anchor 的子项可控 → 返非空 → 走 decompose 子项独立。
+     */
+    private getControllableAmbiguousSubRefs(aggRef: string): string[] {
+        return this.getAmbiguousSubRefs(aggRef).filter(s => SYSTEM_EXCLUDE.indexOf(s) < 0);
     }
 
     /**
@@ -3005,14 +3377,27 @@ export class StateSelect extends cc.Component {
         return result;
     }
 
+    // #region inspector 折叠组 (排除管理 / 录制 / 值搬运) — facade 代理到本类访问器, owner 在 __preload 注入
+
+    /** 排除管理折叠组 (排除跟随 / + 添加排除 / 用户排除清单). */
+    @property({ type: SelectExcludeGroup, displayName: "排除管理", tooltip: "管理本节点的属性跟随排除清单 (系统 + 用户)" })
+    public excludeGroup = new SelectExcludeGroup();
+
+    /** 录制折叠组 (与 StateController 共享同一录制态). */
+    @property({ type: SelectRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制与撤销本次录制" })
+    public recording = new SelectRecordGroup();
+
+    /** 值搬运折叠组 (当前 state ↔ 下一 state 的节点级值操作). */
+    @property({ type: SelectValueOpsGroup, displayName: "值搬运", tooltip: "在相邻 state 间交换/复制/移动本节点的值数据" })
+    public valueOps = new SelectValueOpsGroup();
+
+    // #endregion inspector 折叠组
+
     /**
      * 录制按钮 (Wave 2 实装): 镜像 currCtrl.isRecording, 点击 toggle ctrl.startRecording / stopRecording.
      * 让用户在 StateSelect inspector 上也能起停录制, 与 StateController inspector 共享同一录制态。
      */
-    @property({
-        displayName: "🔴 录制",
-        tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
-    })
+    /** 普通访问器, inspector 可见性由 recording 折叠组代理. */
     public get recordTrigger() {
         const ctrl = this.getCurrCtrl();
         return !!(ctrl && ctrl.isRecording);
@@ -3040,10 +3425,7 @@ export class StateSelect extends cc.Component {
      * 撤销本次录制 (TASK-002): 镜像 StateController.cancelRecordTrigger.
      * 让用户在 StateSelect inspector 上也能撤销, 与 StateController inspector 共享同一录制态。
      */
-    @property({
-        displayName: "⤺ 撤销本次录制",
-        tooltip: "丢弃本次录制改动, 回到录制开始前的状态",
-    })
+    /** 普通访问器, inspector 可见性由 recording 折叠组代理. */
     public get cancelRecordTrigger() {
         return false;
     }
@@ -3056,6 +3438,48 @@ export class StateSelect extends cc.Component {
             ctrl.cancelRecording();
         }
     }
+
+    // #region 专项A-2: 局部值操作 inspector 触发器 (当前 state ↔ 下一 state)
+    /** 专项A-2: 当前 state 与下一 state 的下标对 (无下一 state 返回 null). */
+    private getCurrNextStatePair(): { cur: number, next: number } | null {
+        const ctrl = this.getCurrCtrl();
+        if (!ctrl || !ctrl.states) return null;
+        const cur = ctrl.selectedIndex;
+        const next = cur + 1;
+        if (next >= ctrl.states.length) return null;
+        return { cur, next };
+    }
+
+    /** 专项A-2: 交换当前 state 与下一 state 的值数据 (节点级局部操作). */
+    /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
+    public get swapValueWithNext(): boolean { return false; }
+
+    public set swapValueWithNext(_v: boolean) {
+        if (!CC_EDITOR) return;
+        const p = this.getCurrNextStatePair();
+        if (p) this.swapStateValues(p.cur, p.next);
+    }
+
+    /** 专项A-2: 复制当前 state 的值数据到下一 state (节点级局部操作). */
+    /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
+    public get copyValueToNext(): boolean { return false; }
+
+    public set copyValueToNext(_v: boolean) {
+        if (!CC_EDITOR) return;
+        const p = this.getCurrNextStatePair();
+        if (p) this.copyStateValues(p.cur, p.next);
+    }
+
+    /** 专项A-2: 移动当前 state 的值数据到下一 state (节点级局部操作, 清空当前). */
+    /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
+    public get moveValueToNext(): boolean { return false; }
+
+    public set moveValueToNext(_v: boolean) {
+        if (!CC_EDITOR) return;
+        const p = this.getCurrNextStatePair();
+        if (p) this.moveStateValues(p.cur, p.next);
+    }
+    // #endregion
 
     /**
      * W6-4 hotfix2 #1: 一键刷新 inspector. 用户在 panel/外部改了状态后,
@@ -3193,14 +3617,17 @@ export class StateSelect extends cc.Component {
             // 🔧 第一步：禁用属性控制
             this.removePropertyControl(propType);
 
-            // W6-axis-decomp bridge: 老 API togglePropertyControl(EnumPropName, false) 也需删
-            // propRef 等价 key — autoOptInCustomComponentProps 写过的 'cc.Node.color' 等. 否则
-            // off 后 isPropertyControlled(EnumPropName.Color) bridge 仍命中 propRef → 行为不一致.
-            if (propRef !== undefined) {
-                const pd = this.getPropData();
-                if (pd && pd.$$controlledProps$$ && pd.$$controlledProps$$[propRef] !== undefined) {
-                    delete pd.$$controlledProps$$[propRef];
-                }
+            // #C6 + #C7 + 聚合根治: 全局删 propRef 等价 key (所有 state + default)。
+            // AMBIGUOUS 聚合 → 释放各子项 (与接入对称, 子项独立); 其余 → 删该 propRef。
+            const offRef = enumToPropRef(propType);
+            const offSubs = (offRef !== undefined && isAmbiguousAggregatePropRef(offRef))
+                ? this.getControllableAmbiguousSubRefs(offRef) : [];
+            if (offSubs.length > 0) {
+                for (const subRef of offSubs) this.removeControlledFlagAllStates(subRef);
+            }
+            else if (offRef !== undefined) {
+                // 非聚合, 或 euler(无可控子项, 走整体聚合 key 移除)
+                this.removeControlledFlagAllStates(offRef, propType);
             }
 
             // 🔧 第二步：如果是当前显示的属性，清空界面标识
@@ -3347,61 +3774,84 @@ export class StateSelect extends cc.Component {
         }
 
         const propName = EnumPropName[propType];
-
-        // 🔧 第一步：确保新的数据结构存在
-        propData.$$controlledProps$$ = propData.$$controlledProps$$ || {};
-        propData.$$propertyData$$ = propData.$$propertyData$$ || {};
-
-        // 🔧 第二步：添加到受控属性列表
-        propData.$$controlledProps$$[propName] = propType;
-
-        // W6-2c2: $$propertyData$$ 内层也切 string propRef key (与外层 propData 一致)
         const propRef = enumToPropRef(propType);
-        const dataKey = propRef !== undefined ? propRef : propType;
 
-        // 🔧 第三步：检查是否需要创建属性数据
-        if ((propData.$$propertyData$$ as any)[dataKey] === undefined) {
-            // 获取当前属性值
-            const currentValue = this.handleValue(propType);
-            if (currentValue === undefined) {
-                StateErrorManager.warn("无法获取属性值，跳过数据创建", {
-                    component: "StateSelect",
-                    method: "addPropertyControl",
-                    params: { propType: propName },
-                });
+        // 聚合根治 (C1/C2/C7 + U1/U2/U3/U6): AMBIGUOUS 聚合 (Position/Scale/Size/Euler/Anchor) 不注册
+        // 聚合 key, 改逐子项接入 (与 auto-opt 一致, 用户本意: x/y/z 单独控制)。子项走 togglePropertyControlByPropRef
+        // (含值/default/录制 snapshot 处理), 避免聚合 key 引发的录制残留/apply 跳过/判定失败等。
+        if (propRef !== undefined && isAmbiguousAggregatePropRef(propRef)) {
+            const subs = this.getControllableAmbiguousSubRefs(propRef);
+            if (subs.length > 0) {
+                for (const subRef of subs) this.togglePropertyControlByPropRef(subRef, true);
                 return;
             }
-
-            // W6-2c2: 创建属性数据 (string propRef key, 删 number key)
-            (propData.$$propertyData$$ as any)[dataKey] = currentValue;
-            if (propRef !== undefined) {
-                delete (propData.$$propertyData$$ as any)[propType];
-            }
-
-            StateErrorManager.debug("创建新的属性数据", {
-                component: "StateSelect",
-                method: "addPropertyControl",
-                params: { propType: propName, dataKey, value: currentValue },
-            });
+            // euler: 无可控子项 → 落到下方整体聚合注册 (保 z)
         }
 
-        // 🔧 第四步：兼容性处理 - 同步到旧的changedProp结构
+        // 🔧 第一步：确保受控标记结构存在
+        propData.$$controlledProps$$ = propData.$$controlledProps$$ || {};
+
+        // 🔧 第二步：标记受控 + 落值
+        // T2 双轨统一 (X方案): 有 propRef 映射的内置 prop 收敛到 propRef 字符串单一路径 (与自定义 prop 对称) —
+        // $$controlledProps$$ 写 propRef 自指 string key (非名字 key), 值落**顶层** propData[propRef],
+        // 不再建 $$propertyData$$ 子 bucket. 旧双轨的第二条数据轨 (名字 key + $$propertyData$$) 已废,
+        // 消除 F-7/F-8 残留, 并让 applyPropRefKeysToNode 成为内置唯一 apply 轨 (配合 extractEnumPropTypes 去桥).
+        if (propRef !== undefined) {
+            propData.$$controlledProps$$[propRef] = propRef as any;
+            if ((propData as any)[propRef] === undefined) {
+                const currentValue = this.handleValue(propType);
+                if (currentValue === undefined) {
+                    StateErrorManager.warn("无法获取属性值，跳过数据创建", {
+                        component: "StateSelect",
+                        method: "addPropertyControl",
+                        params: { propType: propName },
+                    });
+                    return;
+                }
+                (propData as any)[propRef] = currentValue;
+                // 补种 default baseline (与 togglePropertyControlByPropRef 一致), 切到无该 key 的 state 时兜底
+                const defaultData = this.getDefaultData();
+                if (defaultData && (defaultData as any)[propRef] === undefined) {
+                    (defaultData as any)[propRef] = currentValue;
+                }
+                // #C6: default baseline 也补受控 flag, 否则 apply 门控会 skip "有值无 flag" 的 default 兜底
+                if (defaultData) {
+                    (defaultData as any).$$controlledProps$$ = (defaultData as any).$$controlledProps$$ || {};
+                    (defaultData as any).$$controlledProps$$[propRef] = propRef;
+                }
+            }
+            this._propValue = (propData as any)[propRef];
+        } else {
+            // 无 propRef 映射的遗留 prop (正常不走到): 保留老 number key + $$propertyData$$ 兜底
+            propData.$$propertyData$$ = propData.$$propertyData$$ || {};
+            propData.$$controlledProps$$[propName] = propType;
+            if ((propData.$$propertyData$$ as any)[propType] === undefined) {
+                const currentValue = this.handleValue(propType);
+                if (currentValue === undefined) {
+                    StateErrorManager.warn("无法获取属性值，跳过数据创建", {
+                        component: "StateSelect",
+                        method: "addPropertyControl",
+                        params: { propType: propName },
+                    });
+                    return;
+                }
+                (propData.$$propertyData$$ as any)[propType] = currentValue;
+            }
+            this._propValue = (propData.$$propertyData$$ as any)[propType];
+        }
+
+        // 🔧 第三步：兼容性处理 - 同步到旧的 changedProp 显示结构 (UI 用, 非数据轨)
         propData.$$changedProp$$ = propData.$$changedProp$$ || {};
         propData.$$changedProp$$[propName] = propType;
 
-        // 🔧 第五步：自动同步到其他状态
+        // 🔧 第四步：自动同步到其他状态
         if (this.autoSyncEnabled) {
             this.syncPropToAllStatesInternal(propType);
         }
 
-        // 🔧 第六步：设置为当前选中的属性
+        // 🔧 第五步：设置为当前选中的属性 + 更新显示
         this._propKey = propType;
-        this._propValue = (propData.$$propertyData$$ as any)[dataKey];
-
-        // 🔧 修复：调用setPropValue显示属性值字段
         this.setPropValue(propType);
-
-        // 🔧 第七步：更新显示
         this.updateChangedProp();
 
         // 🔧 注意：界面标识变量(_currentDisplayProp)由togglePropertyControl统一管理
@@ -3409,11 +3859,7 @@ export class StateSelect extends cc.Component {
         StateErrorManager.info("属性控制已添加", {
             component: "StateSelect",
             method: "addPropertyControl",
-            params: {
-                propType: propName,
-                hasData: (propData.$$propertyData$$ as any)[dataKey] !== undefined,
-                isControlled: !!propData.$$controlledProps$$[propName],
-            },
+            params: { propType: propName, propRef, isControlled: true },
         });
     }
 

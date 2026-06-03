@@ -65,7 +65,7 @@ function setupCtrlAndSelect() {
 }
 
 describe("StateSelect.active regression", () => {
-    it("togglePropertyControl(Active, true) 后 propData 应同时具备 legacy 和 namespaced 数据", () => {
+    it("togglePropertyControl(Active, true) 后 propData 走 propRef 单一路径 (T2 双轨统一)", () => {
         const { select } = setupCtrlAndSelect();
 
         select.togglePropertyControl(EnumPropName.Active, true);
@@ -73,13 +73,16 @@ describe("StateSelect.active regression", () => {
         const propData = (select as any).getPropData();
         expect(propData).toBeDefined();
 
-        // 契约 1: $$controlledProps$$ 标记 Active 受控
-        expect(propData.$$controlledProps$$?.Active).toBe(EnumPropName.Active);
+        // T2 双轨统一: 内置 prop 收敛到 propRef 字符串单一路径 (与自定义 prop 对称).
+        // 契约 1: $$controlledProps$$ 以 propRef 自指 string key 标记受控, 不再写名字 key "Active".
+        expect(select.isPropertyControlledByPropRef("cc.Node.active")).toBe(true);
+        expect(propData.$$controlledProps$$?.["cc.Node.active"]).toBe("cc.Node.active");
+        expect(propData.$$controlledProps$$?.Active).toBeUndefined();
 
-        // 契约 2: $$propertyData$$ 已写入初始值
-        expect(propData.$$propertyData$$?.["cc.Node.active"]).toBeDefined();
+        // 契约 2: 不再建 $$propertyData$$ 子 bucket (旧双轨第二条数据轨已废).
+        expect(propData.$$propertyData$$).toBeUndefined();
 
-        // 契约 3: legacy 数字 key 也必须有值 (兼容期, updateState/setDefaultProp 走这条路径)
+        // 契约 3: 值落顶层 propData[propRef] (单一数据轨, applyPropRefKeysToNode 据此 apply).
         expect(propData["cc.Node.active"]).toBeDefined();
     });
 

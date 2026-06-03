@@ -16,23 +16,9 @@ export class StateNodeProps {
         if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Active, v);
     }
 
-    @property({ displayName: "位置 (Position)", tooltip: "节点的位置属性" })
-    public get propPosition() {
-        return this.owner ? this.owner.isPropertyControlled(EnumPropName.Position) : false;
-    }
-
-    public set propPosition(v: boolean) {
-        if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Position, v);
-    }
-
-    @property({ displayName: "缩放 (Scale)", tooltip: "节点的缩放属性" })
-    public get propScale() {
-        return this.owner ? this.owner.isPropertyControlled(EnumPropName.Scale) : false;
-    }
-
-    public set propScale(v: boolean) {
-        if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Scale, v);
-    }
+    // #C1/#C7: 聚合勾选框 (位置/缩放/尺寸/旋转/锚点) 已删除 —— auto-opt 以子项 cc.Node.x/y/z 等
+    // 独立接管 (聚合不接入), 聚合勾选框查聚合 key 恒未勾(C1 误导) 且 off 删不掉(C7 trapped)。
+    // 子项由自动接管管理, 排除走 setPropExcluded 注入徽标, 故聚合手动勾选框冗余且坏, 整组移除。
 
     @property({ displayName: "颜色 (Color)", tooltip: "节点的颜色属性" })
     public get propColor() {
@@ -41,33 +27,6 @@ export class StateNodeProps {
 
     public set propColor(v: boolean) {
         if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Color, v);
-    }
-
-    @property({ displayName: "尺寸 (Size)", tooltip: "节点的宽高尺寸" })
-    public get propSize() {
-        return this.owner ? this.owner.isPropertyControlled(EnumPropName.Size) : false;
-    }
-
-    public set propSize(v: boolean) {
-        if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Size, v);
-    }
-
-    @property({ displayName: "旋转 (Euler)", tooltip: "节点的旋转角度" })
-    public get propEuler() {
-        return this.owner ? this.owner.isPropertyControlled(EnumPropName.Euler) : false;
-    }
-
-    public set propEuler(v: boolean) {
-        if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Euler, v);
-    }
-
-    @property({ displayName: "锚点 (Anchor)", tooltip: "节点的锚点位置" })
-    public get propAnchor() {
-        return this.owner ? this.owner.isPropertyControlled(EnumPropName.Anchor) : false;
-    }
-
-    public set propAnchor(v: boolean) {
-        if (this.owner && CC_EDITOR) this.owner.togglePropertyControl(EnumPropName.Anchor, v);
     }
 
     @property({ displayName: "透明度 (Opacity)", tooltip: "节点的透明度" })

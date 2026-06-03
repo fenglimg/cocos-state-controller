@@ -153,24 +153,39 @@ export function eqValueByType(a: any, b: any, cocosType: any): boolean {
         }
     }
     // W6-axis-decomp: cocosType 未知 (e.g. cc.Node 内置 native 字段在 listTrackableProps 里 cocosType=undefined),
-    // 但若两侧都是 cc 复合对象 (Color/Vec3/Vec2/Size/Quat 等 instanceof 命中), 也走结构比 — 否则
-    // 不同 frame/getter 的同值对象会 strict !== 引起 false-positive dirty (cc.Node.quat/color/rotation 等).
+    // 但若任一侧是 cc 复合对象 (Color/Vec3/Vec2/Size/Quat), 按该类型字段结构比 —— 另一侧可能是老 .fire
+    // 反序列化后的普通对象 (#U7) 或不同 frame/getter 的同值对象, strict !== 会引起 false-positive dirty.
     if (ccL && a && b && typeof a === "object" && typeof b === "object") {
-        if (ccL.Color && (a instanceof ccL.Color) && (b instanceof ccL.Color)) {
-            return a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
+        // #U7: 以"任一侧是 cc 实例"判定复合类型, 另一侧只要有同形字段即按字段比 (实例 vs 普通对象同值判等).
+        const instType = (x: any): string | null => {
+            if (ccL.Color && x instanceof ccL.Color) return "Color";
+            if (ccL.Quat && x instanceof ccL.Quat) return "Quat";
+            if (ccL.Vec3 && x instanceof ccL.Vec3) return "Vec3";
+            if (ccL.Vec2 && x instanceof ccL.Vec2) return "Vec2";
+            if (ccL.Size && x instanceof ccL.Size) return "Size";
+            return null;
+        };
+        const t = instType(a) || instType(b);
+        const has = (x: any, keys: string[]) => keys.every(k => typeof (x as any)[k] === "number");
+        if (t === "Color" && has(a, ["r", "g", "b"]) && has(b, ["r", "g", "b"])) {
+            return a.r === b.r && a.g === b.g && a.b === b.b && ((a.a ?? 255) === (b.a ?? 255));
         }
-        if (ccL.Quat && (a instanceof ccL.Quat) && (b instanceof ccL.Quat)) {
+        if (t === "Quat" && has(a, ["x", "y", "z", "w"]) && has(b, ["x", "y", "z", "w"])) {
             return a.x === b.x && a.y === b.y && a.z === b.z && a.w === b.w;
         }
-        if (ccL.Vec3 && (a instanceof ccL.Vec3) && (b instanceof ccL.Vec3)) {
+        if (t === "Vec3" && has(a, ["x", "y", "z"]) && has(b, ["x", "y", "z"])) {
             return a.x === b.x && a.y === b.y && a.z === b.z;
         }
-        if (ccL.Vec2 && (a instanceof ccL.Vec2) && (b instanceof ccL.Vec2)) {
+        if (t === "Vec2" && has(a, ["x", "y"]) && has(b, ["x", "y"])) {
             return a.x === b.x && a.y === b.y;
         }
-        if (ccL.Size && (a instanceof ccL.Size) && (b instanceof ccL.Size)) {
+        if (t === "Size" && has(a, ["width", "height"]) && has(b, ["width", "height"])) {
             return a.width === b.width && a.height === b.height;
         }
+    }
+    // #U4: NaN === NaN 在 JS 为 false → 两侧均为 NaN 视为相等, 避免持续 dirty 误判 + 重复写.
+    if (typeof a === "number" && typeof b === "number" && Number.isNaN(a) && Number.isNaN(b)) {
+        return true;
     }
     // 基础类型 / asset 引用 / 未知 — strict ===
     return a === b;

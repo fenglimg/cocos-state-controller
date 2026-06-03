@@ -144,7 +144,8 @@ describe("W6-4 inspector 排除清单 UI", () => {
 
     it("refreshExcludeEnumLists: addExcludeTrigger.enumList 含 sentinel + 当前跟随中, 不含已排除", () => {
         const { select } = setup();
-        const attrs = ccL.Class.Attr.getClassAttrs(select);
+        // 折叠组重构后: 可见的 addExcludeTrigger 在 excludeGroup 上, enumList 注入到该组类.
+        const attrs = ccL.Class.Attr.getClassAttrs((select as any).excludeGroup);
         const addEnumList = attrs["addExcludeTrigger$_$enumList"];
         expect(Array.isArray(addEnumList)).toBe(true);
         // 第 0 项是 sentinel
@@ -160,13 +161,17 @@ describe("W6-4 inspector 排除清单 UI", () => {
         realItems.forEach((it: any, i: number) => expect(it.value).toBe(i + 1));
     });
 
-    it("_userExcludedProps 是 @property visible:true 数组 (cocos 原生 +/- 按钮)", () => {
-        const ctor = StateSelect;
-        const attrs = ccL.Class.Attr.getClassAttrs(ctor);
-        // visible 默认 true (不显式 false 即可); 类型应为 cc.String 数组
-        expect(attrs["_userExcludedProps$_$visible"]).not.toBe(false);
-        // displayName 应注入
-        expect(attrs["_userExcludedProps$_$displayName"]).toBe("用户排除清单");
+    it("用户排除清单数组移入 excludeGroup 折叠组 (cocos 原生 +/- 按钮), StateSelect 上的序列化字段转隐藏", () => {
+        // 折叠组重构后: 序列化字段 _userExcludedProps 在 StateSelect 上转 visible:false (不直显),
+        // 可见的「用户排除清单」由 excludeGroup.userExcludedProps 代理 (同一份数组引用).
+        const selectAttrs = ccL.Class.Attr.getClassAttrs(StateSelect);
+        expect(selectAttrs["_userExcludedProps$_$visible"]).toBe(false);
+
+        const { select } = setup();
+        const groupAttrs = ccL.Class.Attr.getClassAttrs((select as any).excludeGroup);
+        // 折叠组里的 userExcludedProps 可见 (默认/未显式 false) + displayName 注入
+        expect(groupAttrs["userExcludedProps$_$visible"]).not.toBe(false);
+        expect(groupAttrs["userExcludedProps$_$displayName"]).toBe("用户排除清单");
     });
 
     it("旧 3 props 组 @property visible:false (inspector 视觉隐藏, ts 字段保留)", () => {

@@ -19,6 +19,12 @@ function freshInject() {
 // 避免渲染进程重载丢失常驻脚本后标记不恢复 (注入侧 VER 机制保证幂等覆盖).
 let _inspectorOn = false;
 
+// 面板初次拉列表前先问"场景是否就绪": scene-script (scene-accessor) 仅在场景加载后才注册.
+// 面板先于场景就绪打开时盲调 callSceneScript('list-ctrls') 会触发 Cocos 核心
+// "Failed to send ipc message ...:list-ctrls to scene, message not found" 噪音告警.
+// scene:ready 拉起后置 true, 面板据此决定立即拉取 / 等 scene:ready 兜底.
+let _sceneReady = false;
+
 // M2a-2: 各特性开关 (master 总开关 + viz/dirty/exclude), Editor.Profile 持久化 → 重启编辑器记忆.
 const FLAGS_PROFILE_URL = 'profile://local/state-controller-inspector.json';
 const DEFAULT_FLAGS = { master: true, viz: true, dirty: true, exclude: true };
@@ -86,9 +92,17 @@ module.exports = {
         },
         // M2a-3 硬化: 切/重载场景后, 若增强开着则重注入常驻脚本 (幂等, VER 覆盖旧脚本).
         'scene:ready'() {
+            _sceneReady = true;
             if (_inspectorOn) {
                 try { freshInject().enableInspectorMark(getFlags()); } catch (e) { /* 静默 */ }
             }
+            // 显式转发给面板: 此刻 scene-script 已注册, 面板可安全拉 list-ctrls 无告警.
+            // (面板可能先于场景打开, 自身初次 is-scene-ready 查询为 false, 靠这条补拉.)
+            try { Editor.Ipc.sendToPanel('state-controller-panel', 'state-controller-panel:scene-ready'); } catch (e) { /* 静默, 面板未开时无害 */ }
+        },
+        // 面板初次拉取前查询场景就绪态 (见 _sceneReady 注释), 就绪才安全调 scene-script.
+        'is-scene-ready'(event) {
+            if (event && event.reply) event.reply(null, _sceneReady);
         },
         // M2a-2: 面板读当前特性开关 (渲染 toggle 勾选态)
         'inspector-get-flags'(event) {

@@ -119,8 +119,8 @@ describe("Recording diff commit on state switch (Wave 2 T07 e2e)", () => {
         ctrl.stopRecording();
 
         const ctrlData = (select as any)._ctrlData[ctrl.ctrlId];
-        expect(ctrlData[0]["cc.Node.position"]).toBeDefined();
-        expect(ctrlData[0]["cc.Node.position"].x).toBe(100);
-        expect(ctrlData[0]["cc.Node.position"].y).toBe(200);
+        // 聚合根治: Position 拆子项 cc.Node.x/y/z 存储 (decompose 模型, 用户本意)
+        expect(ctrlData[0]["cc.Node.x"]).toBe(100);
+        expect(ctrlData[0]["cc.Node.y"]).toBe(200);
     });
 });

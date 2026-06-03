@@ -8,6 +8,7 @@ import "./capabilities/index";
 import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnum";
 import { StateErrorManager } from "./StateErrorManager";
 import { StateSelect } from "./StateSelect";
+import { CtrlRecordGroup, CtrlStateOpsGroup } from "./props/CtrlInspectorGroups";
 
 cc.Enum(EnumStateName);
 
@@ -29,7 +30,10 @@ export class StateValue {
     }
 }
 
-@ccclass("StateController")
+// 项目内 Component 脚本不传类名: 引擎按 frame.script(文件名 "StateController")自动注册,
+// 避免 editor 告警 3616 "Should not specify class name ... for Component which defines in project".
+// getComponent('StateController') 与 .fire cid 序列化均不受影响 (cid 由 _RF.uuid 注册).
+@ccclass
 @menu("State/StateController")
 @executeInEditMode()
 export class StateController extends cc.Component {
@@ -115,12 +119,7 @@ export class StateController extends cc.Component {
     @property({ type: EnumStateName, visible: false })
     private _selectedIndex: EnumStateName = 0;
 
-    /** 状态顺序上移触发 (panel 接管, inspector 隐藏) */
-    @property({
-        visible: false,
-        displayName: "状态上移",
-        tooltip: "将当前选中的状态上移一位",
-    })
+    /** 状态顺序上移触发 (普通访问器, inspector 可见性由 stateOps 折叠组代理) */
     public get moveStateUp() {
         return false;
     }
@@ -131,12 +130,7 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 状态顺序下移触发 (panel 接管, inspector 隐藏) */
-    @property({
-        visible: false,
-        displayName: "状态下移",
-        tooltip: "将当前选中的状态下移一位",
-    })
+    /** 状态顺序下移触发 (普通访问器, inspector 可见性由 stateOps 折叠组代理) */
     public get moveStateDown() {
         return false;
     }
@@ -147,12 +141,7 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 复制当前状态触发 (panel 接管, inspector 隐藏) */
-    @property({
-        visible: false,
-        displayName: "复制当前状态",
-        tooltip: "以当前状态为模板复制并插入到下一位",
-    })
+    /** 复制当前状态触发 (普通访问器, inspector 可见性由 stateOps 折叠组代理) */
     public get duplicateCurrentState() {
         return false;
     }
@@ -163,12 +152,7 @@ export class StateController extends cc.Component {
         }
     }
 
-    /** 删除当前状态触发 (panel 接管, inspector 隐藏) */
-    @property({
-        visible: false,
-        displayName: "删除当前状态",
-        tooltip: "删除当前选中的状态并自动选择相邻状态",
-    })
+    /** 删除当前状态触发 (普通访问器, inspector 可见性由 stateOps 折叠组代理) */
     public get deleteCurrentState() {
         return false;
     }
@@ -176,84 +160,6 @@ export class StateController extends cc.Component {
     public set deleteCurrentState(value: boolean) {
         if (value) {
             this.removeSelectedState();
-        }
-    }
-
-    /** 选择的状态下标 */
-    @property({ type: EnumStateName, displayName: "state", tooltip: "当前选中的状态" })
-    public get selectedIndex() {
-        return this._selectedIndex;
-    }
-
-    public set selectedIndex(value: EnumStateName) {
-        if (this.isInit || this._selectedIndex != value) {
-            this.isInit = false;
-
-            // 模型 Z: 录制中切 state → 自动 stopRecording, 把改动 commit 到 fromState 后再切.
-            // 标记 _stopRecordingMode="auto" 让 StateSelect.onRecordingStop 走静默 + log 路径,
-            // 不弹"未跟随 prop"窗 (高频操作不打扰). stopRecording 后 _recording=false,
-            // 后续 StateWillChange / onStateWillChange 看到 !isRecording 自动跳过, 不重复 commit.
-            if (this._recording) {
-                this._stopRecordingMode = "auto";
-                try {
-                    this.stopRecording();
-                }
-                finally {
-                    this._stopRecordingMode = "manual";
-                }
-            }
-
-            const originalValue = value;
-            // 🔧 边界检查：确保状态索引在有效范围内
-            value = Math.max(0, Math.min(this._states.length - 1, value));
-
-            if (originalValue !== value) {
-                StateErrorManager.warn("状态索引超出范围，已自动调整", {
-                    component: "StateController",
-                    method: "selectedIndex.setter",
-                    params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 },
-                });
-            }
-
-            StateErrorManager.debug("开始状态切换", {
-                component: "StateController",
-                method: "selectedIndex.setter",
-                params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit },
-            });
-
-            // 🔧 状态切换流程：标记正在变化 → 保存上一状态 → 更新当前状态 → 触发更新
-            this.isChanging = true;
-
-            // Wave 2: 切 state 前通知 (录制中需 commit diff 到 fromState)
-            this.updateState(EnumUpdateType.StateWillChange, this._selectedIndex);
-            // Wave 2 T25: capability 层广播 state 切换
-            // W6-2b: 留 propType / propRef 字段位 (state-change 事件本身不针对单 prop, 占位让下游 capability
-            //   读 ctx 不会 undefined 报错; per-prop 事件在 onPropertyControlled / onPropertyReleased 派发).
-            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value, propType: undefined, propRef: undefined });
-
-            this._previousIndex = this._selectedIndex;
-            this._selectedIndex = value;
-
-            // 🔧 通知所有相关组件状态已改变
-            this.updateState(EnumUpdateType.State);
-            // Wave 2 T25: capability 层广播 state 已切
-            // W6-2b: 同 onStateWillChange, 留 propType / propRef 字段位
-            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value, propType: undefined, propRef: undefined });
-
-            // 🔧 编辑器环境下同步属性更新
-            if (CC_EDITOR) {
-                this.updateState(EnumUpdateType.Prop);
-                // 🔧 IMPL-002.1: 触发selectedPage变更通知
-                this._emitSelectedPageChanged();
-            }
-
-            this.isChanging = false;
-
-            StateErrorManager.info("状态切换完成", {
-                component: "StateController",
-                method: "selectedIndex.setter",
-                params: { newState: value, stateName: this.selectedPage },
-            });
         }
     }
 
@@ -356,18 +262,18 @@ export class StateController extends cc.Component {
             // 🔧 处理状态删除：找到所有被删除的状态索引
             deletedIndices = this.findDeletedIndices(this._states, value);
             let adjustment = 0;
-            // 计算需要调整的量
+            // #S5: 仅"删在选中**之前**(严格 <)"的 state 才下移选中, 让选中跟随; 删选中**自身**
+            // (deletedIndex == applyIndex) 不下移 → 选中保持原 index = 补位进来的下一个 state(用户裁定"选下一个")。
+            // 旧 <= 会在删选中自身时多减一位 → 落到前一个; 且与 removeSelectedState 预设值双重调整。
             for (const deletedIndex of deletedIndices) {
-                if (deletedIndex <= applyIndex) {
+                if (deletedIndex < applyIndex) {
                     adjustment++;
                 }
             }
-            // 应用调整
-            if (adjustment > 0) {
-                let newIndex = Math.max(0, applyIndex - adjustment);
-                newIndex = Math.min(newIndex, newLen - 1);
-                applyIndex = newIndex;
-            }
+            // 应用调整 (clamp 到合法范围: 删末位选中时 applyIndex 可能越界, Math.min 兜底)
+            let newIndex = Math.max(0, applyIndex - adjustment);
+            newIndex = Math.min(newIndex, newLen - 1);
+            applyIndex = newIndex;
         }
 
         // 🔧 更新内部状态数组
@@ -431,6 +337,92 @@ export class StateController extends cc.Component {
             this.updateState(EnumUpdateType.SelPage);
         }
     }
+
+    /** 选择的状态下标 */
+    @property({ type: EnumStateName, displayName: "state", tooltip: "当前选中的状态" })
+    public get selectedIndex() {
+        return this._selectedIndex;
+    }
+
+    public set selectedIndex(value: EnumStateName) {
+        if (this.isInit || this._selectedIndex != value) {
+            this.isInit = false;
+
+            // 模型 Z: 录制中切 state → 自动 stopRecording, 把改动 commit 到 fromState 后再切.
+            // 标记 _stopRecordingMode="auto" 让 StateSelect.onRecordingStop 走静默 + log 路径,
+            // 不弹"未跟随 prop"窗 (高频操作不打扰). stopRecording 后 _recording=false,
+            // 后续 StateWillChange / onStateWillChange 看到 !isRecording 自动跳过, 不重复 commit.
+            if (this._recording) {
+                this._stopRecordingMode = "auto";
+                try {
+                    this.stopRecording();
+                }
+                finally {
+                    this._stopRecordingMode = "manual";
+                }
+            }
+
+            const originalValue = value;
+            // 🔧 边界检查：确保状态索引在有效范围内
+            value = Math.max(0, Math.min(this._states.length - 1, value));
+
+            if (originalValue !== value) {
+                StateErrorManager.warn("状态索引超出范围，已自动调整", {
+                    component: "StateController",
+                    method: "selectedIndex.setter",
+                    params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 },
+                });
+            }
+
+            StateErrorManager.debug("开始状态切换", {
+                component: "StateController",
+                method: "selectedIndex.setter",
+                params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit },
+            });
+
+            // 🔧 状态切换流程：标记正在变化 → 保存上一状态 → 更新当前状态 → 触发更新
+            this.isChanging = true;
+
+            // Wave 2: 切 state 前通知 (录制中需 commit diff 到 fromState)
+            this.updateState(EnumUpdateType.StateWillChange, this._selectedIndex);
+            // Wave 2 T25: capability 层广播 state 切换
+            // W6-2b: 留 propType / propRef 字段位 (state-change 事件本身不针对单 prop, 占位让下游 capability
+            //   读 ctx 不会 undefined 报错; per-prop 事件在 onPropertyControlled / onPropertyReleased 派发).
+            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value, propType: undefined, propRef: undefined });
+
+            this._previousIndex = this._selectedIndex;
+            this._selectedIndex = value;
+
+            // 🔧 通知所有相关组件状态已改变
+            this.updateState(EnumUpdateType.State);
+            // Wave 2 T25: capability 层广播 state 已切
+            // W6-2b: 同 onStateWillChange, 留 propType / propRef 字段位
+            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value, propType: undefined, propRef: undefined });
+
+            // 🔧 编辑器环境下同步属性更新
+            if (CC_EDITOR) {
+                this.updateState(EnumUpdateType.Prop);
+                // 🔧 IMPL-002.1: 触发selectedPage变更通知
+                this._emitSelectedPageChanged();
+            }
+
+            this.isChanging = false;
+
+            StateErrorManager.info("状态切换完成", {
+                component: "StateController",
+                method: "selectedIndex.setter",
+                params: { newState: value, stateName: this.selectedPage },
+            });
+        }
+    }
+
+    /** 状态操作折叠组 (上移/下移/复制/删除) — inspector 可折叠区域, 代理到本类同名访问器. */
+    @property({ type: CtrlStateOpsGroup, displayName: "状态操作", tooltip: "对当前选中状态的结构操作 (上移/下移/复制/删除)" })
+    public stateOps = new CtrlStateOpsGroup();
+
+    /** 录制折叠组 — inspector 可折叠区域, 代理到本类 recordTrigger / cancelRecordTrigger. */
+    @property({ type: CtrlRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制与撤销本次录制" })
+    public recording = new CtrlRecordGroup();
 
     /** 🔧 调整当前选中状态的顺序 */
     private adjustSelectedStateOrder(offset: number) {
@@ -683,6 +675,10 @@ export class StateController extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
+
+        // 初始化 inspector 折叠组的 owner 回引 (facade 代理到本类访问器)
+        this.stateOps.owner = this;
+        this.recording.owner = this;
 
         StateErrorManager.debug("开始控制器预加载", {
             component: "StateController",
@@ -955,6 +951,15 @@ export class StateController extends cc.Component {
      * 直接控制 = 节点与控制器之间没有其他StateController
      */
     private isDirectlyControlled(targetNode: cc.Node): boolean {
+        // #T1: targetNode 自身带其它 StateController → 归它(及其子树)管, 不是本(祖先)控制器直接控制。
+        // 原实现只查父链中间 controller, 漏了 targetNode 自身 → 自带 controller 的节点被祖先双 claim。
+        if (targetNode && targetNode !== this.node) {
+            const ownController = targetNode.getComponent(StateController);
+            if (ownController && ownController !== this) {
+                return false;
+            }
+        }
+
         let current: cc.Node = targetNode;
 
         while (current && current !== this.node) {
@@ -1279,12 +1284,8 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 录制按钮: 切换 isRecording (Wave 2 实装).
+     * 录制按钮: 切换 isRecording (普通访问器, inspector 可见性由 recording 折叠组代理).
      */
-    @property({
-        displayName: "🔴 录制",
-        tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state",
-    })
     public get recordTrigger() {
         return this._recording;
     }
@@ -1345,11 +1346,8 @@ export class StateController extends cc.Component {
 
     /**
      * 撤销录制按钮 (TASK-002): 仅录制态下点击有效, 调 cancelRecording.
+     * 普通访问器, inspector 可见性由 recording 折叠组代理.
      */
-    @property({
-        displayName: "⤺ 撤销本次录制",
-        tooltip: "丢弃本次录制改动, 回到录制开始前的状态",
-    })
     public get cancelRecordTrigger() {
         return false;
     }

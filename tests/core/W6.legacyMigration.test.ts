@@ -349,8 +349,10 @@ describe("W6-2c2 production 写路径: togglePropertyControl 写 string propRef 
         // W6-2c2: 写 string key, 不写数字 key
         expect(propData["cc.Node.active"]).not.toBeUndefined();
         expect(propData[EnumPropName.Active]).toBeUndefined();
-        // $$controlledProps$$ 仍按 EnumPropName name 写 ("Active" → propType 数字), 与历史一致
-        expect(propData.$$controlledProps$$.Active).toBe(EnumPropName.Active);
+        // T2 双轨统一: 内置 prop 收敛 propRef 单一路径 — $$controlledProps$$ 写 propRef 自指 string key
+        // ("cc.Node.active" → "cc.Node.active"), 不再写名字 key "Active" (旧双轨残留已废).
+        expect(propData.$$controlledProps$$["cc.Node.active"]).toBe("cc.Node.active");
+        expect(propData.$$controlledProps$$.Active).toBeUndefined();
     });
 
     it("togglePropertyControl(EnumPropName.Color, true) → 内置 prop 也走 string key", () => {
