@@ -1,7 +1,7 @@
 /**
  * 属性控制服务 (Phase 5.2)
  *
- * 从 StateSelect 抽出的 stateless 服务, 负责回答三个问题:
+ * 从 StateSelectV2 抽出的 stateless 服务, 负责回答三个问题:
  *   1. 节点上是否有挂支持某 prop 类型的组件? (isPropertyAvailable)
  *   2. propData 中某 prop 是否处于受控状态? (isPropertyControlled)
  *   3. 列出节点上当前所有可用的 prop. (scanAvailableProperties)
@@ -13,12 +13,12 @@
  *
  * 不在本服务范围:
  *   - togglePropertyControl / addPropertyControl / removePropertyControl /
- *     autoConfigureAllProperties — 这些紧耦合 StateSelect 内部状态 (propData
- *     的写入 + setPropValue + sync 链路), 留在 StateSelect.
+ *     autoConfigureAllProperties — 这些紧耦合 StateSelectV2 内部状态 (propData
+ *     的写入 + setPropValue + sync 链路), 留在 StateSelectV2.
  */
 
-import { EnumPropName } from "./StateEnum";
-import { TProp } from "./StateSelect";
+import { EnumPropName } from "./StateEnumV2";
+import { TProp } from "./StateSelectV2";
 
 /** 组件可用性检查函数: 给一个节点, 回答 "节点上是否挂了支持本 prop 的组件?" */
 export type ComponentAvailabilityCheck = (node: cc.Node) => boolean;
@@ -86,7 +86,7 @@ export class PropertyControlService {
         }
         const out: EnumPropName[] = [];
         // cc.Enum(EnumPropName) 把数字反向映射 key 设为不可枚举, for-in 只剩名字 key,
-        // 通过名字反查数字值 (与 StateSelect.scanAvailableProperties Phase 4.3 修复对应).
+        // 通过名字反查数字值 (与 StateSelectV2.scanAvailableProperties Phase 4.3 修复对应).
         for (const propKey in EnumPropName) {
             const propType = (EnumPropName as any)[propKey];
             if (typeof propType !== "number" || propType === EnumPropName.Non) {
@@ -101,7 +101,7 @@ export class PropertyControlService {
 }
 
 // ============================== 内置组件 prop 注册 ==============================
-// 等价于原 StateSelect.checkNodeHasComponentForProp 的 switch 表, 改为表驱动.
+// 等价于原 StateSelectV2.checkNodeHasComponentForProp 的 switch 表, 改为表驱动.
 
 PropertyControlService.registerComponentProp(EnumPropName.LabelString, n => !!n.getComponent(cc.Label));
 PropertyControlService.registerComponentProp(EnumPropName.Font, n => !!n.getComponent(cc.Label));

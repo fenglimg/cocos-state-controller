@@ -1,5 +1,5 @@
 /**
- * StateController 嵌套场景缓存独立性回归测试
+ * StateControllerV2 嵌套场景缓存独立性回归测试
  *
  * 验证 B1 bug:「_stateSelectCache 不按 ctrlId 分桶, 嵌套 controller 场景互相串扰」
  *
@@ -26,23 +26,23 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 /**
  * 节点树:
  *   Root
- *   ├── ParentCtrl (StateController)
- *   │   ├── ParentSelect (StateSelect, 直接被 ParentCtrl 控制)
- *   │   └── ChildCtrl (StateController)
- *   │       └── ChildSelect (StateSelect, 直接被 ChildCtrl 控制, 跨越 ChildCtrl 边界后不应被 ParentCtrl 直接控制)
+ *   ├── ParentCtrl (StateControllerV2)
+ *   │   ├── ParentSelect (StateSelectV2, 直接被 ParentCtrl 控制)
+ *   │   └── ChildCtrl (StateControllerV2)
+ *   │       └── ChildSelect (StateSelectV2, 直接被 ChildCtrl 控制, 跨越 ChildCtrl 边界后不应被 ParentCtrl 直接控制)
  */
 function setupNested() {
     const ccLocal = (globalThis as any).cc;
@@ -60,16 +60,16 @@ function setupNested() {
     const childSelectNode = new ccLocal.Node("ChildSelect");
     childCtrlNode.addChild(childSelectNode);
 
-    const parentCtrl = parentCtrlNode.addComponent(StateController);
+    const parentCtrl = parentCtrlNode.addComponent(StateControllerV2);
     (parentCtrl as any).__preload();
 
-    const childCtrl = childCtrlNode.addComponent(StateController);
+    const childCtrl = childCtrlNode.addComponent(StateControllerV2);
     (childCtrl as any).__preload();
 
-    const parentSelect = parentSelectNode.addComponent(StateSelect);
+    const parentSelect = parentSelectNode.addComponent(StateSelectV2);
     (parentSelect as any).__preload();
 
-    const childSelect = childSelectNode.addComponent(StateSelect);
+    const childSelect = childSelectNode.addComponent(StateSelectV2);
     (childSelect as any).__preload();
 
     (parentCtrl as any).markCacheDirty();
@@ -83,7 +83,7 @@ function setupNested() {
     };
 }
 
-describe("StateController nested cache isolation", () => {
+describe("StateControllerV2 nested cache isolation", () => {
     it("isDirectlyControlled 正确划分 parent / child 责任", () => {
         const { parentCtrl, childCtrl, parentSelectNode, childSelectNode } = setupNested();
 

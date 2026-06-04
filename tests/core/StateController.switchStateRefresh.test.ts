@@ -1,5 +1,5 @@
 /**
- * 切 state 时 StateSelect 节点 inspector **不应** 自动刷新 (契约锁定)
+ * 切 state 时 StateSelectV2 节点 inspector **不应** 自动刷新 (契约锁定)
  *
  * Why: cocos `Editor.Utils.refreshSelectedInspector` 是全量重建 inspector dom,
  * 自动调用会让用户切 state / 改 prop 时丢焦点 / 抖动 / 滚动跳动. 实测体验差.
@@ -38,14 +38,14 @@ beforeEach(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -56,9 +56,9 @@ function setupCtrlAndSelect() {
     const selectNode = new ccL.Node("SSR_Select");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 

@@ -1,5 +1,5 @@
 /**
- * StateSelect Round-Trip 矩阵 (Phase 4.1)
+ * StateSelectV2 Round-Trip 矩阵 (Phase 4.1)
  *
  * 验证主业务: 「stateA 设值α → stateB 设值β → 切回 stateA 应恢复 α, 切到 stateB 应恢复 β」
  *
@@ -12,7 +12,7 @@
  *
  * 排除项 (单独说明, 不在矩阵内):
  *   - Non: 占位枚举, 无 PropHandler
- *   - GrayScale: 是 stub, setter 不真写值 (见 StatePropHandler.ts 注释)
+ *   - GrayScale: 是 stub, setter 不真写值 (见 StatePropHandlerV2.ts 注释)
  *   - SpriteFrame / Font: 需要真 cc.SpriteFrame / cc.Font 实例, 在 jest 环境造价大,
  *     后续单独写一个小测试用 mock 实例验证
  */
@@ -34,14 +34,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -52,10 +52,10 @@ function setupCtrlAndSelect() {
     const selectNode = new ccLocal.Node("RT_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -235,7 +235,7 @@ function runRoundTrip(c: PropCase) {
     expect(eq(c.get(env.selectNode), c.valueB)).toBe(true);
 }
 
-describe("StateSelect round-trip matrix", () => {
+describe("StateSelectV2 round-trip matrix", () => {
     buildCases().forEach(c => {
         it(`${c.name}: state0=valueA → state1=valueB → 切回各自恢复`, () => {
             runRoundTrip(c);

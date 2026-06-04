@@ -6,7 +6,7 @@
  * 设计要点:
  *   - TNestedProp: 内层 propRef (e.g. "cc.Sprite.spriteFrame") -> value
  *   - TNestedCtrl: 外层 ctrlId -> { $$default$$?, [state]: TNestedProp }
- *   - cloneValueByType / eqValueByType: 按 cocos type 分发, 与 StatePropHandler 的 eqVec3/eqColor 等等价
+ *   - cloneValueByType / eqValueByType: 按 cocos type 分发, 与 StatePropHandlerV2 的 eqVec3/eqColor 等等价
  */
 
 /** 单个 prop 的值集合 (propRef 字符串 -> any) */

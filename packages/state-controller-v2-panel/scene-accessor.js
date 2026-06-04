@@ -4,22 +4,22 @@
  * State Controller Panel — Scene Script (Wave 3 scaffold).
  *
  * 跑在 Cocos 编辑器 scene 上下文 (有 cc / Editor 全局), 把 panel IPC 消息路由到
- * scene 里的 StateController 实例上, 调 lib/handlers.js 的纯函数完成业务.
+ * scene 里的 StateControllerV2 实例上, 调 lib/handlers.js 的纯函数完成业务.
  *
  * 消息名规则 (与 panel/build.js 对应):
- *   state-controller-panel:get-ctrl-snapshot
- *   state-controller-panel:set-selected-index
- *   state-controller-panel:set-state-by-id
- *   state-controller-panel:set-recording
- *   state-controller-panel:add-state
- *   state-controller-panel:remove-state
- *   state-controller-panel:add-property
- *   state-controller-panel:list-ctrls   (扫场景列所有 StateController)
+ *   state-controller-v2-panel:get-ctrl-snapshot
+ *   state-controller-v2-panel:set-selected-index
+ *   state-controller-v2-panel:set-state-by-id
+ *   state-controller-v2-panel:set-recording
+ *   state-controller-v2-panel:add-state
+ *   state-controller-v2-panel:remove-state
+ *   state-controller-v2-panel:add-property
+ *   state-controller-v2-panel:list-ctrls   (扫场景列所有 StateControllerV2)
  *
  * 广播事件名 (Editor.Ipc.sendToPanel):
- *   state-controller-panel:on-state-changed
- *   state-controller-panel:on-recording-changed
- *   state-controller-panel:on-data-changed
+ *   state-controller-v2-panel:on-state-changed
+ *   state-controller-v2-panel:on-recording-changed
+ *   state-controller-v2-panel:on-data-changed
  *
  * TODO Gemini 接入 panel UI 时验证:
  *   - require('./lib/handlers') 在 scene-script 上下文是否可达
@@ -28,10 +28,10 @@
  */
 
 // 加载阶段日志: 帮诊断 cocos 2.x scene-script 静默吞错. 若控制台看不到
-// "[state-controller-panel] scene-script loaded" 说明 require 链失败.
+// "[state-controller-v2-panel] scene-script loaded" 说明 require 链失败.
 try {
     if (typeof Editor !== 'undefined' && Editor.log) {
-        Editor.log('[state-controller-panel] scene-accessor.js loading...');
+        Editor.log('[state-controller-v2-panel] scene-accessor.js loading...');
     }
 } catch (_) { /* noop */ }
 
@@ -39,11 +39,11 @@ let handlers;
 try {
     handlers = require('./lib/handlers');
     if (typeof Editor !== 'undefined' && Editor.log) {
-        Editor.log('[state-controller-panel] scene-script loaded, handlers keys:', Object.keys(handlers).join(','));
+        Editor.log('[state-controller-v2-panel] scene-script loaded, handlers keys:', Object.keys(handlers).join(','));
     }
 } catch (e) {
     if (typeof Editor !== 'undefined' && Editor.error) {
-        Editor.error('[state-controller-panel] handlers.js load failed:', e && (e.stack || e.message || String(e)));
+        Editor.error('[state-controller-v2-panel] handlers.js load failed:', e && (e.stack || e.message || String(e)));
     }
     handlers = {};
 }
@@ -60,18 +60,18 @@ function getNodeByUuid(uuid) {
 function getCtrlByUuid(uuid) {
     const node = getNodeByUuid(uuid);
     if (!node) return null;
-    return node.getComponent('StateController') || null;
+    return node.getComponent('StateControllerV2') || null;
 }
 
 function getSelectByUuid(uuid) {
     const node = getNodeByUuid(uuid);
     if (!node) return null;
-    return node.getComponent('StateSelect') || null;
+    return node.getComponent('StateSelectV2') || null;
 }
 
 function broadcast(eventSuffix, payload) {
     if (typeof Editor === 'undefined' || !Editor.Ipc) return;
-    Editor.Ipc.sendToPanel('state-controller-panel', 'state-controller-panel:' + eventSuffix, payload);
+    Editor.Ipc.sendToPanel('state-controller-v2-panel', 'state-controller-v2-panel:' + eventSuffix, payload);
 }
 
 function ensureBridge(ctrl) {
@@ -103,7 +103,7 @@ const SCI_SYSTEM_EXCLUDE = {
     'cc.Animation.currentClip': 1, 'cc.ParticleSystem.file': 1, 'cc.AudioSource.clip': 1,
     'cc.Node.rotation': 1, 'cc.Node.rotationX': 1, 'cc.Node.rotationY': 1,
 };
-const SCI_CONTROLLER_COMPS = { StateSelect: 1, StateController: 1, StateValue: 1, stateValue: 1 };
+const SCI_CONTROLLER_COMPS = { StateSelectV2: 1, StateControllerV2: 1, StateValue: 1, stateValue: 1 };
 const SCI_NODE_AGG = {
     Position: ['x', 'y'], Scale: ['scaleX', 'scaleY'], Anchor: ['anchorX', 'anchorY'],
     Size: ['width', 'height'], Rotation: ['angle'], Color: ['color'], Opacity: ['opacity'],
@@ -131,7 +131,7 @@ function sciEnumCompProps(ctor, compName, Attr) {
     return out;
 }
 
-/** 插件侧按 propRef 读节点当前值 (mirror StateSelect.readNodeValueByPropRef, 不 require 项目源). */
+/** 插件侧按 propRef 读节点当前值 (mirror StateSelectV2.readNodeValueByPropRef, 不 require 项目源). */
 function readNodeValByRef(node, propRef) {
     if (!node || typeof propRef !== 'string') return undefined;
     const lastDot = propRef.lastIndexOf('.');
@@ -260,7 +260,7 @@ module.exports = {
     },
 
     /**
-     * 列场景里所有 StateController. Panel 打开时调用, 拿 controller 树.
+     * 列场景里所有 StateControllerV2. Panel 打开时调用, 拿 controller 树.
      * 返回 [{ uuid, ctrlId, ctrlName }].
      */
     'list-ctrls'(event) {
@@ -273,7 +273,7 @@ module.exports = {
 
         function walk(node) {
             if (!node) return;
-            const ctrl = node.getComponent('StateController');
+            const ctrl = node.getComponent('StateControllerV2');
             if (ctrl) {
                 out.push({ uuid: node.uuid, ctrlId: ctrl.ctrlId, ctrlName: ctrl.ctrlName || '' });
                 ensureBridge(ctrl);
@@ -311,12 +311,12 @@ module.exports = {
 
         function walk(node) {
             if (!node) return;
-            const ctrl = node.getComponent('StateController');
+            const ctrl = node.getComponent('StateControllerV2');
             if (ctrl) {
                 ctrlsInfo.push({ uuid: node.uuid, ctrl: ctrl });
                 ensureBridge(ctrl);
             }
-            const select = node.getComponent('StateSelect');
+            const select = node.getComponent('StateSelectV2');
             if (select) {
                 selectsInfo.push({
                     nodeUuid: node.uuid,
@@ -435,7 +435,7 @@ module.exports = {
         const reply = function (r) { if (event && event.reply) event.reply(null, r); };
         const node = getNodeByUuid(payload && payload.uuid);
         if (!node) return reply({ ok: false, reason: 'no node' });
-        const select = node.getComponent('StateSelect');
+        const select = node.getComponent('StateSelectV2');
         if (!select) return reply({ ok: true, hasSelect: false, items: [] });
 
         const userExcluded = {};
@@ -482,10 +482,10 @@ module.exports = {
         const reply = function (r) { if (event && event.reply) event.reply(null, r); };
         const node = getNodeByUuid(payload && payload.uuid);
         if (!node) return reply({ ok: false, reason: 'no node' });
-        const select = node.getComponent('StateSelect');
+        const select = node.getComponent('StateSelectV2');
         if (!select) return reply({ ok: true, hasSelect: false, states: [], props: {}, rows: [] });
         // ctrl 从 select 推导 (可能在祖先节点上); handlers 内部兜底再推一次
-        const ctrl = (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || node.getComponent('StateController') || null;
+        const ctrl = (select._ctrlsMap && select._ctrlsMap[select.currCtrlId]) || node.getComponent('StateControllerV2') || null;
         const sv = handlers.getPropStateValues(select, ctrl);
         // M2a-1: 录制态 → 标"改过未提交"的脏行 (节点当前值 ≠ 该 state 存储值, default 兜底).
         const isRecording = !!(ctrl && ctrl.isRecording);
@@ -541,7 +541,7 @@ module.exports = {
         const reply = function (r) { if (event && event.reply) event.reply(null, r); };
         const node = getNodeByUuid(payload && payload.uuid);
         if (!node) return reply({ ok: false, reason: 'no node' });
-        const select = node.getComponent('StateSelect');
+        const select = node.getComponent('StateSelectV2');
         if (!select) return reply({ ok: false, reason: 'no select' });
         const refs = (payload && payload.refs) || [];
         const action = payload && payload.action;
@@ -572,7 +572,7 @@ module.exports = {
         // 标脏 → 可 Ctrl+S 存盘
         if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
         // 广播 data-changed (其它面板 / 监听方刷新)
-        const ctrl = node.getComponent('StateController');
+        const ctrl = node.getComponent('StateControllerV2');
         if (ctrl) broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
         reply({ ok: true });
     },

@@ -29,12 +29,12 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController } = require("../../assets/script/controller/StateController");
+const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
 
 function setupCtrl(name?: string) {
     const ccLocal = (globalThis as any).cc;
     const ctrlNode = new ccLocal.Node(name || "CtrlNode");
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
     return { ctrl };
 }

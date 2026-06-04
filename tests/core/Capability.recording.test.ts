@@ -48,19 +48,19 @@ describe("RecordingCapability (Wave 2 T24)", () => {
         expect(typeof RecordingCapability.onRecordingStop).toBe("function");
     });
 
-    it("StateController 在 startRecording/stopRecording 时 dispatch RecordingCapability", () => {
+    it("StateControllerV2 在 startRecording/stopRecording 时 dispatch RecordingCapability", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require("../../assets/script/controller/capabilities/RecordingCapability");
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { CapabilityRegistry } = require("../../assets/script/controller/CapabilityRegistry");
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { StateController } = require("../../assets/script/controller/StateController");
+        const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
 
         const ccLocal = (globalThis as any).cc;
         const root = new ccLocal.Node("Root");
         const ctrlNode = new ccLocal.Node("Ctrl");
         root.addChild(ctrlNode);
-        const ctrl = ctrlNode.addComponent(StateController);
+        const ctrl = ctrlNode.addComponent(StateControllerV2);
         (ctrl as any).__preload();
 
         // 注册一个监听 capability

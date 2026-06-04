@@ -2,8 +2,8 @@
  * TASK-001 (RED): 双轨缺陷对称性红测试 — 内置 prop (老 facade EnumPropName 路径) vs 自定义 prop
  * (propRef string key 路径) 行为对照. 证明 F-6/F-7/F-8/F-9 双轨缺陷存在.
  *
- * 真 cocos 引擎集成测试 (不 mock cc). harness 同 StateSelect.setPropExcluded.test.ts:
- *   root → ctrlNode(StateController) → selectNode(StateSelect + Fixture), 各 __preload(), markCacheDirty().
+ * 真 cocos 引擎集成测试 (不 mock cc). harness 同 StateSelectV2.setPropExcluded.test.ts:
+ *   root → ctrlNode(StateControllerV2) → selectNode(StateSelectV2 + Fixture), 各 __preload(), markCacheDirty().
  *
  * 内置 prop 选 cc.Node.active (EnumPropName.Active=1, 布尔, ENUM_TO_PROPREF / PROPREF_TO_ENUM 命中,
  * 走老 facade togglePropertyControl(EnumPropName.Active) → addPropertyControl).
@@ -36,11 +36,11 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController } = require("../../assets/script/controller/StateController");
+const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass;
@@ -66,10 +66,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
     selectNode.addComponent(DualTrackFixture);
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -84,7 +84,7 @@ function setup() {
     return { ctrl, select, selectNode };
 }
 
-describe("StateSelect 双轨对称性 (内置 facade vs 自定义 propRef)", () => {
+describe("StateSelectV2 双轨对称性 (内置 facade vs 自定义 propRef)", () => {
 
     describe("F-8: 内置接入后判定/注册应走 propRef 单一路径 (无名字 key 残留)", () => {
         it("自定义 prop: $$controlledProps$$ 仅 propRef key, 无名字 key 残留 (基准对照)", () => {

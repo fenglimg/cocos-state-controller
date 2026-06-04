@@ -10,7 +10,7 @@
  * payload: { ctrl, fromState, toState, fromName, toName }
  *
  * 实装路径:
- *   - StateController.selectedIndex.setter 已 dispatch("onStateChanged", ...)
+ *   - StateControllerV2.selectedIndex.setter 已 dispatch("onStateChanged", ...)
  *   - EventCapability.onStateChanged hook 在被 dispatch 时, 查 ctrl-local listener Map 并 fanout
  *   - listener 存在 WeakMap<ctrl, Map<eventName, Set<cb>>>
  *
@@ -21,7 +21,7 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { CapabilityContext, ICapability } from "../Capability";
-import { StateErrorManager } from "../StateErrorManager";
+import { StateErrorManagerV2 } from "../StateErrorManagerV2";
 
 export type EventName = "stateChanged";
 
@@ -131,7 +131,7 @@ export const EventCapability: ICapability & {
                 cb(payload);
             }
             catch (e) {
-                StateErrorManager.warn("EventCapability listener 抛异常", {
+                StateErrorManagerV2.warn("EventCapability listener 抛异常", {
                     component: "EventCapability",
                     method: "onStateChanged",
                     params: { error: (e as Error).message },

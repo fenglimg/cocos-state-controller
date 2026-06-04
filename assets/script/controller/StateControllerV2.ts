@@ -1,13 +1,13 @@
 const { ccclass, menu, property, executeInEditMode } = cc._decorator;
 import { CapabilityRegistry } from "./CapabilityRegistry";
 import { cloneValueByType } from "./NestedCtrlData";
-// Wave 3 T07: 让所有 L0 内置 capability 跟着 StateController 一起被打入产出 (side-effect 自注册).
+// Wave 3 T07: 让所有 L0 内置 capability 跟着 StateControllerV2 一起被打入产出 (side-effect 自注册).
 // 显式 /index: cocos 2.x ts 编译路径不做 folder→index 解析, 写 "./capabilities" 会报
 // "Cannot find module './capabilities'" (jest 用 node resolver 能解出, 编辑器不行).
 import "./capabilities/index";
-import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnum";
-import { StateErrorManager } from "./StateErrorManager";
-import { StateSelect } from "./StateSelect";
+import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnumV2";
+import { StateErrorManagerV2 } from "./StateErrorManagerV2";
+import { StateSelectV2 } from "./StateSelectV2";
 import { CtrlRecordGroup, CtrlStateOpsGroup } from "./props/CtrlInspectorGroups";
 // 支柱 B: 可序列化跨控制器联动 — 复用运行时 binding capability 接线 (无循环依赖: 该 capability 不 import 本类).
 import { MultiCtrlBindingCapability } from "./capabilities/MultiCtrlBindingCapability";
@@ -32,13 +32,13 @@ export class StateValue {
     }
 }
 
-// 项目内 Component 脚本不传类名: 引擎按 frame.script(文件名 "StateController")自动注册,
+// 项目内 Component 脚本不传类名: 引擎按 frame.script(文件名 "StateControllerV2")自动注册,
 // 避免 editor 告警 3616 "Should not specify class name ... for Component which defines in project".
-// getComponent('StateController') 与 .fire cid 序列化均不受影响 (cid 由 _RF.uuid 注册).
+// getComponent('StateControllerV2') 与 .fire cid 序列化均不受影响 (cid 由 _RF.uuid 注册).
 @ccclass
-@menu("State/StateController")
+@menu("State/StateControllerV2")
 @executeInEditMode()
-export class StateController extends cc.Component {
+export class StateControllerV2 extends cc.Component {
     /** 状态id自增 */
     @property({ visible: false })
     private stateIdAuto = 0;
@@ -56,16 +56,16 @@ export class StateController extends cc.Component {
     private _bindingsData: string = "";
 
     /** 支柱 B: ctrlId → 实例 全局注册表, 供 binding 按 id 解析目标控制器. */
-    private static _byId: { [id: number]: StateController } = {};
-    public static getById(id: number): StateController | null {
-        return (typeof id === "number" && StateController._byId[id]) || null;
+    private static _byId: { [id: number]: StateControllerV2 } = {};
+    public static getById(id: number): StateControllerV2 | null {
+        return (typeof id === "number" && StateControllerV2._byId[id]) || null;
     }
-    private static _register(ctrl: StateController): void {
-        if (ctrl && typeof ctrl.ctrlId === "number") StateController._byId[ctrl.ctrlId] = ctrl;
+    private static _register(ctrl: StateControllerV2): void {
+        if (ctrl && typeof ctrl.ctrlId === "number") StateControllerV2._byId[ctrl.ctrlId] = ctrl;
     }
-    private static _unregister(ctrl: StateController): void {
-        if (ctrl && typeof ctrl.ctrlId === "number" && StateController._byId[ctrl.ctrlId] === ctrl) {
-            delete StateController._byId[ctrl.ctrlId];
+    private static _unregister(ctrl: StateControllerV2): void {
+        if (ctrl && typeof ctrl.ctrlId === "number" && StateControllerV2._byId[ctrl.ctrlId] === ctrl) {
+            delete StateControllerV2._byId[ctrl.ctrlId];
         }
     }
 
@@ -93,21 +93,21 @@ export class StateController extends cc.Component {
 
     /**
      * 标记当前 stopRecording 的触发来源 (模型 Z, 切 state 时自动停).
-     *   "manual": 用户点录制按钮关 (默认), StateSelect.onRecordingStop 走完整路径 + 弹窗
-     *   "auto":   selectedIndex setter 自动触发, StateSelect.onRecordingStop 走静默 + Editor.log
+     *   "manual": 用户点录制按钮关 (默认), StateSelectV2.onRecordingStop 走完整路径 + 弹窗
+     *   "auto":   selectedIndex setter 自动触发, StateSelectV2.onRecordingStop 走静默 + Editor.log
      * 字段非 @property, 不序列化. 仅在 stopRecording 调用前后短暂有效.
      */
-    public _stopRecordingMode: "manual" | "auto" = "manual";
+    public stopRecordingMode: "manual" | "auto" = "manual";
 
     // ================== 🔧 IMPL-001: BFS缓存优化 ==================
     /**
      * 🎯 缓存优化说明：
-     * - _stateSelectCache: 缓存当前控制器直接控制的所有StateSelect组件
+     * - _stateSelectCache: 缓存当前控制器直接控制的所有StateSelectV2组件
      * - _cacheDirty: 缓存脏标记，当节点结构变化时设为true
      * - 使用缓存后，状态切换从O(n)遍历优化为O(1)查找
      */
-    /** 🔧 缓存：存储直接控制的StateSelect组件 */
-    private _stateSelectCache: StateSelect[] = null;
+    /** 🔧 缓存：存储直接控制的StateSelectV2组件 */
+    private _stateSelectCache: StateSelectV2[] = null;
 
     /** 🔧 缓存脏标记：true表示需要重建缓存 */
     private _cacheDirty: boolean = true;
@@ -123,8 +123,8 @@ export class StateController extends cc.Component {
 
     public set ctrlName(value: string) {
         if (!CC_EDITOR) {
-            StateErrorManager.error("非编辑器环境，不更新名称", {
-                component: "StateController",
+            StateErrorManagerV2.error("非编辑器环境，不更新名称", {
+                component: "StateControllerV2",
                 method: "ctrlName.setter",
             });
             return;
@@ -199,8 +199,8 @@ export class StateController extends cc.Component {
 
     private set states(value: StateValue[]) {
         if (!CC_EDITOR) {
-            StateErrorManager.error("非编辑器环境，不更新状态", {
-                component: "StateController",
+            StateErrorManagerV2.error("非编辑器环境，不更新状态", {
+                component: "StateControllerV2",
                 method: "states.setter",
             });
             return;
@@ -208,8 +208,8 @@ export class StateController extends cc.Component {
 
         // TASK-002: 录制中不能修改状态列表 (避免 ctrlData 索引错位).
         if (this._recording) {
-            StateErrorManager.warn("录制中不能修改状态列表, 请先停止/撤销录制", {
-                component: "StateController",
+            StateErrorManagerV2.warn("录制中不能修改状态列表, 请先停止/撤销录制", {
+                component: "StateControllerV2",
                 method: "states.setter",
             });
             return;
@@ -217,8 +217,8 @@ export class StateController extends cc.Component {
 
         // 🔧 输入验证：确保数组有效
         if (!value || !Array.isArray(value)) {
-            StateErrorManager.warn("states必须是有效的数组", {
-                component: "StateController",
+            StateErrorManagerV2.warn("states必须是有效的数组", {
+                component: "StateControllerV2",
                 method: "states.setter",
                 params: { valueType: typeof value, isArray: Array.isArray(value) },
             });
@@ -233,8 +233,8 @@ export class StateController extends cc.Component {
         // 处理状态数量不足的情况
         if (newLen < 2) {
             applyIndex = 0;
-            StateErrorManager.warn("建议至少添加两个状态", {
-                component: "StateController",
+            StateErrorManagerV2.warn("建议至少添加两个状态", {
+                component: "StateControllerV2",
                 method: "states.setter",
                 params: { currentStateCount: newLen },
             });
@@ -301,8 +301,8 @@ export class StateController extends cc.Component {
         }
 
         // 🔧 更新内部状态数组
-        StateErrorManager.debug("开始更新状态数组", {
-            component: "StateController",
+        StateErrorManagerV2.debug("开始更新状态数组", {
+            component: "StateControllerV2",
             method: "states.setter",
             params: { oldLength: oldLen, newLength: newLen, deletedCount: deletedIndices.length },
         });
@@ -312,8 +312,8 @@ export class StateController extends cc.Component {
         const stateMap: { [key: string]: boolean } = {};
         const array = value.map((val, i) => {
             if (!val) {
-                StateErrorManager.error("状态对象不能为空", {
-                    component: "StateController",
+                StateErrorManagerV2.error("状态对象不能为空", {
+                    component: "StateControllerV2",
                     method: "states.setter",
                     params: { stateIndex: i },
                 });
@@ -323,8 +323,8 @@ export class StateController extends cc.Component {
             // 🔧 处理重复状态名
             if (stateMap[val.name]) {
                 const newName = val.name + "_" + i;
-                StateErrorManager.warn("检测到重复的状态名，自动重命名", {
-                    component: "StateController",
+                StateErrorManagerV2.warn("检测到重复的状态名，自动重命名", {
+                    component: "StateControllerV2",
                     method: "states.setter",
                     params: { originalName: val.name, newName: newName },
                 });
@@ -344,8 +344,8 @@ export class StateController extends cc.Component {
 
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
-            StateErrorManager.info("状态列表更新完成（包含删除）", {
-                component: "StateController",
+            StateErrorManagerV2.info("状态列表更新完成（包含删除）", {
+                component: "StateControllerV2",
                 method: "states.setter",
                 params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex },
             });
@@ -353,8 +353,8 @@ export class StateController extends cc.Component {
             this.updateState(EnumUpdateType.SelPage, deletedIndices[0]);
         }
         else {
-            StateErrorManager.info("状态列表更新完成", {
-                component: "StateController",
+            StateErrorManagerV2.info("状态列表更新完成", {
+                component: "StateControllerV2",
                 method: "states.setter",
                 params: { finalStateCount: newLen, currentIndex: applyIndex },
             });
@@ -373,16 +373,16 @@ export class StateController extends cc.Component {
             this.isInit = false;
 
             // 模型 Z: 录制中切 state → 自动 stopRecording, 把改动 commit 到 fromState 后再切.
-            // 标记 _stopRecordingMode="auto" 让 StateSelect.onRecordingStop 走静默 + log 路径,
+            // 标记 stopRecordingMode="auto" 让 StateSelectV2.onRecordingStop 走静默 + log 路径,
             // 不弹"未跟随 prop"窗 (高频操作不打扰). stopRecording 后 _recording=false,
             // 后续 StateWillChange / onStateWillChange 看到 !isRecording 自动跳过, 不重复 commit.
             if (this._recording) {
-                this._stopRecordingMode = "auto";
+                this.stopRecordingMode = "auto";
                 try {
                     this.stopRecording();
                 }
                 finally {
-                    this._stopRecordingMode = "manual";
+                    this.stopRecordingMode = "manual";
                 }
             }
 
@@ -391,15 +391,15 @@ export class StateController extends cc.Component {
             value = Math.max(0, Math.min(this._states.length - 1, value));
 
             if (originalValue !== value) {
-                StateErrorManager.warn("状态索引超出范围，已自动调整", {
-                    component: "StateController",
+                StateErrorManagerV2.warn("状态索引超出范围，已自动调整", {
+                    component: "StateControllerV2",
                     method: "selectedIndex.setter",
                     params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 },
                 });
             }
 
-            StateErrorManager.debug("开始状态切换", {
-                component: "StateController",
+            StateErrorManagerV2.debug("开始状态切换", {
+                component: "StateControllerV2",
                 method: "selectedIndex.setter",
                 params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit },
             });
@@ -432,8 +432,8 @@ export class StateController extends cc.Component {
 
             this.isChanging = false;
 
-            StateErrorManager.info("状态切换完成", {
-                component: "StateController",
+            StateErrorManagerV2.info("状态切换完成", {
+                component: "StateControllerV2",
                 method: "selectedIndex.setter",
                 params: { newState: value, stateName: this.selectedPage },
             });
@@ -451,8 +451,8 @@ export class StateController extends cc.Component {
     /** 🔧 调整当前选中状态的顺序 */
     private adjustSelectedStateOrder(offset: number) {
         if (!CC_EDITOR) {
-            StateErrorManager.error("仅在编辑器中调整状态顺序", {
-                component: "StateController",
+            StateErrorManagerV2.error("仅在编辑器中调整状态顺序", {
+                component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
             return;
@@ -460,16 +460,16 @@ export class StateController extends cc.Component {
 
         // TASK-002: 录制中不能调整状态顺序.
         if (this._recording) {
-            StateErrorManager.warn("录制中不能调整状态顺序, 请先停止/撤销录制", {
-                component: "StateController",
+            StateErrorManagerV2.warn("录制中不能调整状态顺序, 请先停止/撤销录制", {
+                component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
             return;
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManager.warn("当前没有可调整的状态", {
-                component: "StateController",
+            StateErrorManagerV2.warn("当前没有可调整的状态", {
+                component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
             return;
@@ -477,8 +477,8 @@ export class StateController extends cc.Component {
 
         const fromIndex = this._selectedIndex;
         if (fromIndex < 0 || fromIndex >= this._states.length) {
-            StateErrorManager.warn("选中的状态索引无效，无法调整顺序", {
-                component: "StateController",
+            StateErrorManagerV2.warn("选中的状态索引无效，无法调整顺序", {
+                component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
                 params: { selectedIndex: fromIndex, stateCount: this._states.length },
             });
@@ -487,8 +487,8 @@ export class StateController extends cc.Component {
 
         const targetIndex = fromIndex + offset;
         if (targetIndex < 0 || targetIndex >= this._states.length) {
-            StateErrorManager.warn("已到达边界，无法继续移动", {
-                component: "StateController",
+            StateErrorManagerV2.warn("已到达边界，无法继续移动", {
+                component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
                 params: { fromIndex: fromIndex, targetIndex: targetIndex, stateCount: this._states.length },
             });
@@ -506,11 +506,11 @@ export class StateController extends cc.Component {
         this._selectedIndex = targetIndex;
         this.states = newStates;
 
-        // 🔧 通知 StateSelect 携带数据一起移动
+        // 🔧 通知 StateSelectV2 携带数据一起移动
         this.updateState(EnumUpdateType.Move, { fromIndex: fromIndex, toIndex: targetIndex });
 
-        StateErrorManager.info("状态顺序已调整", {
-            component: "StateController",
+        StateErrorManagerV2.info("状态顺序已调整", {
+            component: "StateControllerV2",
             method: "adjustSelectedStateOrder",
             params: { fromIndex: fromIndex, toIndex: targetIndex, stateName: moved?.name },
         });
@@ -554,8 +554,8 @@ export class StateController extends cc.Component {
     /** 🔧 复制当前选中的状态并插入到下一位 */
     private copySelectedState() {
         if (!CC_EDITOR) {
-            StateErrorManager.error("仅在编辑器中复制状态", {
-                component: "StateController",
+            StateErrorManagerV2.error("仅在编辑器中复制状态", {
+                component: "StateControllerV2",
                 method: "copySelectedState",
             });
             return;
@@ -563,16 +563,16 @@ export class StateController extends cc.Component {
 
         // TASK-002: 录制中不能复制状态.
         if (this._recording) {
-            StateErrorManager.warn("录制中不能复制状态, 请先停止/撤销录制", {
-                component: "StateController",
+            StateErrorManagerV2.warn("录制中不能复制状态, 请先停止/撤销录制", {
+                component: "StateControllerV2",
                 method: "copySelectedState",
             });
             return;
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManager.warn("当前没有可复制的状态", {
-                component: "StateController",
+            StateErrorManagerV2.warn("当前没有可复制的状态", {
+                component: "StateControllerV2",
                 method: "copySelectedState",
             });
             return;
@@ -580,8 +580,8 @@ export class StateController extends cc.Component {
 
         const index = this._selectedIndex;
         if (index < 0 || index >= this._states.length) {
-            StateErrorManager.warn("选中的状态索引无效，无法复制", {
-                component: "StateController",
+            StateErrorManagerV2.warn("选中的状态索引无效，无法复制", {
+                component: "StateControllerV2",
                 method: "copySelectedState",
                 params: { selectedIndex: index, stateCount: this._states.length },
             });
@@ -599,12 +599,12 @@ export class StateController extends cc.Component {
 
         this._selectedIndex = insertIndex;
         this.states = newStates;
-        // 先派发 Copy 让各 StateSelect 深拷贝 pageData, 再发 State 让所有 select apply 当前 state
+        // 先派发 Copy 让各 StateSelectV2 深拷贝 pageData, 再发 State 让所有 select apply 当前 state
         this.updateState(EnumUpdateType.Copy, { fromIndex: index, toIndex: insertIndex });
         this.updateState(EnumUpdateType.State);
 
-        StateErrorManager.info("已复制当前状态", {
-            component: "StateController",
+        StateErrorManagerV2.info("已复制当前状态", {
+            component: "StateControllerV2",
             method: "copySelectedState",
             params: { fromIndex: index, insertIndex: insertIndex, originName: baseName, newName: copyName },
         });
@@ -613,8 +613,8 @@ export class StateController extends cc.Component {
     /** 🔧 删除当前选中的状态，至少保留一个 */
     private removeSelectedState() {
         if (!CC_EDITOR) {
-            StateErrorManager.error("仅在编辑器中删除状态", {
-                component: "StateController",
+            StateErrorManagerV2.error("仅在编辑器中删除状态", {
+                component: "StateControllerV2",
                 method: "removeSelectedState",
             });
             return;
@@ -622,24 +622,24 @@ export class StateController extends cc.Component {
 
         // TASK-002: 录制中不能删除状态.
         if (this._recording) {
-            StateErrorManager.warn("录制中不能删除状态, 请先停止/撤销录制", {
-                component: "StateController",
+            StateErrorManagerV2.warn("录制中不能删除状态, 请先停止/撤销录制", {
+                component: "StateControllerV2",
                 method: "removeSelectedState",
             });
             return;
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManager.warn("当前没有可删除的状态", {
-                component: "StateController",
+            StateErrorManagerV2.warn("当前没有可删除的状态", {
+                component: "StateControllerV2",
                 method: "removeSelectedState",
             });
             return;
         }
 
         if (this._states.length <= 1) {
-            StateErrorManager.warn("至少保留一个状态，已取消删除", {
-                component: "StateController",
+            StateErrorManagerV2.warn("至少保留一个状态，已取消删除", {
+                component: "StateControllerV2",
                 method: "removeSelectedState",
                 params: { stateCount: this._states.length },
             });
@@ -648,8 +648,8 @@ export class StateController extends cc.Component {
 
         const index = this._selectedIndex;
         if (index < 0 || index >= this._states.length) {
-            StateErrorManager.warn("选中的状态索引无效，无法删除", {
-                component: "StateController",
+            StateErrorManagerV2.warn("选中的状态索引无效，无法删除", {
+                component: "StateControllerV2",
                 method: "removeSelectedState",
                 params: { selectedIndex: index, stateCount: this._states.length },
             });
@@ -682,8 +682,8 @@ export class StateController extends cc.Component {
 
         this.states = newStates;
 
-        StateErrorManager.info("已删除当前状态", {
-            component: "StateController",
+        StateErrorManagerV2.info("已删除当前状态", {
+            component: "StateControllerV2",
             method: "removeSelectedState",
             params: {
                 removedIndex: index,
@@ -696,7 +696,7 @@ export class StateController extends cc.Component {
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     protected __preload() {
-        StateController._register(this);   // 支柱 B: 编辑器期也登记, 供 binding 解析 + 面板观测
+        StateControllerV2._register(this);   // 支柱 B: 编辑器期也登记, 供 binding 解析 + 面板观测
         if (!CC_EDITOR) {
             return;
         }
@@ -705,8 +705,8 @@ export class StateController extends cc.Component {
         this.stateOps.owner = this;
         this.recording.owner = this;
 
-        StateErrorManager.debug("开始控制器预加载", {
-            component: "StateController",
+        StateErrorManagerV2.debug("开始控制器预加载", {
+            component: "StateControllerV2",
             method: "__preload",
             params: { hasStates: !!this._states.length, ctrlName: this._ctrlName },
         });
@@ -714,8 +714,8 @@ export class StateController extends cc.Component {
         if (!this._states.length) {
             // 🔧 从1开始命名状态
             this._states = [StateValue.create("1", this.stateIdAuto++), StateValue.create("2", this.stateIdAuto++)];
-            StateErrorManager.info("创建默认状态", {
-                component: "StateController",
+            StateErrorManagerV2.info("创建默认状态", {
+                component: "StateControllerV2",
                 method: "__preload",
                 params: { defaultStates: ["1", "2"] },
             });
@@ -731,23 +731,23 @@ export class StateController extends cc.Component {
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
         if (this._states.length > 0 && (this._selectedIndex < 0 || this._selectedIndex >= this._states.length)) {
             this._selectedIndex = 0;
-            StateErrorManager.info("初始化时自动设置selectedIndex为第一个状态", {
-                component: "StateController",
+            StateErrorManagerV2.info("初始化时自动设置selectedIndex为第一个状态", {
+                component: "StateControllerV2",
                 method: "__preload",
             });
         }
 
         if (!this._ctrlName) {
             this.ctrlName = `ctrl_${Date.now().toString()}`;
-            StateErrorManager.debug("生成默认控制器名称", {
-                component: "StateController",
+            StateErrorManagerV2.debug("生成默认控制器名称", {
+                component: "StateControllerV2",
                 method: "__preload",
                 params: { generatedName: this._ctrlName },
             });
         }
 
-        StateErrorManager.info("控制器预加载完成", {
-            component: "StateController",
+        StateErrorManagerV2.info("控制器预加载完成", {
+            component: "StateControllerV2",
             method: "__preload",
             params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
         });
@@ -764,8 +764,8 @@ export class StateController extends cc.Component {
     /** Wave 2 T16: 场景切换前的兜底 commit hook. */
     private _onSceneBeforeLaunch(): void {
         if (this._recording) {
-            StateErrorManager.info("场景切换前自动停止录制", {
-                component: "StateController",
+            StateErrorManagerV2.info("场景切换前自动停止录制", {
+                component: "StateControllerV2",
                 method: "_onSceneBeforeLaunch",
                 params: { ctrlName: this._ctrlName },
             });
@@ -774,7 +774,7 @@ export class StateController extends cc.Component {
     }
 
     protected onLoad() {
-        StateController._register(this);   // 支柱 B: 运行时也登记 (start() rehydrate 需按 id 解析目标)
+        StateControllerV2._register(this);   // 支柱 B: 运行时也登记 (start() rehydrate 需按 id 解析目标)
         if (!CC_EDITOR) {
             // Wave 3: runtime 启动 capability hook (HomePage 等用此跳到指定 state)
             CapabilityRegistry.dispatch("onRuntimeInit", { ctrl: this });
@@ -794,14 +794,14 @@ export class StateController extends cc.Component {
     }
 
     protected onDestroy() {
-        StateController._unregister(this);   // 支柱 B
+        StateControllerV2._unregister(this);   // 支柱 B
         if (!CC_EDITOR) {
             return;
         }
         // Wave 2 T16: onDestroy 兜底 - 若仍在录制, stopRecording 触发 final commit
         if (this._recording) {
-            StateErrorManager.info("控制器销毁前自动停止录制 (commit final diff)", {
-                component: "StateController",
+            StateErrorManagerV2.info("控制器销毁前自动停止录制 (commit final diff)", {
+                component: "StateControllerV2",
                 method: "onDestroy",
             });
             this.stopRecording();
@@ -868,7 +868,7 @@ export class StateController extends cc.Component {
         const list = this.getBindings();
         for (let i = 0; i < list.length; i++) {
             const b = list[i];
-            const target = StateController.getById(b.targetCtrlId);
+            const target = StateControllerV2.getById(b.targetCtrlId);
             if (target) MultiCtrlBindingCapability.addBinding(this, b.sourceStateId, target, b.targetStateId);
         }
     }
@@ -876,8 +876,8 @@ export class StateController extends cc.Component {
     /** 选择的状态名字 */
     public get selectedPage(): string {
         // 🔧 IMPL-002.4: 添加调试日志
-        StateErrorManager.debug("获取selectedPage", {
-            component: "StateController",
+        StateErrorManagerV2.debug("获取selectedPage", {
+            component: "StateControllerV2",
             method: "selectedPage.getter",
             params: { selectedIndex: this._selectedIndex, statesCount: this._states.length },
         });
@@ -892,8 +892,8 @@ export class StateController extends cc.Component {
                 return currentState.name;
             }
             else {
-                StateErrorManager.warn("当前状态对象无效或名称为空", {
-                    component: "StateController",
+                StateErrorManagerV2.warn("当前状态对象无效或名称为空", {
+                    component: "StateControllerV2",
                     method: "selectedPage.getter",
                     params: { currentState: currentState, selectedIndex: this._selectedIndex },
                 });
@@ -914,8 +914,8 @@ export class StateController extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
-        StateErrorManager.debug("selectedPage 变更", {
-            component: "StateController",
+        StateErrorManagerV2.debug("selectedPage 变更", {
+            component: "StateControllerV2",
             method: "_emitSelectedPageChanged",
             params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
         });
@@ -927,15 +927,15 @@ export class StateController extends cc.Component {
      */
     public refreshSelectedPage(): void {
         if (!CC_EDITOR) {
-            StateErrorManager.warn("refreshSelectedPage仅在编辑器环境可用", {
-                component: "StateController",
+            StateErrorManagerV2.warn("refreshSelectedPage仅在编辑器环境可用", {
+                component: "StateControllerV2",
                 method: "refreshSelectedPage",
             });
             return;
         }
 
-        StateErrorManager.info("手动刷新selectedPage", {
-            component: "StateController",
+        StateErrorManagerV2.info("手动刷新selectedPage", {
+            component: "StateControllerV2",
             method: "refreshSelectedPage",
             params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
         });
@@ -954,8 +954,8 @@ export class StateController extends cc.Component {
 
     /** 找到所有被删除的状态索引 */
     private findDeletedIndices(oldStates: StateValue[], newStates: StateValue[]): number[] {
-        StateErrorManager.debug("开始检测删除的状态", {
-            component: "StateController",
+        StateErrorManagerV2.debug("开始检测删除的状态", {
+            component: "StateControllerV2",
             method: "findDeletedIndices",
             params: { oldCount: oldStates.length, newCount: newStates.length },
         });
@@ -974,8 +974,8 @@ export class StateController extends cc.Component {
             const oldState = oldStates[i];
 
             if (!oldState || oldState.stateId === undefined) {
-                StateErrorManager.warn("发现无效的旧状态对象", {
-                    component: "StateController",
+                StateErrorManagerV2.warn("发现无效的旧状态对象", {
+                    component: "StateControllerV2",
                     method: "findDeletedIndices",
                     params: { stateIndex: i },
                 });
@@ -988,8 +988,8 @@ export class StateController extends cc.Component {
         }
 
         if (deletedIndices.length > 0) {
-            StateErrorManager.info("检测到删除的状态", {
-                component: "StateController",
+            StateErrorManagerV2.info("检测到删除的状态", {
+                component: "StateControllerV2",
                 method: "findDeletedIndices",
                 params: { deletedIndices: deletedIndices, deletedCount: deletedIndices.length },
             });
@@ -1007,8 +1007,8 @@ export class StateController extends cc.Component {
 
         // 默认从1开始命名
         const defaultName = (index + 1).toString();
-        StateErrorManager.debug("使用默认状态名字", {
-            component: "StateController",
+        StateErrorManagerV2.debug("使用默认状态名字", {
+            component: "StateControllerV2",
             method: "getSmartStateName",
             params: { index: index, defaultName: defaultName },
         });
@@ -1018,27 +1018,27 @@ export class StateController extends cc.Component {
     // ================== 🔧 IMPL-001: BFS缓存优化方法 ==================
 
     /**
-     * 🔧 重建StateSelect缓存
-     * 使用getComponentsInChildren一次性获取所有StateSelect，然后过滤出直接控制的组件
+     * 🔧 重建StateSelectV2缓存
+     * 使用getComponentsInChildren一次性获取所有StateSelectV2，然后过滤出直接控制的组件
      */
     private rebuildStateSelectCache(): void {
         if (!this._cacheDirty && this._stateSelectCache !== null) {
             return; // 缓存有效，无需重建
         }
 
-        StateErrorManager.debug("开始重建StateSelect缓存", {
-            component: "StateController",
+        StateErrorManagerV2.debug("开始重建StateSelectV2缓存", {
+            component: "StateControllerV2",
             method: "rebuildStateSelectCache",
             params: { ctrlName: this._ctrlName },
         });
 
-        const allStateSelects = this.node.getComponentsInChildren(StateSelect);
+        const allStateSelects = this.node.getComponentsInChildren(StateSelectV2);
         this._stateSelectCache = allStateSelects.filter(ss => this.isDirectlyControlled(ss.node));
 
         this._cacheDirty = false;
 
-        StateErrorManager.info("StateSelect缓存重建完成", {
-            component: "StateController",
+        StateErrorManagerV2.info("StateSelectV2缓存重建完成", {
+            component: "StateControllerV2",
             method: "rebuildStateSelectCache",
             params: { cachedCount: this._stateSelectCache.length },
         });
@@ -1046,13 +1046,13 @@ export class StateController extends cc.Component {
 
     /**
      * 🔧 检查节点是否被当前控制器直接控制
-     * 直接控制 = 节点与控制器之间没有其他StateController
+     * 直接控制 = 节点与控制器之间没有其他StateControllerV2
      */
     private isDirectlyControlled(targetNode: cc.Node): boolean {
-        // #T1: targetNode 自身带其它 StateController → 归它(及其子树)管, 不是本(祖先)控制器直接控制。
+        // #T1: targetNode 自身带其它 StateControllerV2 → 归它(及其子树)管, 不是本(祖先)控制器直接控制。
         // 原实现只查父链中间 controller, 漏了 targetNode 自身 → 自带 controller 的节点被祖先双 claim。
         if (targetNode && targetNode !== this.node) {
-            const ownController = targetNode.getComponent(StateController);
+            const ownController = targetNode.getComponent(StateControllerV2);
             if (ownController && ownController !== this) {
                 return false;
             }
@@ -1064,9 +1064,9 @@ export class StateController extends cc.Component {
             const parent = current.parent;
             if (!parent) break;
 
-            // 如果父节点不是当前控制器节点，检查父节点上是否有其他StateController
+            // 如果父节点不是当前控制器节点，检查父节点上是否有其他StateControllerV2
             if (parent !== this.node) {
-                const parentController = parent.getComponent(StateController);
+                const parentController = parent.getComponent(StateControllerV2);
                 if (parentController && parentController !== this) {
                     // 发现了中间控制器，该节点不是直接控制的
                     return false;
@@ -1081,12 +1081,12 @@ export class StateController extends cc.Component {
 
     /**
      * 🔧 公共方法：标记缓存为脏，需要重建
-     * 当节点增删或StateSelect组件增删时调用
+     * 当节点增删或StateSelectV2组件增删时调用
      */
     public markCacheDirty(): void {
         this._cacheDirty = true;
-        StateErrorManager.debug("缓存已标记为脏", {
-            component: "StateController",
+        StateErrorManagerV2.debug("缓存已标记为脏", {
+            component: "StateControllerV2",
             method: "markCacheDirty",
             params: { ctrlName: this._ctrlName },
         });
@@ -1097,7 +1097,7 @@ export class StateController extends cc.Component {
         // 🔧 IMPL-001: 使用缓存替代BFS遍历
         this.rebuildStateSelectCache();
 
-        // 🔧 直接遍历缓存的StateSelect组件
+        // 🔧 直接遍历缓存的StateSelectV2组件
         for (const stateSelect of this._stateSelectCache) {
             // 注意：不能用 `!stateSelect.node.active` 做过滤。
             // 那会让"上一个 state 把 node 关掉、新 state 应该重新开"的场景失效 —
@@ -1108,7 +1108,7 @@ export class StateController extends cc.Component {
             }
 
             if (type == EnumUpdateType.State) {
-                // 🔧 状态切换：通知StateSelect组件状态已改变
+                // 🔧 状态切换：通知StateSelectV2组件状态已改变
                 stateSelect.updateState(this);
                 // Wave 2: 录制中切 state, apply 完新 state 后通知 select 重拍 snapshot
                 if (this._recording && typeof (stateSelect as any).onStateChanged === "function") {
@@ -1118,43 +1118,43 @@ export class StateController extends cc.Component {
                 // 会丢焦点 / 抖动. inspector 陈旧显示由 panel 主动接管 (无插件闭环).
             }
             else if (type == EnumUpdateType.Name) {
-                // 🔧 名称更新：通知StateSelect组件控制器名称已更改
+                // 🔧 名称更新：通知StateSelectV2组件控制器名称已更改
                 stateSelect.updateCtrlName(this.node);
             }
             else if (type == EnumUpdateType.SelPage) {
-                // 🔧 状态页面更新：通知StateSelect组件状态列表已更改
+                // 🔧 状态页面更新：通知StateSelectV2组件状态列表已更改
                 stateSelect.updateCtrlPage(this, value as number);
             }
             else if (type == EnumUpdateType.Delete) {
-                // 🔧 删除通知：通知StateSelect组件控制器即将被删除
+                // 🔧 删除通知：通知StateSelectV2组件控制器即将被删除
                 stateSelect.updateDelete(this);
             }
             else if (type == EnumUpdateType.Init) {
-                // 🔧 初始化通知：通知StateSelect组件控制器已完成初始化
+                // 🔧 初始化通知：通知StateSelectV2组件控制器已完成初始化
                 stateSelect.updatePreLoad(this);
             }
             else if (type == EnumUpdateType.Prop) {
-                // 🔧 属性更新：通知StateSelect组件属性已更改
+                // 🔧 属性更新：通知StateSelectV2组件属性已更改
                 stateSelect.updateProp(this);
             }
             else if (type == EnumUpdateType.Move) {
-                // 🔧 状态顺序变更：通知StateSelect同步状态数据顺序
+                // 🔧 状态顺序变更：通知StateSelectV2同步状态数据顺序
                 // @ts-expect-error 允许使用该方法
                 stateSelect.updateStateMove(this, value);
             }
             else if (type == EnumUpdateType.Copy) {
-                // 🔧 状态复制：通知 StateSelect 深拷贝 pageData[fromIndex] → pageData[toIndex]
+                // 🔧 状态复制：通知 StateSelectV2 深拷贝 pageData[fromIndex] → pageData[toIndex]
                 // @ts-expect-error 允许使用该方法
                 stateSelect.updateStateCopy(this, value);
             }
             else if (type == EnumUpdateType.RecordingStart) {
-                // Wave 2: 录制开始, StateSelect 拍 snapshot
+                // Wave 2: 录制开始, StateSelectV2 拍 snapshot
                 if (typeof (stateSelect as any).onRecordingStart === "function") {
                     (stateSelect as any).onRecordingStart(this);
                 }
             }
             else if (type == EnumUpdateType.RecordingStop) {
-                // Wave 2: 录制结束, StateSelect final commit + 清 snapshot
+                // Wave 2: 录制结束, StateSelectV2 final commit + 清 snapshot
                 if (typeof (stateSelect as any).onRecordingStop === "function") {
                     (stateSelect as any).onRecordingStop(this);
                 }
@@ -1176,7 +1176,7 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 进入录制态: 通知所有 StateSelect.onRecordingStart 拍 snapshot.
+     * 进入录制态: 通知所有 StateSelectV2.onRecordingStart 拍 snapshot.
      * 幂等: 已经在录制时 no-op。
      *
      * 模型 Z dirty 检测: 进入录制前若发现节点已勾跟随的 prop 跟 ctrlData[currentState]
@@ -1201,8 +1201,8 @@ export class StateController extends cc.Component {
         this._recording = true;
         // TASK-002: 记录录制开始时的 state, 供 cancelRecording 回滚定位.
         this._recordingStartState = this._selectedIndex;
-        StateErrorManager.info("开始录制", {
-            component: "StateController",
+        StateErrorManagerV2.info("开始录制", {
+            component: "StateControllerV2",
             method: "_doStartRecording",
             params: { ctrlName: this._ctrlName },
         });
@@ -1212,14 +1212,14 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 扫所有受控 StateSelect 上的 controlled prop, 节点当前值 vs ctrlData[currentState] 不一致
+     * 扫所有受控 StateSelectV2 上的 controlled prop, 节点当前值 vs ctrlData[currentState] 不一致
      * 即 dirty. 返回 [{ select, propType?, propRef?, current, stored }, ...].
      *
      * W6-2a-fixup: schema 升级 - dirty entry 含双 key (内置 propType / 自定义 propRef).
      * 调用方 promptDirtyAndStart 显示与写回路径同步兼容.
      */
-    private collectControlledDirty(): Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> {
-        const out: Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> = [];
+    private collectControlledDirty(): Array<{ select: StateSelectV2, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> {
+        const out: Array<{ select: StateSelectV2, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }> = [];
         this.rebuildStateSelectCache();
         if (!this._stateSelectCache) return out;
         for (const select of this._stateSelectCache) {
@@ -1230,8 +1230,8 @@ export class StateController extends cc.Component {
                 for (const entry of list) out.push({ select, ...entry });
             }
             catch (e) {
-                StateErrorManager.warn("collectControlledDirty: StateSelect 收集 dirty 失败", {
-                    component: "StateController",
+                StateErrorManagerV2.warn("collectControlledDirty: StateSelectV2 收集 dirty 失败", {
+                    component: "StateControllerV2",
                     method: "collectControlledDirty",
                     params: { error: (e as Error).message },
                 });
@@ -1246,9 +1246,9 @@ export class StateController extends cc.Component {
      *  1 = 丢弃恢复存储值          → 应用 ctrlData 回节点 (updateState) + _doStartRecording
      *  2 = 取消                    → 不进入录制态
      */
-    private promptDirtyAndStart(dirty: Array<{ select: StateSelect, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }>): void {
+    private promptDirtyAndStart(dirty: Array<{ select: StateSelectV2, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }>): void {
         const lines = dirty.map(d => {
-            const nodeName = d.select.node && d.select.node.name || "?";
+            const nodeName = (d.select.node && d.select.node.name) || "?";
             // W6-2a-fixup: 显示兼容 - 自定义走 propRef, 内置走 EnumPropName[propType]
             const label = d.propRef !== undefined
                 ? d.propRef
@@ -1273,7 +1273,7 @@ export class StateController extends cc.Component {
                             ? cloneValueByType(d.current, tp.cocosType)
                             : d.current;
                     } else if (d.propType !== undefined) {
-                        // W6-2c2: 走 StateSelect.writePropByEnum 保证写 string propRef key (跟 production 一致)
+                        // W6-2c2: 走 StateSelectV2.writePropByEnum 保证写 string propRef key (跟 production 一致)
                         (d.select as any).writePropByEnum(propData, d.propType, d.current);
                     }
                 }
@@ -1363,7 +1363,7 @@ export class StateController extends cc.Component {
     }
 
     /**
-     * 退出录制态: 通知所有 StateSelect.onRecordingStop final commit + 清 snapshot.
+     * 退出录制态: 通知所有 StateSelectV2.onRecordingStop final commit + 清 snapshot.
      * 幂等: 未在录制时 no-op。
      */
     public stopRecording(): void {
@@ -1371,8 +1371,8 @@ export class StateController extends cc.Component {
             return;
         }
         this._recording = false;
-        StateErrorManager.info("停止录制", {
-            component: "StateController",
+        StateErrorManagerV2.info("停止录制", {
+            component: "StateControllerV2",
             method: "stopRecording",
             params: { ctrlName: this._ctrlName },
         });
@@ -1401,7 +1401,7 @@ export class StateController extends cc.Component {
     /**
      * 撤销本次录制 (TASK-002, 模型 Z inspector 闭环).
      *
-     * 把 ctrlData[_recordingStartState] 回滚到录制开始前的值 (复用 StateSelect.onRecordingStart
+     * 把 ctrlData[_recordingStartState] 回滚到录制开始前的值 (复用 StateSelectV2.onRecordingStart
      * 已拍的 _snapshot), 置 _recording=false, 不调 stopRecording (避免触发 commit / RecordingStop).
      *
      * 设计:
@@ -1421,8 +1421,8 @@ export class StateController extends cc.Component {
                 if (typeof (select as any).applyRecordingSnapshot === "function") {
                     try { (select as any).applyRecordingSnapshot(this, fromState); }
                     catch (e) {
-                        StateErrorManager.warn("cancelRecording: applyRecordingSnapshot 失败", {
-                            component: "StateController",
+                        StateErrorManagerV2.warn("cancelRecording: applyRecordingSnapshot 失败", {
+                            component: "StateControllerV2",
                             method: "cancelRecording",
                             params: { error: (e as Error).message },
                         });
@@ -1431,8 +1431,8 @@ export class StateController extends cc.Component {
             }
         }
         this._recording = false;
-        StateErrorManager.info("撤销录制", {
-            component: "StateController",
+        StateErrorManagerV2.info("撤销录制", {
+            component: "StateControllerV2",
             method: "cancelRecording",
             params: { ctrlName: this._ctrlName, fromState },
         });
@@ -1466,8 +1466,8 @@ export class StateController extends cc.Component {
             Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
         }
         catch (error) {
-            StateErrorManager.warn("刷新属性检查器失败", {
-                component: "StateController",
+            StateErrorManagerV2.warn("刷新属性检查器失败", {
+                component: "StateControllerV2",
                 method: "forceRefreshInspector",
                 params: { error: (error as Error).message },
             });

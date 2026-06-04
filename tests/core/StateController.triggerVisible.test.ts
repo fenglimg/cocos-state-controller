@@ -1,7 +1,7 @@
 /**
- * TASK-005 (专项A-1): StateController move↑↓ / dup / delete 触发器改组件 inspector visible:true.
+ * TASK-005 (专项A-1): StateControllerV2 move↑↓ / dup / delete 触发器改组件 inspector visible:true.
  *
- * 设计 (SPEC 专项A / line 235): StateController 的 move↑↓ / dup / delete @property 触发器
+ * 设计 (SPEC 专项A / line 235): StateControllerV2 的 move↑↓ / dup / delete @property 触发器
  * 由 visible:false (panel 时代隐藏) 翻为 visible:true, 让用户不依赖面板即可在组件 inspector
  * 直接操作整个 State 列表 (增删改切由 states 数组 UI + 这 4 个触发器闭环).
  *
@@ -24,7 +24,7 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController, StateValue } = require("../../assets/script/controller/StateController");
+const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
 
 const DELIMETER = "$_$";
 
@@ -38,7 +38,7 @@ function setup() {
     const root = new ccL.Node("TVR_Root");
     const ctrlNode = new ccL.Node("TVR_CtrlNode");
     root.addChild(ctrlNode);
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
     // 准备 3 个 state 供 move/dup/delete 操作 (用 StateValue.create 走正规构造)
     ctrl.states = [
@@ -49,15 +49,15 @@ function setup() {
     return { ccL, root, ctrl };
 }
 
-describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
+describe("专项A-1 StateControllerV2 触发器 (折叠组重构后)", () => {
     const opsTriggers = ["moveStateUp", "moveStateDown", "duplicateCurrentState", "deleteCurrentState"];
     // 2026-06-03: cancelRecordTrigger 按钮已从 inspector 移除 (回退用 Ctrl+Z), recording 组只剩 recordTrigger.
     const recordTriggers = ["recordTrigger"];
 
-    it("4 个状态操作触发器已从 StateController 顶层 @property 移除 (改由 stateOps 折叠组承载)", () => {
+    it("4 个状态操作触发器已从 StateControllerV2 顶层 @property 移除 (改由 stateOps 折叠组承载)", () => {
         for (const key of opsTriggers) {
             // 顶层不再注册 @property → visible 属性 undefined (普通访问器仍在原型上, 仅不直显)
-            expect({ propKey: key, visible: getVisibleAttr(StateController, key) })
+            expect({ propKey: key, visible: getVisibleAttr(StateControllerV2, key) })
                 .toEqual({ propKey: key, visible: undefined });
         }
     });
@@ -65,7 +65,7 @@ describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
     it("stateOps 折叠组对 inspector 可见, 组内 4 个触发器 visible !== false + displayName 注入", () => {
         const { ctrl } = setup();
         expect((ctrl as any).stateOps).toBeTruthy();
-        expect(getVisibleAttr(StateController, "stateOps")).not.toBe(false);
+        expect(getVisibleAttr(StateControllerV2, "stateOps")).not.toBe(false);
         const groupAttrs = (globalThis as any).cc.Class.Attr.getClassAttrs((ctrl as any).stateOps);
         const expectName: Record<string, string> = {
             moveStateUp: "状态上移", moveStateDown: "状态下移",
@@ -80,7 +80,7 @@ describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
     it("recording 折叠组对 inspector 可见, 组内录制触发器 visible !== false", () => {
         const { ctrl } = setup();
         expect((ctrl as any).recording).toBeTruthy();
-        expect(getVisibleAttr(StateController, "recording")).not.toBe(false);
+        expect(getVisibleAttr(StateControllerV2, "recording")).not.toBe(false);
         const groupAttrs = (globalThis as any).cc.Class.Attr.getClassAttrs((ctrl as any).recording);
         for (const key of recordTriggers) {
             expect(groupAttrs[key + DELIMETER + "visible"]).not.toBe(false);

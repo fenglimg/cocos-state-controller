@@ -1,7 +1,7 @@
 /**
- * 单 StateController 下多个 StateSelect 同时被控制 (红测试复现 bug)
+ * 单 StateControllerV2 下多个 StateSelectV2 同时被控制 (红测试复现 bug)
  *
- * 用户报告: 状态控制器只对**第一个 StateSelect 生效**, 之后的 StateSelect
+ * 用户报告: 状态控制器只对**第一个 StateSelectV2 生效**, 之后的 StateSelectV2
  * 切换 state 时不被 apply (值可能保存但不应用到节点).
  */
 
@@ -22,14 +22,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlWithMultiSelect(count: number) {
@@ -38,7 +38,7 @@ function setupCtrlWithMultiSelect(count: number) {
     const ctrlNode = new ccL.Node("MS_Ctrl");
     root.addChild(ctrlNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
     // 模拟 cocos 编辑器真实时序: 用户加一个 select, ctrl 可能因切 state 触发
@@ -50,7 +50,7 @@ function setupCtrlWithMultiSelect(count: number) {
     for (let i = 0; i < count; i++) {
         const sn = new ccL.Node(`MS_Select_${i}`);
         ctrlNode.addChild(sn);
-        const ss = sn.addComponent(StateSelect);
+        const ss = sn.addComponent(StateSelectV2);
         (ss as any).__preload();
         selects.push({ node: sn, select: ss });
 

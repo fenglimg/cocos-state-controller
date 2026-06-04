@@ -1,12 +1,12 @@
 /**
- * StateSelect Inspector 按钮契约 (Phase 4.5)
+ * StateSelectV2 Inspector 按钮契约 (Phase 4.5)
  *
  * 覆盖三个面向编辑器的 inspector 按钮:
  *   - forceRefreshInspector: 调用 Editor.Utils.refreshSelectedInspector
  *   - manualReloadController: 重置后重新拿到 currCtrlId
  *   - deletePropertyWithConfirmation: 没选 prop 静默 / 选了且 confirm=true 才真删
  *
- * syncDataFromMemory 已在 StateSelect.syncDataFromMemory.test.ts 覆盖.
+ * syncDataFromMemory 已在 StateSelectV2.syncDataFromMemory.test.ts 覆盖.
  */
 
 declare global {
@@ -33,14 +33,14 @@ beforeEach(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -51,17 +51,17 @@ function setupCtrlAndSelect() {
     const selectNode = new ccL.Node("IB_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateSelect.forceRefreshInspector", () => {
+describe("StateSelectV2.forceRefreshInspector", () => {
     it("调用一次 Editor.Utils.refreshSelectedInspector('node', node.uuid)", () => {
         const { select, selectNode } = setupCtrlAndSelect();
         refreshSpy.mockClear();
@@ -80,7 +80,7 @@ describe("StateSelect.forceRefreshInspector", () => {
     });
 });
 
-describe("StateSelect.manualReloadController", () => {
+describe("StateSelectV2.manualReloadController", () => {
     it("调用后 currCtrlId 应被重新分配为 parent controller 的 ctrlId", () => {
         const { ctrl, select } = setupCtrlAndSelect();
         const originalCtrlId = ctrl.ctrlId;
@@ -95,7 +95,7 @@ describe("StateSelect.manualReloadController", () => {
     });
 });
 
-describe("StateSelect.deletePropertyWithConfirmation", () => {
+describe("StateSelectV2.deletePropertyWithConfirmation", () => {
     it("没选中任何 prop 时静默返回, 不抛错", () => {
         const { select } = setupCtrlAndSelect();
         // 默认 _propKey = Non, 走 "没选中" 分支

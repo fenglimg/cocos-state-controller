@@ -14,7 +14,7 @@
  *   7. 切回 state 0, color 应 apply RED
  *   8. stopRecording
  *
- * 红预期: 当前 StateSelect 没有 onStateWillChange / onStateChanged, 切 state 不 commit diff。
+ * 红预期: 当前 StateSelectV2 没有 onStateWillChange / onStateChanged, 切 state 不 commit diff。
  */
 
 declare global {
@@ -32,14 +32,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -50,10 +50,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();

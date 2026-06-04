@@ -108,12 +108,12 @@ module.exports = {
     },
 
     _callScene(method, payload, cb) {
-        Editor.Scene.callSceneScript('state-controller-panel', method, payload || null, cb || function () {});
+        Editor.Scene.callSceneScript('state-controller-v2-panel', method, payload || null, cb || function () {});
     },
 
     // 初次拉取: 纯事件驱动, 先问场景是否就绪 (避免 scene-script 未注册时盲调告警).
     _initialRefresh() {
-        Editor.Ipc.sendToMain('state-controller-panel:is-scene-ready', (err, ready) => {
+        Editor.Ipc.sendToMain('state-controller-v2-panel:is-scene-ready', (err, ready) => {
             if (!err && ready) {
                 this.refreshTopology();
                 this.refreshCtrlList();
@@ -181,8 +181,8 @@ module.exports = {
 
         this.$chkInspectorMaster.addEventListener('change', () => {
             this._updateInspectorSubToggles();
-            if (this.$chkInspectorMaster.checked) Editor.Ipc.sendToMain('state-controller-panel:inspector-mark-on');
-            else Editor.Ipc.sendToMain('state-controller-panel:inspector-mark-off');
+            if (this.$chkInspectorMaster.checked) Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-mark-on');
+            else Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-mark-off');
         });
         const onSubFlagChange = () => { if (this.$chkInspectorMaster.checked) this._syncInspectorSubFlags(); };
         this.$chkInspectorViz.addEventListener('change', onSubFlagChange);
@@ -664,7 +664,7 @@ module.exports = {
     // 编辑视图 (保留既有能力)
     // ============================================================
     _fetchInspectorFlags() {
-        Editor.Ipc.sendToMain('state-controller-panel:inspector-get-flags', (err, flags) => {
+        Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-get-flags', (err, flags) => {
             if (err) { Editor.warn('Failed to get inspector flags:', err); return; }
             if (flags) {
                 this.$chkInspectorMaster.checked = !!flags.master;
@@ -683,7 +683,7 @@ module.exports = {
         this.$inspectorSubToggles.classList.toggle('is-disabled', !on);
     },
     _syncInspectorSubFlags() {
-        Editor.Ipc.sendToMain('state-controller-panel:inspector-set-flags', {
+        Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-set-flags', {
             master: true,
             viz: !!this.$chkInspectorViz.checked,
             dirty: !!this.$chkInspectorDirty.checked,
@@ -988,21 +988,21 @@ module.exports = {
     // ============================================================
     messages: {
         'scene:reloaded'() { this.refreshTopology(); this.refreshBindings(); this.refreshCtrlList(); },
-        'state-controller-panel:scene-ready'() { this.refreshTopology(); this.refreshBindings(); this.refreshCtrlList(); },
-        'state-controller-panel:on-state-changed'(event, payload) {
+        'state-controller-v2-panel:scene-ready'() { this.refreshTopology(); this.refreshBindings(); this.refreshCtrlList(); },
+        'state-controller-v2-panel:on-state-changed'(event, payload) {
             this.refreshTopology();
             this.refreshBindings();
             if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
-        'state-controller-panel:on-recording-changed'(event, payload) {
+        'state-controller-v2-panel:on-recording-changed'(event, payload) {
             this.refreshTopology();
             if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
-        'state-controller-panel:on-recording-cancelled'(event, payload) {
+        'state-controller-v2-panel:on-recording-cancelled'(event, payload) {
             this.refreshTopology();
             if (this._isActivePayload(payload)) this.refreshSnapshot();
         },
-        'state-controller-panel:on-data-changed'(event, payload) {
+        'state-controller-v2-panel:on-data-changed'(event, payload) {
             this.refreshTopology();
             this.refreshBindings();
             if (this._isActivePayload(payload)) this.refreshSnapshot();

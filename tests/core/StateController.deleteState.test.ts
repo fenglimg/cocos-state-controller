@@ -1,5 +1,5 @@
 /**
- * StateController 删除状态后的数据清理回归测试
+ * StateControllerV2 删除状态后的数据清理回归测试
  *
  * 验证 B3 bug:「deleteState 不清 _ctrlData[ctrlId][stateId], 状态名复用时数据污染」
  *
@@ -26,14 +26,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController, StateValue } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2, StateValue } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -44,10 +44,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -55,7 +55,7 @@ function setup() {
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateController deleteState data cleanup", () => {
+describe("StateControllerV2 deleteState data cleanup", () => {
     it("删除中间状态: 后续状态数据应前移, 末尾应清空", () => {
         const { ctrl, select, selectNode } = setup();
 

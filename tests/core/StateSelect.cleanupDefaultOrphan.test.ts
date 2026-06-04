@@ -26,9 +26,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController, StateValue } = require("../../assets/script/controller/StateController");
+const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
 
 const ccL = (globalThis as any).cc;
 
@@ -38,9 +38,9 @@ function setup(stateCount = 3) {
     root.addChild(ctrlNode);
     const selectNode = new ccL.Node("CO_SelectNode");
     ctrlNode.addChild(selectNode);
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
     while ((ctrl as any)._states.length < stateCount) {

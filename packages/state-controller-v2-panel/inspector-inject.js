@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * state-controller-panel · inspector 注入层
+ * state-controller-v2-panel · inspector 注入层
  *
  * 当前阶段 = P0 探针: 注入编辑器渲染进程, 探测属性检查器 (inspector) 面板的真实 DOM,
  * 找出 "属性行 DOM → propRef (compName.propKey)" 这座桥. 桥确认后才铺 P1–P3.
@@ -333,7 +333,7 @@ function probeInspector() {
         // 兜底提示: 1.2s 后若没写成功, 多半是没选中节点
         setTimeout(function () {
             if (!wrote) {
-                Editor.warn('[sc-inspector-probe] 未探到 inspector 内容 — 请先在场景里【选中一个挂了组件的节点】(最好带 StateSelect + cc.Sprite 等), 再跑一次探针');
+                Editor.warn('[sc-inspector-probe] 未探到 inspector 内容 — 请先在场景里【选中一个挂了组件的节点】(最好带 StateSelectV2 + cc.Sprite 等), 再跑一次探针');
             }
         }, 1200);
     } catch (e) {
@@ -444,7 +444,7 @@ function buildResidentScript() {
 
         SCI.requestSV = function (uuid) {
             try {
-                Editor.Ipc.sendToMain('state-controller-panel:inspector-req-state-values', { uuid: uuid },
+                Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-req-state-values', { uuid: uuid },
                     function (err, res) {
                         const map = {};
                         let props = null, states = null, selectedIndex = -1;
@@ -466,7 +466,7 @@ function buildResidentScript() {
 
         SCI.request = function (uuid) {
             try {
-                Editor.Ipc.sendToMain('state-controller-panel:inspector-req-status', { uuid: uuid },
+                Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-req-status', { uuid: uuid },
                     function (err, res) {
                         const map = {};
                         if (!err && res && res.ok && res.items) {
@@ -713,7 +713,7 @@ function buildResidentScript() {
             const uuid = SCI.getSelUuid();
             if (!uuid) return;
             try {
-                Editor.Ipc.sendToMain('state-controller-panel:inspector-toggle-exclude',
+                Editor.Ipc.sendToMain('state-controller-v2-panel:inspector-toggle-exclude',
                     { uuid: uuid, refs: refs, action: action },
                     function () { SCI.reqUuid = null; SCI.lastReq = 0; SCI.apply(); });
             } catch (err) {}

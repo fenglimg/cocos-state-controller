@@ -23,7 +23,7 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { ICapability } from "../Capability";
-import { StateErrorManager } from "../StateErrorManager";
+import { StateErrorManagerV2 } from "../StateErrorManagerV2";
 import { EventCapability, StateChangedPayload } from "./EventCapability";
 import { SelectedPageIdCapability } from "./SelectedPageIdCapability";
 
@@ -64,7 +64,7 @@ function ensureSourceListener(sourceCtrl: any): SourceListener {
                     SelectedPageIdCapability.setStateById(b.target, b.targetStateId);
                 }
                 catch (e) {
-                    StateErrorManager.warn("MultiCtrlBinding setStateById 异常", {
+                    StateErrorManagerV2.warn("MultiCtrlBinding setStateById 异常", {
                         component: "MultiCtrlBindingCapability",
                         method: "dispatch",
                         params: { error: (e as Error).message, targetStateId: b.targetStateId },

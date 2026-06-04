@@ -23,7 +23,7 @@ beforeAll(() => {
 describe("scene-accessor.js (smoke)", () => {
     it("模块可加载, 暴露 v0.2 §2 全部 IPC 路由名", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const accessor = require("../../packages/state-controller-panel/scene-accessor");
+        const accessor = require("../../packages/state-controller-v2-panel/scene-accessor");
         const expected = [
             "get-ctrl-snapshot",
             "set-selected-index",
@@ -47,7 +47,7 @@ describe("scene-accessor.js (smoke)", () => {
 
     it("ctrl 找不到时, handler 调 event.reply 而不抛", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const accessor = require("../../packages/state-controller-panel/scene-accessor");
+        const accessor = require("../../packages/state-controller-v2-panel/scene-accessor");
         const replied: any[] = [];
         const event = { reply: (err: any, result: any) => replied.push({ err, result }) };
 

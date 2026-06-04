@@ -14,8 +14,8 @@
  * - 扩展新 prop: 加一行 PropHandlerManager.register(...) 即可, 不再写新 class
  */
 
-import { EnumPropName } from "./StateEnum";
-import { StateErrorManager } from "./StateErrorManager";
+import { EnumPropName } from "./StateEnumV2";
+import { StateErrorManagerV2 } from "./StateErrorManagerV2";
 
 /** 属性值统一类型 */
 export type TPropValue =
@@ -269,7 +269,7 @@ PropHandlerManager.register(EnumPropName.GrayScale, {
     setValue: (node, _value) => {
         const sprite = node.getComponent(cc.Sprite);
         if (sprite) {
-            StateErrorManager.warn("GrayScale属性在Cocos Creator 2.x中需要通过材质实现");
+            StateErrorManagerV2.warn("GrayScale属性在Cocos Creator 2.x中需要通过材质实现");
         }
     },
     getDefaultValue: (node) => {

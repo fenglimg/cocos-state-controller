@@ -1,11 +1,11 @@
 /**
- * TASK-006 (专项A-2): StateSelect 单节点各 state 值 swap/copy/move 局部操作.
+ * TASK-006 (专项A-2): StateSelectV2 单节点各 state 值 swap/copy/move 局部操作.
  *
  * 设计 (SPEC 专项A / line 236): 节点级局部值便捷操作 —— 把单节点某 state 的值数据
  * 与相邻 state 的值数据 交换/复制/移动. 只动 _ctrlData[ctrlId][stateKey] 的 propData,
  * 不碰 selectedIndex、不影响其他节点的 _ctrlData、不增删 state 数量结构.
  *
- * 与 StateController 的 move/dup/delete (操作整个 State 列表, 影响所有节点) 语义不同:
+ * 与 StateControllerV2 的 move/dup/delete (操作整个 State 列表, 影响所有节点) 语义不同:
  * 这里是单节点局部数据搬运 (如 swap A1↔B1 / copy A1→B1).
  *
  * 真 cocos 引擎集成测试. 本测试覆盖数据正确性; 编辑器 dogfood (T8) 另行取证.
@@ -26,9 +26,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController, StateValue } = require("../../assets/script/controller/StateController");
+const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
 
 function setup() {
     const ccL = (globalThis as any).cc;
@@ -40,7 +40,7 @@ function setup() {
     const otherNode = new ccL.Node("LSV_OtherNode");
     ctrlNode.addChild(otherNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
     // 3 个 state: A(0) / B(1) / C(2)
     ctrl.states = [
@@ -49,9 +49,9 @@ function setup() {
         StateValue.create("C", (ctrl as any).stateIdAuto++),
     ];
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
-    const other = otherNode.addComponent(StateSelect);
+    const other = otherNode.addComponent(StateSelectV2);
     (other as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -67,7 +67,7 @@ function seedPage(sel: any, ctrlId: number, byState: { [idx: number]: any }) {
     return page;
 }
 
-describe("专项A-2 StateSelect 单节点各 state 值 swap/copy/move", () => {
+describe("专项A-2 StateSelectV2 单节点各 state 值 swap/copy/move", () => {
     it("swapStateValues: A1↔B1 值互换, 不动其他 state/节点/selectedIndex/state数量", () => {
         const { ctrl, select, other } = setup();
         const cid = ctrl.ctrlId;
@@ -143,7 +143,7 @@ describe("专项A-2 StateSelect 单节点各 state 值 swap/copy/move", () => {
 
         for (const key of ["swapValueWithNext", "copyValueToNext"]) {
             it(`[${key}] @property 对 inspector 可见 (visible !== false)`, () => {
-                expect(getVisibleAttr(StateSelect, key)).not.toBe(false);
+                expect(getVisibleAttr(StateSelectV2, key)).not.toBe(false);
             });
         }
 

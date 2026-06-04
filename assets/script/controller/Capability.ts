@@ -2,7 +2,7 @@
  * Capability 框架接口 (Wave 2 Step 2).
  *
  * 设计原则:
- *  - Core 永远薄 (StateController + StateSelect + 数据存取 + 切换协议),
+ *  - Core 永远薄 (StateControllerV2 + StateSelectV2 + 数据存取 + 切换协议),
  *    其它能力 (Recording / PropertyControl / AutoSync / Migration / Tween …) 都是 capability.
  *  - Capability 之间通信靠 event dispatch (CapabilityRegistry.dispatch), 不直接调用.
  *  - 数据隔离: 每个 capability 通过 ctx.namespace(propData) 读写 `$$<capName>$$` 子空间.
@@ -14,17 +14,17 @@
  *  - L2 第三方 (用户自写)
  */
 
-import { EnumPropName } from "./StateEnum";
-import { TPropValue } from "./StatePropHandler";
+import { EnumPropName } from "./StateEnumV2";
+import { TPropValue } from "./StatePropHandlerV2";
 
 /**
  * 通用 dispatch context. 各 capability 自己负责从 ctx 取所需字段.
- * 字段都可选, 由派发点 (StateController / StateSelect) 决定填充哪些.
+ * 字段都可选, 由派发点 (StateControllerV2 / StateSelectV2) 决定填充哪些.
  */
 export interface CapabilityContext {
     /** 派发来源控制器 */
     ctrl?: any;
-    /** 涉及的 StateSelect */
+    /** 涉及的 StateSelectV2 */
     select?: any;
     /** 状态切换上下文 (StateWillChange / StateChanged) */
     fromState?: number;
@@ -69,13 +69,13 @@ export interface ICapability {
 
     /**
      * Runtime 启动初始化钩子 (Wave 3).
-     * StateController.onLoad runtime path 调用. 用于 runtime 启动时
+     * StateControllerV2.onLoad runtime path 调用. 用于 runtime 启动时
      * 自动跳到指定 state 等场景. 编辑期不触发.
      */
     onRuntimeInit?(ctx: CapabilityContext): void;
 
     /**
-     * Prop apply 钩子 (StateSelect.batchUpdateUI 内调用):
+     * Prop apply 钩子 (StateSelectV2.batchUpdateUI 内调用):
      * 返回 TPropValue 则改写要 apply 的值; 返回 void / undefined 不改写.
      */
     onPropApply?(ctx: CapabilityContext, prop: { type: EnumPropName, value: TPropValue }): TPropValue | void;

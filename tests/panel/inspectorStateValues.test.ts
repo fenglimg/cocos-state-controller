@@ -1,7 +1,7 @@
 /**
  * M1-1: inspector 状态行为可视化 — scene handler getPropStateValues 契约.
  *
- * 纯函数: 接收 StateSelect 实例 (+ 可选 ctrl), 读 _ctrlData[ctrlId] 里每个受控
+ * 纯函数: 接收 StateSelectV2 实例 (+ 可选 ctrl), 读 _ctrlData[ctrlId] 里每个受控
  * propRef 在各 state 的存储值, 返回:
  *   { ok, hasSelect, states: [{index, stateId, name}],
  *     props: { [propRef]: { variesAcrossStates, valueByState: {[idx]: serialized}, defaultValue } } }
@@ -27,7 +27,7 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const handlers = require("../../packages/state-controller-panel/lib/handlers");
+const handlers = require("../../packages/state-controller-v2-panel/lib/handlers");
 
 function fakeCtrl(ctrlId: number, stateNames: string[]) {
     return {
@@ -170,11 +170,11 @@ describe("M1-1 getPropStateValues — pure contract", () => {
 
 describe("M1-1 getPropStateValues — 真 cc 引擎集成", () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { StateController } = require("../../assets/script/controller/StateController");
+    const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { StateSelect } = require("../../assets/script/controller/StateSelect");
+    const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+    const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
     function setup() {
         const ccL = (globalThis as any).cc;
@@ -183,9 +183,9 @@ describe("M1-1 getPropStateValues — 真 cc 引擎集成", () => {
         root.addChild(ctrlNode);
         const selectNode = new ccL.Node("SelectNode");
         ctrlNode.addChild(selectNode);
-        const ctrl = ctrlNode.addComponent(StateController);
+        const ctrl = ctrlNode.addComponent(StateControllerV2);
         (ctrl as any).__preload();
-        const select = selectNode.addComponent(StateSelect);
+        const select = selectNode.addComponent(StateSelectV2);
         (select as any).__preload();
         (ctrl as any).markCacheDirty();
         return { ctrl, select, selectNode };

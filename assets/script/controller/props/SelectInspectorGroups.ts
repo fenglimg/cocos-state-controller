@@ -1,14 +1,14 @@
-import { EnumExcludeSlot } from "../StateEnum";
-import { StateSelect } from "../StateSelect";
+import { EnumExcludeSlot } from "../StateEnumV2";
+import { StateSelectV2 } from "../StateSelectV2";
 
 const { ccclass, property } = cc._decorator;
 
-// 本文件被 StateSelect import 的时机早于 StateSelect 内的 cc.Enum(EnumExcludeSlot),
+// 本文件被 StateSelectV2 import 的时机早于 StateSelectV2 内的 cc.Enum(EnumExcludeSlot),
 // 这里先注册一次 (idempotent), 保证 addExcludeTrigger 的 @property type 能解析到枚举.
 cc.Enum(EnumExcludeSlot);
 
 /**
- * StateSelect「排除管理」分组 — inspector 可折叠区域.
+ * StateSelectV2「排除管理」分组 — inspector 可折叠区域.
  *
  * facade 同 StateNodeProps: getter/setter 代理到 owner. 注意:
  *  - excludedPropsDisplay getter 内含 reconcile 副作用 (owner 侧), inspector 渲染时触发.
@@ -18,7 +18,7 @@ cc.Enum(EnumExcludeSlot);
  */
 @ccclass("SelectExcludeGroup")
 export class SelectExcludeGroup {
-    public owner: StateSelect = null;
+    public owner: StateSelectV2 = null;
 
     @property({ displayName: "排除跟随", tooltip: "当前被排除的 prop 列表 (系统 + 用户). 系统部分不可恢复.", readonly: true })
     public get excludedPropsDisplay(): string[] {
@@ -44,12 +44,12 @@ export class SelectExcludeGroup {
 }
 
 /**
- * StateSelect「录制」分组 — inspector 可折叠区域.
- * 镜像 currCtrl.isRecording, 与 StateController 录制态共享 (经 owner.recordTrigger getter/setter).
+ * StateSelectV2「录制」分组 — inspector 可折叠区域.
+ * 镜像 currCtrl.isRecording, 与 StateControllerV2 录制态共享 (经 owner.recordTrigger getter/setter).
  */
 @ccclass("SelectRecordGroup")
 export class SelectRecordGroup {
-    public owner: StateSelect = null;
+    public owner: StateSelectV2 = null;
 
     @property({ displayName: "🔴 录制", tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state. 要回退整次录制用编辑器 Ctrl+Z" })
     public get recordTrigger() { return this.owner ? this.owner.recordTrigger : false; }
@@ -57,12 +57,12 @@ export class SelectRecordGroup {
 }
 
 /**
- * StateSelect「值搬运」分组 — inspector 可折叠区域.
+ * StateSelectV2「值搬运」分组 — inspector 可折叠区域.
  * 节点级局部操作: 当前 state ↔ 下一 state 的值数据 (不改 state 数量 / 选中).
  */
 @ccclass("SelectValueOpsGroup")
 export class SelectValueOpsGroup {
-    public owner: StateSelect = null;
+    public owner: StateSelectV2 = null;
 
     @property({ displayName: "⇄ 与下一 state 交换值", tooltip: "把本节点当前 state 的值数据与下一 state 互换 (仅本节点, 不改 state 数量/选中)" })
     public get swapValueWithNext(): boolean { return false; }

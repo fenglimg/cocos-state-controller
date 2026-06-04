@@ -1,5 +1,5 @@
 /**
- * state-controller-panel — Pure IPC handler 层.
+ * state-controller-v2-panel — Pure IPC handler 层.
  *
  * 所有面板操作的纯函数实现, 不依赖 Cocos Editor 全局.
  * 接收 ctrl 实例 (+ 必要时 select 实例) 与参数, 返回结果.
@@ -110,10 +110,10 @@ function cancelRecording(ctrl) {
 }
 
 /**
- * 新增 state. 走 StateController.states setter (复用 smart-name + stateId 分配逻辑).
+ * 新增 state. 走 StateControllerV2.states setter (复用 smart-name + stateId 分配逻辑).
  * 返回新 stateId, 失败返回 -1.
  *
- * 不 require StateController 源: 用现有 state 的 constructor 当工厂.
+ * 不 require StateControllerV2 源: 用现有 state 的 constructor 当工厂.
  */
 function addState(ctrl, name) {
     if (!ctrl || !ctrl._states) return -1;
@@ -159,7 +159,7 @@ function removeState(ctrl, index) {
 
 /**
  * 手动添加 prop (panel "+ 添加属性" 按钮).
- * 调 StateSelect.togglePropertyControl, 触发 PropertyControlService 写入 _ctrlData.
+ * 调 StateSelectV2.togglePropertyControl, 触发 PropertyControlService 写入 _ctrlData.
  */
 function addProperty(ctrl, select, propType) {
     if (!ctrl || !select) return false;
@@ -171,7 +171,7 @@ function addProperty(ctrl, select, propType) {
 
 /**
  * 移除 prop (TASK-003 panel "☐ 取消跟随" 按钮).
- * 调 StateSelect.togglePropertyControl(false), 取消跟随 + 清 propData 中对应字段.
+ * 调 StateSelectV2.togglePropertyControl(false), 取消跟随 + 清 propData 中对应字段.
  */
 function removeProperty(ctrl, select, propType) {
     if (!ctrl || !select) return false;
@@ -215,8 +215,8 @@ function serializeStateValue(v) {
  *
  * variesAcrossStates: 各 state 的已定义值序列化后存在 ≥2 个不同 → true (真正受状态机驱动).
  *
- * @param select - StateSelect 实例 (读 _ctrlData / _ctrlsMap / currCtrlId)
- * @param ctrl   - 可选 StateController; 不传则从 select._ctrlsMap[currCtrlId] 推导
+ * @param select - StateSelectV2 实例 (读 _ctrlData / _ctrlsMap / currCtrlId)
+ * @param ctrl   - 可选 StateControllerV2; 不传则从 select._ctrlsMap[currCtrlId] 推导
  * @returns { ok, hasSelect, states:[{index,stateId,name}], props:{ [propRef]:{ variesAcrossStates, valueByState, defaultValue } } }
  */
 function getPropStateValues(select, ctrl) {

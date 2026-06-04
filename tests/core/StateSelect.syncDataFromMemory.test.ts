@@ -1,5 +1,5 @@
 /**
- * StateSelect.syncDataFromMemory 契约测试 (Phase 3.7 前置)
+ * StateSelectV2.syncDataFromMemory 契约测试 (Phase 3.7 前置)
  *
  * syncDataFromMemory 是 inspector 上 "📥 从内存同步数据" 按钮的处理函数,
  * 用于在数据 / 显示状态走样时手动恢复。要求保留的核心行为:
@@ -11,7 +11,7 @@
  * 可以丢的行为 (会在简化中删除):
  *   - 反向 migration: 把 legacy 数字 key 搬到 $$propertyData$$ (方向跟项目策略相反)
  *   - 第二轮 setTimeout(100) 延迟刷新 (调用第一遍刷新就足够了)
- *   - 大量 Editor.log / StateErrorManager.debug 日志噪音
+ *   - 大量 Editor.log / StateErrorManagerV2.debug 日志噪音
  */
 
 declare global {
@@ -29,14 +29,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -47,10 +47,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();

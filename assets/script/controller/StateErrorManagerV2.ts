@@ -27,8 +27,8 @@ export interface IErrorContext {
  * 5. 常见错误场景的验证工具
  * 6. 可配置的日志级别控制
  */
-export class StateErrorManager {
-    private static readonly COMPONENT_NAME = "StateController";
+export class StateErrorManagerV2 {
+    private static readonly COMPONENT_NAME = "StateControllerV2";
 
     /** 🔧 当前日志输出级别，只有高于或等于此级别的日志才会输出 */
     private static _logLevel: ErrorLevel = ErrorLevel.WARN;

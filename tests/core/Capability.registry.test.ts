@@ -11,10 +11,10 @@
  *     onCtrlDataMigrate?(data, version): any;
  *   }
  *
- *   StateController.registerCapability(cap)
- *   StateController.unregisterCapability(name)
- *   StateController.getCapability(name)
- *   StateController.dispatch(event, ctx)
+ *   StateControllerV2.registerCapability(cap)
+ *   StateControllerV2.unregisterCapability(name)
+ *   StateControllerV2.getCapability(name)
+ *   StateControllerV2.dispatch(event, ctx)
  *
  * 数据隔离: 每个 capability 通过 ctx.namespace 读写 $$<name>$$ 子空间。
  *

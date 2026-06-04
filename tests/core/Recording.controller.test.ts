@@ -1,14 +1,14 @@
 /**
- * StateController._recording API 契约红测试 (Wave 2 T03)
+ * StateControllerV2._recording API 契约红测试 (Wave 2 T03)
  *
  * 录制语义 X (一次录制贯穿多 state, 显式 Start/Stop):
  *   - ctrl.isRecording: boolean readonly
- *   - ctrl.startRecording(): 进入录制态, 通知所有 StateSelect 拍 snapshot
- *   - ctrl.stopRecording(): 退出录制态, 通知所有 StateSelect final commit + 清 snapshot
+ *   - ctrl.startRecording(): 进入录制态, 通知所有 StateSelectV2 拍 snapshot
+ *   - ctrl.stopRecording(): 退出录制态, 通知所有 StateSelectV2 final commit + 清 snapshot
  *   - _recording 不序列化 (新 ctrl / 反序列化 isRecording = false)
  *   - 重复 start/stop 幂等 (重复 start 不重拍)
  *
- * 红预期: 当前 StateController 没有这套 API。
+ * 红预期: 当前 StateControllerV2 没有这套 API。
  */
 
 declare global {
@@ -26,12 +26,12 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 
 function setup() {
     const ccLocal = (globalThis as any).cc;
@@ -41,10 +41,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -52,7 +52,7 @@ function setup() {
     return { root, ctrl, select };
 }
 
-describe("StateController recording API (Wave 2 T03)", () => {
+describe("StateControllerV2 recording API (Wave 2 T03)", () => {
     it("新建 ctrl 默认 isRecording = false", () => {
         const { ctrl } = setup();
         expect(ctrl.isRecording).toBe(false);
@@ -71,7 +71,7 @@ describe("StateController recording API (Wave 2 T03)", () => {
         expect(ctrl.isRecording).toBe(false);
     });
 
-    it("startRecording 通知所有 StateSelect.onRecordingStart", () => {
+    it("startRecording 通知所有 StateSelectV2.onRecordingStart", () => {
         const { ctrl, select } = setup();
         let started = 0;
         (select as any).onRecordingStart = () => { started++; };
@@ -79,7 +79,7 @@ describe("StateController recording API (Wave 2 T03)", () => {
         expect(started).toBe(1);
     });
 
-    it("stopRecording 通知所有 StateSelect.onRecordingStop", () => {
+    it("stopRecording 通知所有 StateSelectV2.onRecordingStop", () => {
         const { ctrl, select } = setup();
         let stopped = 0;
         (select as any).onRecordingStop = () => { stopped++; };
@@ -117,7 +117,7 @@ describe("StateController recording API (Wave 2 T03)", () => {
         // 是普通字段, 没有 @property 装饰. 用 cc.Class.attr 取属性表
         // 实际上更精确的方式: 让用户重启编辑器后 isRecording 自动回 false.
         // 这里写法简化: 验证内部字段名 _recording 存在且未被 cc 注册到 @property 表.
-        const attrs = cc.Class.Attr.getClassAttrs(StateController);
+        const attrs = cc.Class.Attr.getClassAttrs(StateControllerV2);
         // serializable: true 或 default 都算可序列化
         const recordingAttr = attrs && attrs["_recording$_$default"];
         // _recording 不应该被注册为 @property

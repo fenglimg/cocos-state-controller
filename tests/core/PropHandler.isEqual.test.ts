@@ -25,9 +25,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const PropMod = require("../../assets/script/controller/StatePropHandler");
+const PropMod = require("../../assets/script/controller/StatePropHandlerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
 const { PropHandlerManager } = PropMod;
 const { EnumPropName } = EnumMod;

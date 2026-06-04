@@ -9,16 +9,16 @@ beforeAll(() => {
     (globalThis as any).CC_EDITOR = true;
     (globalThis as any).Editor = { log:()=>{},warn:()=>{},error:()=>{}, Utils:{refreshSelectedInspector:()=>{}} };
 });
-const { StateController } = require("../../assets/script/controller/StateController");
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
+const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
 const ccL = (globalThis as any).cc;
 
 function setup() {
     const root = new ccL.Node("S2_Root");
     const ctrlNode = new ccL.Node("S2_Ctrl"); root.addChild(ctrlNode);
     const selNode = new ccL.Node("S2_Sel"); ctrlNode.addChild(selNode);
-    const ctrl = ctrlNode.addComponent(StateController); (ctrl as any).__preload();
-    const select = selNode.addComponent(StateSelect); (select as any).__preload();
+    const ctrl = ctrlNode.addComponent(StateControllerV2); (ctrl as any).__preload();
+    const select = selNode.addComponent(StateSelectV2); (select as any).__preload();
     (ctrl as any).markCacheDirty();
     return { ctrl, select, selNode, root };
 }

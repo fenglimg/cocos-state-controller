@@ -1,0 +1,32 @@
+{
+    "name": "state-controller-v2-panel",
+    "version": "0.1.0",
+    "description": "State Controller 编辑器面板 - 替代 cocos 2.x Inspector 死磕的极简扩展面板",
+    "author": "wepie",
+    "main": "main.js",
+    "main-menu": {
+        "i18n:MAIN_MENU.package.title/State Controller V2 Panel/打开面板": {
+            "message": "state-controller-v2-panel:open"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller V2 Panel/关闭面板": {
+            "message": "state-controller-v2-panel:close"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller V2 Panel/Inspector 增强：开启": {
+            "message": "state-controller-v2-panel:inspector-mark-on"
+        },
+        "i18n:MAIN_MENU.package.title/State Controller V2 Panel/Inspector 增强：关闭": {
+            "message": "state-controller-v2-panel:inspector-mark-off"
+        }
+    },
+    "panel": {
+        "main": "panel/build.js",
+        "type": "dockable",
+        "title": "State Controller V2",
+        "width": 480,
+        "height": 600,
+        "min-width": 360,
+        "min-height": 320,
+        "engineSupport": true
+    },
+    "scene-script": "scene-accessor.js"
+}

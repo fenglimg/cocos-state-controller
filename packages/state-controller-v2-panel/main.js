@@ -72,10 +72,10 @@ module.exports = {
 
     messages: {
         'open'() {
-            Editor.Panel.open('state-controller-panel');
+            Editor.Panel.open('state-controller-v2-panel');
         },
         'close'() {
-            Editor.Panel.close('state-controller-panel');
+            Editor.Panel.close('state-controller-v2-panel');
         },
         // P0: 探测 inspector DOM, 找 "属性行 → propRef" 桥
         'probe-inspector'() {
@@ -98,7 +98,7 @@ module.exports = {
             }
             // 显式转发给面板: 此刻 scene-script 已注册, 面板可安全拉 list-ctrls 无告警.
             // (面板可能先于场景打开, 自身初次 is-scene-ready 查询为 false, 靠这条补拉.)
-            try { Editor.Ipc.sendToPanel('state-controller-panel', 'state-controller-panel:scene-ready'); } catch (e) { /* 静默, 面板未开时无害 */ }
+            try { Editor.Ipc.sendToPanel('state-controller-v2-panel', 'state-controller-v2-panel:scene-ready'); } catch (e) { /* 静默, 面板未开时无害 */ }
         },
         // 面板初次拉取前查询场景就绪态 (见 _sceneReady 注释), 就绪才安全调 scene-script.
         'is-scene-ready'(event) {
@@ -118,7 +118,7 @@ module.exports = {
         // P2a: 注入侧 (渲染进程) 请求"这些 propRef 的状态机身份" → 转给 scene-script 分类 → 回包
         'inspector-req-status'(event, payload) {
             try {
-                Editor.Scene.callSceneScript('state-controller-panel', 'inspector-prop-status', payload, function (err, res) {
+                Editor.Scene.callSceneScript('state-controller-v2-panel', 'inspector-prop-status', payload, function (err, res) {
                     if (event && event.reply) event.reply(err, res);
                 });
             } catch (e) {
@@ -128,7 +128,7 @@ module.exports = {
         // M1-2: 注入侧请求"各受控 propRef 跨状态差异 + 各状态值表" → 转 scene-script → 回包 (标 ● + hover)
         'inspector-req-state-values'(event, payload) {
             try {
-                Editor.Scene.callSceneScript('state-controller-panel', 'inspector-prop-state-values', payload, function (err, res) {
+                Editor.Scene.callSceneScript('state-controller-v2-panel', 'inspector-prop-state-values', payload, function (err, res) {
                     if (event && event.reply) event.reply(err, res);
                 });
             } catch (e) {
@@ -138,7 +138,7 @@ module.exports = {
         // P2b: 注入侧点击标记 → 切换排除 (转 scene-script 写数据 + undo + 标脏)
         'inspector-toggle-exclude'(event, payload) {
             try {
-                Editor.Scene.callSceneScript('state-controller-panel', 'inspector-toggle-exclude', payload, function (err, res) {
+                Editor.Scene.callSceneScript('state-controller-v2-panel', 'inspector-toggle-exclude', payload, function (err, res) {
                     if (event && event.reply) event.reply(err, res);
                 });
             } catch (e) {

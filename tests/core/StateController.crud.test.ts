@@ -1,10 +1,10 @@
 /**
- * StateController State CRUD 全场景测试 (Phase 4.2)
+ * StateControllerV2 State CRUD 全场景测试 (Phase 4.2)
  *
  * 覆盖 state 增加 / 移动 / 重命名 / 重复名自动修正 的契约,
  * 包括 _historyStateName 历史命名表的同步行为.
  *
- * 已存在的删除测试见 StateController.deleteState.test.ts (Phase 1.7).
+ * 已存在的删除测试见 StateControllerV2.deleteState.test.ts (Phase 1.7).
  */
 
 declare global {
@@ -24,14 +24,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController, StateValue } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2, StateValue } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrl(stateCount: number = 2) {
@@ -42,10 +42,10 @@ function setupCtrl(stateCount: number = 2) {
     const selectNode = new ccL.Node("CRUD_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -60,7 +60,7 @@ function setupCtrl(stateCount: number = 2) {
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateController CRUD: 增加 state", () => {
+describe("StateControllerV2 CRUD: 增加 state", () => {
     it("setter 追加新 state 时, 应分配递增 stateId 且不与已有冲突", () => {
         const { ctrl } = setupCtrl();
         const oldIds = (ctrl as any)._states.map((s: any) => s.stateId);
@@ -99,7 +99,7 @@ describe("StateController CRUD: 增加 state", () => {
     });
 });
 
-describe("StateController CRUD: 移动 state", () => {
+describe("StateControllerV2 CRUD: 移动 state", () => {
     it("adjustSelectedStateOrder(+1) 后 states 顺序与 selectedIndex 同步前移", () => {
         const { ctrl } = setupCtrl(3);
         // 当前 ["1", "2", "3"], selectedIndex=0
@@ -186,7 +186,7 @@ describe("StateController CRUD: 移动 state", () => {
     });
 });
 
-describe("StateController CRUD: 重命名 state", () => {
+describe("StateControllerV2 CRUD: 重命名 state", () => {
     it("非默认名 (currentName !== (index+1).toString) 应记录到 _historyStateName", () => {
         const { ctrl } = setupCtrl();
         const renamed = [...(ctrl as any)._states];
@@ -212,7 +212,7 @@ describe("StateController CRUD: 重命名 state", () => {
     });
 });
 
-describe("StateController CRUD: 重复名字自动重命名", () => {
+describe("StateControllerV2 CRUD: 重复名字自动重命名", () => {
     it("两个 state 同名时, 后者应被自动追加 '_<i>' 后缀", () => {
         const { ctrl } = setupCtrl();
         const renamed = [...(ctrl as any)._states];

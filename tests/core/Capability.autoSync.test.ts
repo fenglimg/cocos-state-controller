@@ -1,7 +1,7 @@
 /**
  * AutoSyncCapability 接入契约 (Wave 2 T22)
  *
- * 现有 StateSelect.autoSyncEnabled 永远为 true (硬编码), 表示"切 state 时保持当前 propKey 选中".
+ * 现有 StateSelectV2.autoSyncEnabled 永远为 true (硬编码), 表示"切 state 时保持当前 propKey 选中".
  * 把这个逻辑提炼成 capability, 让未来可以由 panel 关闭 / 由用户配置。
  *   - AutoSyncCapability.name === "autoSync"
  *   - 暴露 isEnabled() 静态方法 (默认 true)

@@ -23,7 +23,7 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { ICapability } from "../Capability";
-import { StateErrorManager } from "../StateErrorManager";
+import { StateErrorManagerV2 } from "../StateErrorManagerV2";
 
 type MigrationStep = (data: unknown) => unknown;
 
@@ -50,7 +50,7 @@ export const MigrationCapability: ICapability & {
     migrate(data: unknown, fromVersion: number, toVersion: number): unknown {
         if (fromVersion === toVersion) return data;
         if (fromVersion > toVersion) {
-            StateErrorManager.warn("MigrationCapability.migrate: fromVersion > toVersion, 不支持降级", {
+            StateErrorManagerV2.warn("MigrationCapability.migrate: fromVersion > toVersion, 不支持降级", {
                 component: "MigrationCapability",
                 method: "migrate",
                 params: { fromVersion, toVersion },
@@ -73,7 +73,7 @@ export const MigrationCapability: ICapability & {
                 current = step(current);
             }
             catch (e) {
-                StateErrorManager.warn(`MigrationCapability step(v=${v}) 抛异常, 停止后续`, {
+                StateErrorManagerV2.warn(`MigrationCapability step(v=${v}) 抛异常, 停止后续`, {
                     component: "MigrationCapability",
                     method: "migrate",
                     params: { fromVersion, toVersion, failedStepFrom: v, error: (e as Error).message },

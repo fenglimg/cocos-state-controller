@@ -3,7 +3,7 @@
  *
  * 用户可能忘记 stopRecording / 直接关场景 / 移走节点, 需要兜底:
  *   1. cc.Director.EVENT_BEFORE_SCENE_LAUNCH: 场景切换前 stopRecording
- *   2. StateController.onDestroy: ctrl 销毁前 stopRecording (final commit)
+ *   2. StateControllerV2.onDestroy: ctrl 销毁前 stopRecording (final commit)
  *   3. handleControllerTransition: 跨 ctrl 移动前 commit diff 到 oldCtrl
  */
 
@@ -22,14 +22,14 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const ControllerMod = require("../../assets/script/controller/StateController");
+const ControllerMod = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const SelectMod = require("../../assets/script/controller/StateSelect");
+const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const EnumMod = require("../../assets/script/controller/StateEnum");
+const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateController } = ControllerMod;
-const { StateSelect } = SelectMod;
+const { StateControllerV2 } = ControllerMod;
+const { StateSelectV2 } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -40,10 +40,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -91,16 +91,16 @@ describe("Recording fallback commit hooks (Wave 2 T16)", () => {
         const selectNode = new ccLocal.Node("Sel");
         ctrlNode1.addChild(selectNode);
 
-        const ctrl1 = ctrlNode1.addComponent(StateController);
+        const ctrl1 = ctrlNode1.addComponent(StateControllerV2);
         (ctrl1 as any).__preload();
-        const ctrl2 = ctrlNode2.addComponent(StateController);
+        const ctrl2 = ctrlNode2.addComponent(StateControllerV2);
         (ctrl2 as any).__preload();
         // 避免 ctrl1.ctrlId === ctrl2.ctrlId (Date.now 同一毫秒)
         if ((ctrl2 as any).ctrlId === (ctrl1 as any).ctrlId) {
             (ctrl2 as any).ctrlId = (ctrl1 as any).ctrlId + 1;
         }
 
-        const select = selectNode.addComponent(StateSelect);
+        const select = selectNode.addComponent(StateSelectV2);
         (select as any).__preload();
         (ctrl1 as any).markCacheDirty();
 

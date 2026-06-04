@@ -1,10 +1,10 @@
 /**
- * state-controller-panel IPC handler 契约 (Wave 3 Panel scaffold)
+ * state-controller-v2-panel IPC handler 契约 (Wave 3 Panel scaffold)
  *
  * scene-accessor.js 的纯函数层. 不依赖 Cocos Editor 全局, 接收 ctrl 实例 + 参数返回结果.
  * Cocos IPC 路由层 (scene-accessor.js 顶层 message handler) 在外面包一层 uuid 查找 + event.reply.
  *
- * 红预期: packages/state-controller-panel/lib/handlers.js 不存在.
+ * 红预期: packages/state-controller-v2-panel/lib/handlers.js 不存在.
  */
 
 declare global {
@@ -22,11 +22,11 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateController } = require("../../assets/script/controller/StateController");
+const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
 function setupCtrl() {
     const ccLocal = (globalThis as any).cc;
@@ -36,9 +36,9 @@ function setupCtrl() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateController);
+    const ctrl = ctrlNode.addComponent(StateControllerV2);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelect);
+    const select = selectNode.addComponent(StateSelectV2);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -48,7 +48,7 @@ function setupCtrl() {
 describe("Panel handlers (Wave 3 scaffold)", () => {
     it("模块存在, 暴露全部 v0.2 §2 RPC method", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         expect(typeof h.getCtrlSnapshot).toBe("function");
         expect(typeof h.setSelectedIndex).toBe("function");
         expect(typeof h.setStateById).toBe("function");
@@ -62,7 +62,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("cancelRecording handler 调用 ctrl.cancelRecording", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         ctrl.startRecording();
         expect(ctrl.isRecording).toBe(true);
@@ -74,7 +74,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("getCtrlSnapshot(ctrl) 返回 ctrlId/ctrlName/selectedIndex/isRecording/states 列表", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         const snap = h.getCtrlSnapshot(ctrl);
         expect(snap.ctrlId).toBe(ctrl.ctrlId);
@@ -88,7 +88,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("setSelectedIndex(ctrl, idx) 切到指定 index, 返回 true", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         expect(h.setSelectedIndex(ctrl, 1)).toBe(true);
         expect(ctrl.selectedIndex).toBe(1);
@@ -96,7 +96,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("setSelectedIndex 越界 → 返回 false, 不动 ctrl", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         ctrl.selectedIndex = 1;
         expect(h.setSelectedIndex(ctrl, 99)).toBe(false);
@@ -106,7 +106,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("setStateById(ctrl, stateId) 走 SelectedPageIdCapability, 返回 true/false", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         const target = ctrl._states[1];
         expect(h.setStateById(ctrl, target.stateId)).toBe(true);
@@ -116,7 +116,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("setRecording(ctrl, true) → ctrl.startRecording; setRecording(ctrl, false) → stopRecording", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         expect(h.setRecording(ctrl, true)).toBe(true);
         expect(ctrl.isRecording).toBe(true);
@@ -126,7 +126,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("addState(ctrl, name) 新增 state, 返回新 stateId", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         const beforeLen = ctrl._states.length;
         const newId = h.addState(ctrl, "MyState");
@@ -139,7 +139,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("removeState(ctrl, index) 删除指定 index", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         h.addState(ctrl, "A");
         h.addState(ctrl, "B");
@@ -153,7 +153,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("removeState 最后一个 → 拒绝 (保留至少 1 个 state), 返回 false", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         // 删到只剩 1 个
         h.removeState(ctrl, 1);
@@ -165,7 +165,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("addProperty(ctrl, select, propType) 调 select.togglePropertyControl", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl, select, selectNode } = setupCtrl();
         const ccLocal = (globalThis as any).cc;
         selectNode.position = ccLocal.v3(0, 0, 0);
@@ -179,7 +179,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("removeProperty handler 调用 select.togglePropertyControl(propType, false)", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl, select } = setupCtrl();
         // TASK-003: __preload 自动接入了 Color, 直接 removeProperty 即可
         expect(select.isPropertyControlled(EnumPropName.Color)).toBe(true);
@@ -192,7 +192,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("installBroadcastBridge: stateChanged → 通过 send(name, payload) 转发", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         const broadcasts: any[] = [];
         const send = (name: string, payload: any) => broadcasts.push({ name, payload });
@@ -214,7 +214,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("installBroadcastBridge: setRecording 触发 onRecordingChanged", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl } = setupCtrl();
         const broadcasts: any[] = [];
         const send = (name: string, payload: any) => broadcasts.push({ name, payload });
@@ -232,7 +232,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("空/null ctrl → 所有 handler 不抛, 返回 false / null", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         expect(() => h.getCtrlSnapshot(null)).not.toThrow();
         expect(h.setSelectedIndex(null, 0)).toBe(false);
         expect(h.setRecording(null, true)).toBe(false);
@@ -242,7 +242,7 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
 
     it("buildTopology 聚合控制器与成员节点信息", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const h = require("../../packages/state-controller-panel/lib/handlers");
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
         const { ctrl, select, selectNode } = setupCtrl();
         
         // 模拟 select._ctrlsMap

@@ -2,7 +2,7 @@
  * 状态名枚举 (空骨架, 不要往里加值)。
  *
  * Cocos Creator 2.x 用 @property(EnumStateName) 把字段显示成枚举下拉。
- * 下拉的实际选项不在这里静态声明 — StateController 在运行时通过
+ * 下拉的实际选项不在这里静态声明 — StateControllerV2 在运行时通过
  *   cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array)
  * 把当前实例的 states 列表注入到这个枚举的下拉项。
  */
@@ -25,25 +25,25 @@ export enum EnumUpdateType {
     Prop = 5,
     /** 状态顺序变更 */
     Move = 6,
-    /** 状态复制 (copySelectedState 触发, 通知 StateSelect 深拷贝 pageData) */
+    /** 状态复制 (copySelectedState 触发, 通知 StateSelectV2 深拷贝 pageData) */
     Copy = 7,
-    /** 录制开始 (StateController.startRecording 触发, 通知 StateSelect 拍 snapshot) */
+    /** 录制开始 (StateControllerV2.startRecording 触发, 通知 StateSelectV2 拍 snapshot) */
     RecordingStart = 8,
-    /** 录制结束 (StateController.stopRecording 触发, 通知 StateSelect final commit + 清 snapshot) */
+    /** 录制结束 (StateControllerV2.stopRecording 触发, 通知 StateSelectV2 final commit + 清 snapshot) */
     RecordingStop = 9,
     /** 状态即将切换 (selectedIndex setter 触发, 录制中触发 diff commit) */
     StateWillChange = 10,
 }
 /**
  * 控制器名字枚举 (空骨架, 不要往里加值)。
- * 同 EnumStateName: 由 StateSelect 运行时把可见的控制器名字列表
+ * 同 EnumStateName: 由 StateSelectV2 运行时把可见的控制器名字列表
  * 注入为 currCtrlId 字段的 inspector 下拉项。
  */
 export enum EnumCtrlName {
 }
 /**
  * W6-4 排除清单下拉空骨架枚举 (不要往里加值)。
- * 同 EnumStateName / EnumCtrlName: 由 StateSelect.refreshExcludeEnumLists 运行时
+ * 同 EnumStateName / EnumCtrlName: 由 StateSelectV2.refreshExcludeEnumLists 运行时
  * 通过 cc.Class.Attr.setClassAttr(this, "addExcludeTrigger" | "removeExcludeTrigger", "enumList", array)
  * 注入实际选项. cocos 2.x inspector 必须有 type:EnumXxx 才渲染下拉, type:cc.String 渲染输入框.
  */
@@ -60,8 +60,8 @@ export enum EnumExcludeSlot {
  *
  * 扩展方式：
  * 1. 在此枚举中添加新的属性类型
- * 2. 在StatePropHandler.ts中实现对应的处理器
- * 3. 在StateSelect.ts中的setDefaultProp方法中添加对应的case
+ * 2. 在StatePropHandlerV2.ts中实现对应的处理器
+ * 3. 在StateSelectV2.ts中的setDefaultProp方法中添加对应的case
  */
 export enum EnumPropName {
     /** 不选择 - 特殊值，表示未选择任何属性 */

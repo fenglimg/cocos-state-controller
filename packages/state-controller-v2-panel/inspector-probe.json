@@ -104,7 +104,7 @@
     },
     {
       "tag": "ui-panel-frame",
-      "id": "state-controller-panel",
+      "id": "state-controller-v2-panel",
       "pkg": ""
     },
     {
@@ -3252,7 +3252,7 @@
       "tag": "ui-section",
       "id": "",
       "cls": "",
-      "text": "StateController 打死了发深刻理解拉屎fa",
+      "text": "StateControllerV2 打死了发深刻理解拉屎fa",
       "depth": 3,
       "fw": {
         "hasVue": true,
@@ -3278,7 +3278,7 @@
           "menuClick",
           "openHelpClick"
         ],
-        "vue.name": "StateController",
+        "vue.name": "StateControllerV2",
         "vue.target": {
           "__keys": [
             "_name",
@@ -3357,7 +3357,7 @@
       "tag": "div",
       "id": "",
       "cls": "header flex-1 layout horizontal center-center",
-      "text": "StateController",
+      "text": "StateControllerV2",
       "depth": 4
     },
     {

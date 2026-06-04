@@ -4,7 +4,7 @@
  * 把现有的 StatePropertyControlService 包成一个 capability, 注册到 CapabilityRegistry.
  *   - PropertyControlCapability.name === "propertyControl"
  *   - 暴露原 service 的 API (isPropertyAvailable / isPropertyControlled / scanAvailableProperties)
- *   - 现有调用方 (StateSelect.isPropertyAvailable / isPropertyControlled) 保持 API 不变 (backward compat)
+ *   - 现有调用方 (StateSelectV2.isPropertyAvailable / isPropertyControlled) 保持 API 不变 (backward compat)
  *
  * 红预期: PropertyControlCapability 模块不存在。
  */
@@ -49,7 +49,7 @@ describe("PropertyControlCapability (Wave 2 T20)", () => {
         expect(typeof PropertyControlCapability.scanAvailableProperties).toBe("function");
     });
 
-    it("现有 PropertyControlService API 仍可用 (backward compat, 不破坏 StateSelect 引用)", () => {
+    it("现有 PropertyControlService API 仍可用 (backward compat, 不破坏 StateSelectV2 引用)", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Mod = require("../../assets/script/controller/StatePropertyControlService");
         expect(Mod.PropertyControlService).toBeDefined();
@@ -70,18 +70,18 @@ describe("PropertyControlCapability (Wave 2 T20)", () => {
 describe("PropertyControlCapability (W6-2b) — propRef 字段派发", () => {
     function setupSelect() {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { StateController } = require("../../assets/script/controller/StateController");
+        const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { StateSelect } = require("../../assets/script/controller/StateSelect");
+        const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
         const ccLocal = (globalThis as any).cc;
         const root = new ccLocal.Node("Root");
         const ctrlNode = new ccLocal.Node("CtrlNode");
         root.addChild(ctrlNode);
         const selectNode = new ccLocal.Node("SelectChild");
         ctrlNode.addChild(selectNode);
-        const ctrl = ctrlNode.addComponent(StateController);
+        const ctrl = ctrlNode.addComponent(StateControllerV2);
         (ctrl as any).__preload();
-        const select = selectNode.addComponent(StateSelect);
+        const select = selectNode.addComponent(StateSelectV2);
         (select as any).__preload();
         (ctrl as any).markCacheDirty();
         return { ctrl, select, selectNode };
@@ -110,7 +110,7 @@ describe("PropertyControlCapability (W6-2b) — propRef 字段派发", () => {
 
     it("togglePropertyControl 签名接受 EnumPropName | string 联合类型 (内置 prop 用 number)", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+        const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
         const { select } = setupSelect();
         // number 路径 (老路径) — 不应抛
         expect(() => select.togglePropertyControl(EnumPropName.Active, true)).not.toThrow();
@@ -121,7 +121,7 @@ describe("PropertyControlCapability (W6-2b) — propRef 字段派发", () => {
 
     it("内置 prop 用 EnumPropName 调用 → dispatch payload 含 propType (number) + propRef (string, 派生自 EnumPropRefMap)", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+        const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
         const { select } = setupSelect();
         const cap = installCapture();
         try {
@@ -155,7 +155,7 @@ describe("PropertyControlCapability (W6-2b) — propRef 字段派发", () => {
 
     it("togglePropertyControl(false) 也派发 onPropertyReleased 含 propType + propRef 双字段", () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+        const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
         const { select } = setupSelect();
         select.togglePropertyControl(EnumPropName.Color, true);
         const cap = installCapture();

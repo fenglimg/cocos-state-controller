@@ -8,11 +8,11 @@
  *
  * 非阻塞设计:
  *  - 当前 Wave 2 不引入异步 / 优先级排序 (dependsOn 仅声明用, 不影响调度);
- *  - hook 抛异常 → 捕获 + 走 StateErrorManager.warn, 不影响其它 capability 执行.
+ *  - hook 抛异常 → 捕获 + 走 StateErrorManagerV2.warn, 不影响其它 capability 执行.
  */
 
 import { CapabilityContext, ICapability } from "./Capability";
-import { StateErrorManager } from "./StateErrorManager";
+import { StateErrorManagerV2 } from "./StateErrorManagerV2";
 
 type CapEvent =
     | "onStateWillChange"
@@ -43,7 +43,7 @@ export class CapabilityRegistry {
     /** 注册 capability. 同名覆盖 (后注册赢). */
     public static register(cap: ICapability): void {
         if (!cap || !cap.name) {
-            StateErrorManager.warn("CapabilityRegistry.register: cap 缺少 name", {
+            StateErrorManagerV2.warn("CapabilityRegistry.register: cap 缺少 name", {
                 component: "CapabilityRegistry",
                 method: "register",
             });
@@ -104,7 +104,7 @@ export class CapabilityRegistry {
                 results.push(r);
             }
             catch (e) {
-                StateErrorManager.warn(`Capability "${cap.name}" hook "${event}" 抛异常`, {
+                StateErrorManagerV2.warn(`Capability "${cap.name}" hook "${event}" 抛异常`, {
                     component: "CapabilityRegistry",
                     method: "dispatch",
                     params: { error: (e as Error).message },

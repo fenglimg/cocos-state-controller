@@ -11,16 +11,16 @@ beforeAll(() => {
     (globalThis as any).CC_EDITOR = true;
     (globalThis as any).Editor = { log:()=>{},warn:()=>{},error:()=>{}, Utils:{refreshSelectedInspector:()=>{}} };
 });
-const { StateController, StateValue } = require("../../assets/script/controller/StateController");
-const { StateSelect } = require("../../assets/script/controller/StateSelect");
-const { EnumPropName } = require("../../assets/script/controller/StateEnum");
+const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
+const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 const ccL = (globalThis as any).cc;
 
 function setup(n=2) {
     const root = new ccL.Node("V_Root"); const cn = new ccL.Node("V_Ctrl"); root.addChild(cn);
     const sn = new ccL.Node("V_Sel"); cn.addChild(sn);
-    const ctrl = cn.addComponent(StateController); (ctrl as any).__preload();
-    const sel = sn.addComponent(StateSelect); (sel as any).__preload(); (ctrl as any).markCacheDirty();
+    const ctrl = cn.addComponent(StateControllerV2); (ctrl as any).__preload();
+    const sel = sn.addComponent(StateSelectV2); (sel as any).__preload(); (ctrl as any).markCacheDirty();
     while ((ctrl as any)._states.length < n) {
         const ns=(ctrl as any)._states.slice(); ns.push(StateValue.create("X"+ns.length,(ctrl as any).stateIdAuto++)); ctrl.states=ns;
     }
