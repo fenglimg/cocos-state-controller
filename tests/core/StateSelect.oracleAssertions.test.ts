@@ -31,9 +31,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
+const { StateController, StateValue } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
@@ -56,10 +56,10 @@ function setup(stateCount = 2) {
     const selectNode = new ccLocal.Node("ORA_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     selectNode.addComponent(OracleFixture);
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -183,29 +183,32 @@ describe("附录A oracle 断言 (综合验收)", () => {
         expect(dd[CUSTOM_PROPREF]).not.toBeUndefined();
     });
 
-    it("A#7: 复制 state 后对象独立 + 移动后数据跟随槽位", () => {
+    it("A#7: 复制 state 后对象独立 + 移动后数据按 stateId 保持身份", () => {
         const { ctrl, select } = setup(3);
         const cid = ctrl.ctrlId;
         const page = (select as any)._ctrlData[cid];
-        page[0] = { "cc.Node.x": 10 };
-        page[1] = { "cc.Node.x": 20 };
-        page[2] = { "cc.Node.x": 30 };
+        const s0 = ctrl.states[0].stateId;
+        const s1 = ctrl.states[1].stateId;
+        const s2 = ctrl.states[2].stateId;
+        page[s0] = { "cc.Node.x": 10 };
+        page[s1] = { "cc.Node.x": 20 };
+        page[s2] = { "cc.Node.x": 30 };
 
         // 复制: state0 → state1 槽 (右移腾位, statesLength=3)
         (select as any).updateStateCopy(ctrl, { fromIndex: 0, toIndex: 1 });
-        expect(page[1]).toEqual({ "cc.Node.x": 10 });
+        expect(page[s1]).toEqual({ "cc.Node.x": 10 });
         // 深拷独立: 改副本不影响源
-        page[1]["cc.Node.x"] = -1;
-        expect(page[0]["cc.Node.x"]).toBe(10);
+        page[s1]["cc.Node.x"] = -1;
+        expect(page[s0]["cc.Node.x"]).toBe(10);
 
-        // 移动: 槽位数据跟随 (reorder 0↔2)
+        // 移动: 只改变展示顺序, stateId 数据不迁移
         const page2 = (select as any)._ctrlData[cid];
-        page2[0] = { "cc.Node.x": 100 };
-        page2[1] = { "cc.Node.x": 200 };
-        page2[2] = { "cc.Node.x": 300 };
+        page2[s0] = { "cc.Node.x": 100 };
+        page2[s1] = { "cc.Node.x": 200 };
+        page2[s2] = { "cc.Node.x": 300 };
         (select as any).updateStateMove(ctrl, { fromIndex: 0, toIndex: 2 });
-        // 0 的数据移到 2 末位
-        expect(page2[2]["cc.Node.x"]).toBe(100);
+        expect(page2[s0]["cc.Node.x"]).toBe(100);
+        expect(page2[s2]["cc.Node.x"]).toBe(300);
     });
 
     it("A#8: 排除内置 prop 后切 state apply 不写回 baseline (#F-6)", () => {

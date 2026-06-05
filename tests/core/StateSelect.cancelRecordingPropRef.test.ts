@@ -25,9 +25,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
@@ -50,10 +50,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     selectNode.addComponent(CancelPropRefFixture);
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 

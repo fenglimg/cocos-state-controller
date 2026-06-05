@@ -27,9 +27,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass;
@@ -46,9 +46,9 @@ function setup() {
     const root = new ccL.Node("FZ_Root");
     const ctrlNode = new ccL.Node("FZ_Ctrl"); root.addChild(ctrlNode);
     const selectNode = new ccL.Node("FZ_Sel"); ctrlNode.addChild(selectNode);
-    const ctrl = ctrlNode.addComponent(StateControllerV2); (ctrl as any).__preload();
+    const ctrl = ctrlNode.addComponent(StateController); (ctrl as any).__preload();
     const fixture = selectNode.addComponent(FreezeFixture);
-    const select = selectNode.addComponent(StateSelectV2); (select as any).__preload();
+    const select = selectNode.addComponent(StateSelect); (select as any).__preload();
     (ctrl as any).markCacheDirty();
     if ((ctrl as any)._states.length < 2) {
         const proto = (ctrl as any)._states[0];

@@ -1,5 +1,5 @@
 /**
- * StateSelectV2._snapshot + onRecordingStart 拍 snapshot 契约 (Wave 2 T05)
+ * StateSelect._snapshot + onRecordingStart 拍 snapshot 契约 (Wave 2 T05)
  *
  * 录制 prefab diff 路径:
  *   - onRecordingStart 时, 遍历当前 controlled props (从 ctrlData[ctrl][currentState].$$controlledProps$$)
@@ -7,7 +7,7 @@
  *   - _snapshot 是私有字段 (不序列化, 不加 @property)
  *   - onRecordingStop 时清 snapshot
  *
- * 红预期: 当前 StateSelectV2 没有 onRecordingStart / onRecordingStop / _snapshot。
+ * 红预期: 当前 StateSelect 没有 onRecordingStart / onRecordingStop / _snapshot。
  */
 
 declare global {
@@ -31,8 +31,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -43,10 +43,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -54,13 +54,13 @@ function setup() {
     return { root, ctrl, select, selectNode };
 }
 
-describe("StateSelectV2 snapshot lifecycle (Wave 2 T05)", () => {
-    it("StateSelectV2 暴露 onRecordingStart 方法", () => {
+describe("StateSelect snapshot lifecycle (Wave 2 T05)", () => {
+    it("StateSelect 暴露 onRecordingStart 方法", () => {
         const { select } = setup();
         expect(typeof (select as any).onRecordingStart).toBe("function");
     });
 
-    it("StateSelectV2 暴露 onRecordingStop 方法", () => {
+    it("StateSelect 暴露 onRecordingStop 方法", () => {
         const { select } = setup();
         expect(typeof (select as any).onRecordingStop).toBe("function");
     });

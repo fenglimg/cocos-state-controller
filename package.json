@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "eslint assets/ --ext .ts,.js",
     "lint:fix": "eslint assets/ --ext .ts,.js --fix",
+    "migrate:v1-to-v2": "node tools/migration/migrate-prefab-v1-to-v2.js",
     "prepare": "husky"
   },
   "devDependencies": {

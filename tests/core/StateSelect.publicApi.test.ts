@@ -1,5 +1,5 @@
 /**
- * StateSelectV2 公共 API 契约测试 (Phase 4.3)
+ * StateSelect 公共 API 契约测试 (Phase 4.3)
  *
  * 覆盖:
  *   - isPropertyAvailable: 节点基础 prop 恒为 true; 组件 prop 看节点是否挂组件
@@ -7,7 +7,7 @@
  *   - togglePropertyControl(true/false): 启用 / 解除 控制
  *
  * scanAvailableProperties / autoConfigureAllProperties 拆到
- * StateSelectV2.scanProps.test.ts 单独走 red→green (Phase 4.3 发现 cc.Enum 副作用 bug).
+ * StateSelect.scanProps.test.ts 单独走 red→green (Phase 4.3 发现 cc.Enum 副作用 bug).
  */
 
 declare global {
@@ -33,8 +33,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -45,17 +45,17 @@ function setupCtrlAndSelect() {
     const selectNode = new ccL.Node("API_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateSelectV2.isPropertyAvailable", () => {
+describe("StateSelect.isPropertyAvailable", () => {
     it("节点基础 8 prop 在任何节点上都返回 true", () => {
         const { select } = setupCtrlAndSelect();
         const basic = [
@@ -78,7 +78,7 @@ describe("StateSelectV2.isPropertyAvailable", () => {
     });
 });
 
-describe("StateSelectV2.togglePropertyControl + isPropertyControlled", () => {
+describe("StateSelect.togglePropertyControl + isPropertyControlled", () => {
     it("启用前 isPropertyControlled = false, 启用后 = true", () => {
         const { select } = setupCtrlAndSelect();
         // TASK-003: __preload 自动接入 Opacity, 先 opt-out 验证 toggle 路径仍正常

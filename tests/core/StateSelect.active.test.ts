@@ -1,11 +1,11 @@
 /**
- * StateSelectV2 Active 属性回归测试
+ * StateSelect Active 属性回归测试
  *
  * 验证用户报告的 bug：「node 的 active 属性切换现在已经无法记录」
  *
  * 实际根因（修复前）:
- *   StateControllerV2.updateState 内有过滤 `!stateSelect.node.active`,
- *   会跳过当前为 inactive 的 StateSelectV2, 导致"上一个 state 把 active 关掉、
+ *   StateController.updateState 内有过滤 `!stateSelect.node.active`,
+ *   会跳过当前为 inactive 的 StateSelect, 导致"上一个 state 把 active 关掉、
  *   新 state 应该把它重新打开"的场景永远拿不到 apply, active 卡死在 false。
  *
  * 修复后的契约:
@@ -39,8 +39,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -51,10 +51,10 @@ function setupCtrlAndSelect() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     // jest 环境里 ctrl.__preload 早于 select 附加, BFS 缓存被锁成空。
@@ -64,7 +64,7 @@ function setupCtrlAndSelect() {
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateSelectV2.active regression", () => {
+describe("StateSelect.active regression", () => {
     it("togglePropertyControl(Active, true) 后 propData 走 propRef 单一路径 (T2 双轨统一)", () => {
         const { select } = setupCtrlAndSelect();
 
@@ -106,9 +106,29 @@ describe("StateSelectV2.active regression", () => {
         expect(selectNode.active).toBe(false);
 
         // 切回 state 1 → 应还原为 true
-        // 这一步在修复前会失败 — StateControllerV2.updateState 的 `!node.active` 过滤
+        // 这一步在修复前会失败 — StateController.updateState 的 `!node.active` 过滤
         // 会跳过当前 inactive 的 select, 导致 active=true 永远 apply 不上
         ctrl.selectedIndex = 1;
         expect(selectNode.active).toBe(true);
+    });
+
+    it("state 页残留空 controlledProps 时应回退 default schema 应用 active override", () => {
+        const { ctrl, select, selectNode } = setupCtrlAndSelect();
+        const cid = ctrl.ctrlId;
+
+        const defaultData = (select as any).getDefaultData(cid);
+        defaultData.$$controlledProps$$ = { "cc.Node.active": "cc.Node.active" };
+        defaultData["cc.Node.active"] = true;
+
+        const propData0 = (select as any).getPropData(0, cid);
+        propData0.$$controlledProps$$ = {};
+        propData0["cc.Node.active"] = false;
+
+        selectNode.active = true;
+        ctrl.selectedIndex = 1;
+        expect(selectNode.active).toBe(true);
+
+        ctrl.selectedIndex = 0;
+        expect(selectNode.active).toBe(false);
     });
 });

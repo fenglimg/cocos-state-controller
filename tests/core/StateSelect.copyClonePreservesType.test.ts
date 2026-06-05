@@ -1,7 +1,7 @@
 /**
  * Round1 #C5 (+D1): updateStateCopy / copyStateValues 深拷必须保活 cc 类实例.
  *
- * 根因: propData 值经 cloneValueByType 存为活 cc.Color/Vec3/Vec2/Size/Quat 实例(StateSelectV2:818);
+ * 根因: propData 值经 cloneValueByType 存为活 cc.Color/Vec3/Vec2/Size/Quat 实例(StateSelect:818);
  * 但 updateStateCopy(:1600) / copyStateValues 用 JSON.parse(JSON.stringify) 深拷 → 降级成普通
  * {r,g,b,a} 对象 → apply 时 cloneValueByType 对普通对象 instanceof 不命中 → 原样写回节点 → 类型退化.
  * 修复: 逐 key 走 cloneValueByType 深拷(按 cocosType 分发), 保留类实例 + 仍独立.
@@ -24,9 +24,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
+const { StateController, StateValue } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass;
@@ -44,10 +44,10 @@ function setup(stateCount = 3) {
     root.addChild(ctrlNode);
     const selectNode = new ccL.Node("CC_SelectNode");
     ctrlNode.addChild(selectNode);
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     selectNode.addComponent(ColorCloneFixture);
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
     while ((ctrl as any)._states.length < stateCount) {

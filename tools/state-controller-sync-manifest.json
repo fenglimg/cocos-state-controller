@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "sourceOfTruth": "cocos-state-controller",
+  "targetMappings": [
+    {
+      "name": "controller-v2",
+      "source": "assets/script/controller",
+      "target": "assets/script/controller",
+      "includeMeta": true
+    },
+    {
+      "name": "editor-panel",
+      "source": "packages/state-controller-v2-panel",
+      "target": "packages/state-controller-v2-panel",
+      "exclude": [
+        ".fabric"
+      ]
+    },
+    {
+      "name": "migration-tools",
+      "source": "tools/migration",
+      "target": "tools/migration"
+    },
+    {
+      "name": "agent-skill",
+      "source": "skills/cocos-state-controller",
+      "target": ".codex/skills/cocos-state-controller"
+    }
+  ]
+}

@@ -23,17 +23,17 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { ICapability } from "../Capability";
-import { StateErrorManagerV2 } from "../StateErrorManagerV2";
+import { StateErrorManager } from "../StateErrorManagerV2";
 
 type MigrationStep = (data: unknown) => unknown;
 
 const steps: Map<number, MigrationStep> = new Map();
 
 export const MigrationCapability: ICapability & {
-    CURRENT_VERSION: number,
-    registerStep: (fromVersion: number, fn: MigrationStep) => void,
-    migrate: (data: unknown, fromVersion: number, toVersion: number) => unknown,
-    clearSteps: () => void,
+    CURRENT_VERSION: number
+    registerStep: (fromVersion: number, fn: MigrationStep) => void
+    migrate: (data: unknown, fromVersion: number, toVersion: number) => unknown
+    clearSteps: () => void
 } = {
     name: "migration",
     CURRENT_VERSION: 1,
@@ -50,7 +50,7 @@ export const MigrationCapability: ICapability & {
     migrate(data: unknown, fromVersion: number, toVersion: number): unknown {
         if (fromVersion === toVersion) return data;
         if (fromVersion > toVersion) {
-            StateErrorManagerV2.warn("MigrationCapability.migrate: fromVersion > toVersion, 不支持降级", {
+            StateErrorManager.warn("MigrationCapability.migrate: fromVersion > toVersion, 不支持降级", {
                 component: "MigrationCapability",
                 method: "migrate",
                 params: { fromVersion, toVersion },
@@ -59,7 +59,9 @@ export const MigrationCapability: ICapability & {
         }
 
         const sortedKeys: number[] = [];
-        steps.forEach((_, k) => { sortedKeys.push(k); });
+        steps.forEach((_, k) => {
+            sortedKeys.push(k);
+        });
         sortedKeys.sort((a, b) => a - b);
 
         let current: unknown = data;
@@ -73,7 +75,7 @@ export const MigrationCapability: ICapability & {
                 current = step(current);
             }
             catch (e) {
-                StateErrorManagerV2.warn(`MigrationCapability step(v=${v}) 抛异常, 停止后续`, {
+                StateErrorManager.warn(`MigrationCapability step(v=${v}) 抛异常, 停止后续`, {
                     component: "MigrationCapability",
                     method: "migrate",
                     params: { fromVersion, toVersion, failedStepFrom: v, error: (e as Error).message },

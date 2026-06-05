@@ -1,7 +1,7 @@
 /**
  * Capability core baseline 解耦测试 (Wave 2 T29).
  *
- * 底线: 删掉所有 capability, core (StateControllerV2 + StateSelectV2) 仍能基础切 state.
+ * 底线: 删掉所有 capability, core (StateController + StateSelect) 仍能基础切 state.
  *   - 不依赖 PropertyControlCapability 也能切 state (PropertyControlService 仍可用)
  *   - 不依赖 AutoSyncCapability 也能切 state
  *   - 不依赖 RecordingCapability 录制也能切 state (Topic 3 实装在 core 里, 不依赖 capability)
@@ -23,9 +23,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { CapabilityRegistry } = require("../../assets/script/controller/CapabilityRegistry");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -39,9 +39,9 @@ function setupCtrl() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -82,7 +82,7 @@ describe("Capability core baseline (Wave 2 T29)", () => {
         ctrl.selectedIndex = 0;
         expect(() => select.togglePropertyControl(EnumPropName.Color, true)).not.toThrow();
         selectNode.color = ccLocal.color(255, 0, 0, 255);
-        // commitPropFromNode 是 StateSelectV2 公共方法, 不依赖 capability
+        // commitPropFromNode 是 StateSelect 公共方法, 不依赖 capability
         expect(() => (select as any).commitPropFromNode(EnumPropName.Color)).not.toThrow();
         const propData = (select as any)._ctrlData[ctrl.ctrlId][0];
         expect(propData["cc.Node.color"]).toBeDefined();

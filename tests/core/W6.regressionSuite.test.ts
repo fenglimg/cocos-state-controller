@@ -39,8 +39,8 @@ const EnumPropRefMod = require("../../assets/script/controller/EnumPropRefMap");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const StateEnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { listTrackableProps } = IntrospectionMod;
 const { EnumPropName } = StateEnumMod;
 
@@ -52,10 +52,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();

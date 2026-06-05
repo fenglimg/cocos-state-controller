@@ -6,7 +6,7 @@
  *   - 内置 prop (能映射到 EnumPropName 数字) → ctrlData[ctrlId][state][数字 key]
  *   - 自定义 prop (无映射) → ctrlData[ctrlId][state][string propRef key]
  *
- * 映射数据源: assets/script/controller/StatePropHandlerV2.ts 的 register(...) 调用. 每条 enum 映射到
+ * 映射数据源: assets/script/controller/StatePropHandler.ts 的 register(...) 调用. 每条 enum 映射到
  * (getValue/setValue) 实际操作的 cc.Node 字段或 (cc.Component, fieldName).
  *
  * AMBIGUOUS 项 (复合字段, 无法一一映射): Position (x/y/z), Anchor (anchorX/anchorY),
@@ -79,7 +79,7 @@ export const ENUM_TO_PROPREF: { [enumVal: number]: string } = {
 /**
  * W6-2c2: AMBIGUOUS 复合 prop → propRef 整体存映射 (Position/Anchor/Size 三项).
  *
- * 设计依据 (StatePropHandlerV2.ts): 老 PropHandler 对这三项都是整体读写
+ * 设计依据 (StatePropHandler.ts): 老 PropHandler 对这三项都是整体读写
  *   - Position handler: `n.position = vec3` (整 Vec3)
  *   - Anchor handler:   `n.setAnchorPoint(vec2)` (整 Vec2)
  *   - Size handler:     `n.setContentSize(size)` (整 Size)

@@ -1,10 +1,10 @@
 /**
  * M1-1: inspector 状态行为可视化 — scene handler getPropStateValues 契约.
  *
- * 纯函数: 接收 StateSelectV2 实例 (+ 可选 ctrl), 读 _ctrlData[ctrlId] 里每个受控
+ * 纯函数: 接收 StateSelect 实例 (+ 可选 ctrl), 读 _ctrlData[ctrlId] 里每个受控
  * propRef 在各 state 的存储值, 返回:
  *   { ok, hasSelect, states: [{index, stateId, name}],
- *     props: { [propRef]: { variesAcrossStates, valueByState: {[idx]: serialized}, defaultValue } } }
+ *     props: { [propRef]: { variesAcrossStates, valueByState: {[stateId]: serialized}, defaultValue } } }
  *
  * variesAcrossStates = 该 propRef 在各 state 的(已定义)值是否存在 ≥2 个不同 → 状态机真正驱动的属性.
  * 不依赖 plugin 侧 require 项目源: 值序列化在 plugin 内 duck-type cc 类型 (Vec2/3/Color/Size/Quat).
@@ -69,7 +69,7 @@ describe("M1-1 getPropStateValues — pure contract", () => {
         const heat = r.props["MyComp.heat"];
         expect(heat).toBeDefined();
         expect(heat.variesAcrossStates).toBe(true);
-        expect(heat.valueByState).toEqual({ 0: 0, 1: 5, 2: 9 });
+        expect(heat.valueByState).toEqual({ 100: 0, 101: 5, 102: 9 });
         expect(heat.defaultValue).toBe(0);
 
         // opacity 各 state 相同 → 不标
@@ -109,7 +109,7 @@ describe("M1-1 getPropStateValues — pure contract", () => {
         };
         const r = handlers.getPropStateValues(select, ctrl);
         expect(r.props["cc.Sprite.color"].variesAcrossStates).toBe(true);
-        expect(r.props["cc.Sprite.color"].valueByState[0]).toMatchObject({ r: 255, g: 0, b: 0 });
+        expect(r.props["cc.Sprite.color"].valueByState[100]).toMatchObject({ r: 255, g: 0, b: 0 });
         // Vec2 各 state 相同 → 不标
         expect(r.props["cc.Node.pos2"].variesAcrossStates).toBe(false);
     });
@@ -170,9 +170,9 @@ describe("M1-1 getPropStateValues — pure contract", () => {
 
 describe("M1-1 getPropStateValues — 真 cc 引擎集成", () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+    const { StateController } = require("../../assets/script/controller/StateControllerV2");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+    const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
@@ -183,9 +183,9 @@ describe("M1-1 getPropStateValues — 真 cc 引擎集成", () => {
         root.addChild(ctrlNode);
         const selectNode = new ccL.Node("SelectNode");
         ctrlNode.addChild(selectNode);
-        const ctrl = ctrlNode.addComponent(StateControllerV2);
+        const ctrl = ctrlNode.addComponent(StateController);
         (ctrl as any).__preload();
-        const select = selectNode.addComponent(StateSelectV2);
+        const select = selectNode.addComponent(StateSelect);
         (select as any).__preload();
         (ctrl as any).markCacheDirty();
         return { ctrl, select, selectNode };

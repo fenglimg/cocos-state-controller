@@ -19,19 +19,19 @@
 /** 单条可追踪 prop 描述 */
 export interface TrackableProp {
     /** 组件类名 (cc.Node / cc.Sprite / W6TestComp 等) */
-    compName: string;
+    compName: string
     /** 字段名 (active / spriteFrame / heatLevel 等) */
-    propKey: string;
+    propKey: string
     /** propRef = compName + "." + propKey, 是 NestedCtrlData 的 key */
-    propRef: string;
+    propRef: string
     /** cocos getClassAttrs 返回的 type — 函数构造器 or "Number"/"String"/"Boolean"/"Object"/"Enum"/undefined */
-    cocosType: any;
+    cocosType: any
     /** inspector 可见性 (false=不可见) */
-    visible: boolean;
+    visible: boolean
     /** prefab 序列化标记 */
-    serializable: boolean;
+    serializable: boolean
     /** 只读 (getter only, 无 setter) */
-    readonly: boolean;
+    readonly: boolean
 }
 
 /**
@@ -44,6 +44,7 @@ export interface TrackableProp {
  *   - cc.ParticleSystem.file: 粒子配置资源
  *   - cc.AudioSource.clip: 音频资源
  *   - cc.Node.rotation / rotationX / rotationY: cocos 2.1.0 起废弃, 读写会触发 cc.warn (使用 angle / eulerAngles 替代)
+ *   - cc.Node.name / cc.Node.uuid: 节点身份标识, 非视觉状态, 不应随 state 切换 (uuid 实例化时还会变)
  */
 export const SYSTEM_EXCLUDE: string[] = [
     "cc.Widget.target",
@@ -55,6 +56,8 @@ export const SYSTEM_EXCLUDE: string[] = [
     "cc.Node.rotation",
     "cc.Node.rotationX",
     "cc.Node.rotationY",
+    "cc.Node.name",
+    "cc.Node.uuid",
 ];
 
 const EXCLUDE_SET = new Set(SYSTEM_EXCLUDE);

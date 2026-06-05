@@ -18,17 +18,17 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { CapabilityContext, ICapability } from "../Capability";
-import { StateErrorManagerV2 } from "../StateErrorManagerV2";
+import { StateErrorManager } from "../StateErrorManagerV2";
 
 export const RecordingCapability: ICapability & {
-    isRecording: (ctrl: any) => boolean,
+    isRecording: (ctrl: any) => boolean
 } = {
     name: "recording",
 
     isRecording: (ctrl: any) => !!(ctrl && ctrl.isRecording),
 
     onRecordingStart(ctx: CapabilityContext): void {
-        StateErrorManagerV2.debug("RecordingCapability.onRecordingStart", {
+        StateErrorManager.debug("RecordingCapability.onRecordingStart", {
             component: "RecordingCapability",
             method: "onRecordingStart",
             params: { ctrlName: ctx.ctrl?.ctrlName },
@@ -36,7 +36,7 @@ export const RecordingCapability: ICapability & {
     },
 
     onRecordingStop(ctx: CapabilityContext): void {
-        StateErrorManagerV2.debug("RecordingCapability.onRecordingStop", {
+        StateErrorManager.debug("RecordingCapability.onRecordingStop", {
             component: "RecordingCapability",
             method: "onRecordingStop",
             params: { ctrlName: ctx.ctrl?.ctrlName },
@@ -47,7 +47,7 @@ export const RecordingCapability: ICapability & {
         // 录制中切 state, Topic 3 的 StateSelectV2.onStateWillChange 已直接处理 diff commit,
         // 这里仅作 capability 路径上的 log, 让其它监听者 (如 timeline / undo) 知道发生.
         if (ctx.ctrl?.isRecording) {
-            StateErrorManagerV2.debug("RecordingCapability.onStateWillChange (recording)", {
+            StateErrorManager.debug("RecordingCapability.onStateWillChange (recording)", {
                 component: "RecordingCapability",
                 method: "onStateWillChange",
                 params: { fromState: ctx.fromState },
@@ -57,7 +57,7 @@ export const RecordingCapability: ICapability & {
 
     onStateChanged(ctx: CapabilityContext): void {
         if (ctx.ctrl?.isRecording) {
-            StateErrorManagerV2.debug("RecordingCapability.onStateChanged (recording)", {
+            StateErrorManager.debug("RecordingCapability.onStateChanged (recording)", {
                 component: "RecordingCapability",
                 method: "onStateChanged",
                 params: { toState: ctx.ctrl.selectedIndex },

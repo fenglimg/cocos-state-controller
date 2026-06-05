@@ -1,10 +1,10 @@
 /**
- * state-controller-v2-panel IPC handler 契约 (Wave 3 Panel scaffold)
+ * state-controller-panel IPC handler 契约 (Wave 3 Panel scaffold)
  *
  * scene-accessor.js 的纯函数层. 不依赖 Cocos Editor 全局, 接收 ctrl 实例 + 参数返回结果.
  * Cocos IPC 路由层 (scene-accessor.js 顶层 message handler) 在外面包一层 uuid 查找 + event.reply.
  *
- * 红预期: packages/state-controller-v2-panel/lib/handlers.js 不存在.
+ * 红预期: packages/state-controller-panel/lib/handlers.js 不存在.
  */
 
 declare global {
@@ -22,9 +22,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
@@ -36,9 +36,9 @@ function setupCtrl() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -56,6 +56,13 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         expect(typeof h.cancelRecording).toBe("function");
         expect(typeof h.addState).toBe("function");
         expect(typeof h.removeState).toBe("function");
+        expect(typeof h.restoreLastDeletedState).toBe("function");
+        expect(typeof h.listDeletedStates).toBe("function");
+        expect(typeof h.restoreDeletedState).toBe("function");
+        expect(typeof h.purgeDeletedState).toBe("function");
+        expect(typeof h.purgeAllDeletedStates).toBe("function");
+        expect(typeof h.previewDeletedState).toBe("function");
+        expect(typeof h.exitPreview).toBe("function");
         expect(typeof h.addProperty).toBe("function");
         expect(typeof h.installBroadcastBridge).toBe("function");
     });
@@ -161,6 +168,84 @@ describe("Panel handlers (Wave 3 scaffold)", () => {
         // 再删应被拒
         expect(h.removeState(ctrl, 0)).toBe(false);
         expect(ctrl._states.length).toBe(1);
+    });
+
+    it("restoreLastDeletedState(ctrl) 恢复最近软删除 state", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
+        const { ctrl } = setupCtrl();
+        const deleted = ctrl._states[1];
+        expect(h.removeState(ctrl, 1)).toBe(true);
+        expect(ctrl._states.find((s: any) => s.stateId === deleted.stateId)).toBeUndefined();
+        expect(h.restoreLastDeletedState(ctrl)).toBe(true);
+        expect(ctrl._states[ctrl._states.length - 1].stateId).toBe(deleted.stateId);
+        expect(h.restoreLastDeletedState(null)).toBe(false);
+    });
+
+    it("回收站: getCtrlSnapshot.deletedStates + list/restore/purge by id", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
+        const { ctrl } = setupCtrl();
+        h.addState(ctrl, "A");           // 追加到尾部 → index 2
+        const id = ctrl._states[2].stateId;
+
+        // 软删 → 进回收站, 快照 deletedStates 反映
+        expect(h.removeState(ctrl, 2)).toBe(true);
+        expect(h.listDeletedStates(ctrl)).toEqual([{ name: "A", stateId: id }]);
+        expect(h.getCtrlSnapshot(ctrl).deletedStates).toEqual([{ name: "A", stateId: id }]);
+
+        // 按 id 恢复
+        expect(h.restoreDeletedState(ctrl, id)).toBe(true);
+        expect(h.listDeletedStates(ctrl)).toEqual([]);
+        expect(ctrl._states[ctrl._states.length - 1].stateId).toBe(id);
+
+        // 再软删 → 硬删
+        expect(h.removeState(ctrl, ctrl._states.length - 1)).toBe(true);
+        expect(h.purgeDeletedState(ctrl, id)).toBe(true);
+        expect(h.listDeletedStates(ctrl)).toEqual([]);
+        // 硬删后无法再恢复
+        expect(h.restoreDeletedState(ctrl, id)).toBe(false);
+    });
+
+    it("回收站: preview/exit handler + snapshot.previewingStateId", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
+        const { ctrl } = setupCtrl();
+        h.addState(ctrl, "A");
+        const id = ctrl._states[2].stateId;
+        h.removeState(ctrl, 2);   // 入回收站
+
+        // 未预览
+        expect(h.getCtrlSnapshot(ctrl).previewingStateId).toBe(-1);
+        // 进入预览
+        expect(h.previewDeletedState(ctrl, id)).toBe(true);
+        expect(h.getCtrlSnapshot(ctrl).previewingStateId).toBe(id);
+        // 退出预览
+        expect(h.exitPreview(ctrl)).toBe(true);
+        expect(h.getCtrlSnapshot(ctrl).previewingStateId).toBe(-1);
+        // null 容错
+        expect(h.previewDeletedState(null, id)).toBe(false);
+        expect(h.exitPreview(null)).toBe(false);
+    });
+
+    it("回收站: purgeAllDeletedStates 清空 + null 容错", () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const h = require("../../packages/state-controller-v2-panel/lib/handlers");
+        const { ctrl } = setupCtrl();
+        h.addState(ctrl, "A");
+        h.addState(ctrl, "B");
+        h.removeState(ctrl, 2);
+        h.removeState(ctrl, 1);
+        expect(h.listDeletedStates(ctrl).length).toBe(2);
+
+        expect(h.purgeAllDeletedStates(ctrl)).toBe(true);
+        expect(h.listDeletedStates(ctrl)).toEqual([]);
+
+        // null 容错
+        expect(h.listDeletedStates(null)).toEqual([]);
+        expect(h.restoreDeletedState(null, 1)).toBe(false);
+        expect(h.purgeDeletedState(null, 1)).toBe(false);
+        expect(h.purgeAllDeletedStates(null)).toBe(false);
     });
 
     it("addProperty(ctrl, select, propType) 调 select.togglePropertyControl", () => {

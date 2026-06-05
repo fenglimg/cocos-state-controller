@@ -3252,7 +3252,7 @@
       "tag": "ui-section",
       "id": "",
       "cls": "",
-      "text": "StateControllerV2 打死了发深刻理解拉屎fa",
+      "text": "StateController 打死了发深刻理解拉屎fa",
       "depth": 3,
       "fw": {
         "hasVue": true,
@@ -3278,7 +3278,7 @@
           "menuClick",
           "openHelpClick"
         ],
-        "vue.name": "StateControllerV2",
+        "vue.name": "StateController",
         "vue.target": {
           "__keys": [
             "_name",
@@ -3357,7 +3357,7 @@
       "tag": "div",
       "id": "",
       "cls": "header flex-1 layout horizontal center-center",
-      "text": "StateControllerV2",
+      "text": "StateController",
       "depth": 4
     },
     {

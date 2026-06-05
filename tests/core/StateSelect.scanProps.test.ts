@@ -1,11 +1,11 @@
 /**
- * StateSelectV2.scanAvailableProperties / autoConfigureAllProperties (Phase 4.3 part 2)
+ * StateSelect.scanAvailableProperties / autoConfigureAllProperties (Phase 4.3 part 2)
  *
  * Red→Green bug 修复:
  *
  * 现象: scanAvailableProperties 永远返回 []; autoConfigureAllProperties 永远 enabled=0.
  *
- * 根因: StateSelectV2.ts 顶部调用 `cc.Enum(EnumPropName)` 之后,
+ * 根因: StateSelect.ts 顶部调用 `cc.Enum(EnumPropName)` 之后,
  * cocos 引擎把 EnumPropName 上的数字 key (反向映射) 设为 enumerable: false,
  * 所以 `for (const propKey in EnumPropName)` 只能拿到名字 key ("Active", "Position", ...).
  * scanAvailableProperties 里 `parseInt(propKey)` 对名字一律得到 NaN → 全 continue → 返回 [].
@@ -38,8 +38,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setupCtrlAndSelect() {
@@ -50,17 +50,17 @@ function setupCtrlAndSelect() {
     const selectNode = new ccL.Node("Scan_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
     return { root, ctrlNode, selectNode, ctrl, select };
 }
 
-describe("StateSelectV2.scanAvailableProperties", () => {
+describe("StateSelect.scanAvailableProperties", () => {
     it("空白节点应只列出 8 个节点基础 prop", () => {
         const { select } = setupCtrlAndSelect();
         const available = select.scanAvailableProperties();
@@ -91,7 +91,7 @@ describe("StateSelectV2.scanAvailableProperties", () => {
     });
 });
 
-describe("StateSelectV2.autoConfigureAllProperties", () => {
+describe("StateSelect.autoConfigureAllProperties", () => {
     it("空白节点上调一次, 应启用 8 个节点基础 prop, skipped=0 failed=0", () => {
         const { select } = setupCtrlAndSelect();
         // TASK-003: __preload 自动接入 8 个节点基础 prop, 先逐个 opt-out 回到旧基线

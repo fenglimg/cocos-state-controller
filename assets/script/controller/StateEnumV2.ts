@@ -33,6 +33,12 @@ export enum EnumUpdateType {
     RecordingStop = 9,
     /** 状态即将切换 (selectedIndex setter 触发, 录制中触发 diff commit) */
     StateWillChange = 10,
+    /** 回收站硬删 (purgeDeletedState 触发, 通知 StateSelectV2 清掉 _ctrlData[stateId] 页数据), value = stateId */
+    PurgeStateId = 11,
+    /** 回收站预览进入 (previewDeletedState 触发, 通知 StateSelectV2 快照+apply 该 stateId 数据), value = stateId */
+    PreviewEnter = 12,
+    /** 回收站预览退出 (exitPreview 触发, 通知 StateSelectV2 按快照还原节点) */
+    PreviewExit = 13,
 }
 /**
  * 控制器名字枚举 (空骨架, 不要往里加值)。
@@ -60,7 +66,7 @@ export enum EnumExcludeSlot {
  *
  * 扩展方式：
  * 1. 在此枚举中添加新的属性类型
- * 2. 在StatePropHandlerV2.ts中实现对应的处理器
+ * 2. 在StatePropHandler.ts中实现对应的处理器
  * 3. 在StateSelectV2.ts中的setDefaultProp方法中添加对应的case
  */
 export enum EnumPropName {

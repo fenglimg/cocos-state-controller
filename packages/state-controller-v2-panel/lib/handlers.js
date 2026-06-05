@@ -72,6 +72,8 @@ function getCtrlSnapshot(ctrl) {
         selectedStateId: sel ? sel.stateId : -1,
         isRecording: !!ctrl.isRecording,
         states: states,
+        deletedStates: listDeletedStates(ctrl),
+        previewingStateId: (typeof ctrl.previewingStateId === 'number') ? ctrl.previewingStateId : -1,
     };
 }
 
@@ -157,6 +159,48 @@ function removeState(ctrl, index) {
     return ctrl._states.length === beforeLen - 1;
 }
 
+function restoreLastDeletedState(ctrl) {
+    if (!ctrl || typeof ctrl.restoreLastDeletedState !== 'function') return false;
+    return !!ctrl.restoreLastDeletedState();
+}
+
+/** 回收站: 列出暂存的已删除 state [{name, stateId}]. */
+function listDeletedStates(ctrl) {
+    if (!ctrl || typeof ctrl.listDeletedStates !== 'function') return [];
+    const list = ctrl.listDeletedStates();
+    return Array.isArray(list) ? list : [];
+}
+
+/** 回收站: 恢复指定 stateId 的暂存 state (追加到尾部, 数据自动接回). */
+function restoreDeletedState(ctrl, stateId) {
+    if (!ctrl || typeof ctrl.restoreDeletedState !== 'function') return false;
+    return !!ctrl.restoreDeletedState(stateId);
+}
+
+/** 回收站硬删: 彻底删除指定 stateId 的页数据 (不可恢复). */
+function purgeDeletedState(ctrl, stateId) {
+    if (!ctrl || typeof ctrl.purgeDeletedState !== 'function') return false;
+    return !!ctrl.purgeDeletedState(stateId);
+}
+
+/** 回收站: 清空 (对所有暂存项硬删, 不可恢复). */
+function purgeAllDeletedStates(ctrl) {
+    if (!ctrl || typeof ctrl.purgeAllDeletedStates !== 'function') return false;
+    return !!ctrl.purgeAllDeletedStates();
+}
+
+/** 回收站: 进入某 stateId 的只读预览 (叠加到节点, 不改选中). */
+function previewDeletedState(ctrl, stateId) {
+    if (!ctrl || typeof ctrl.previewDeletedState !== 'function') return false;
+    return !!ctrl.previewDeletedState(stateId);
+}
+
+/** 回收站: 退出预览 (按快照还原节点). */
+function exitPreview(ctrl) {
+    if (!ctrl || typeof ctrl.exitPreview !== 'function') return false;
+    return !!ctrl.exitPreview();
+}
+
 /**
  * 手动添加 prop (panel "+ 添加属性" 按钮).
  * 调 StateSelectV2.togglePropertyControl, 触发 PropertyControlService 写入 _ctrlData.
@@ -240,25 +284,27 @@ function getPropStateValues(select, ctrl) {
             sink[k] = 1;
         }
     }
-    function pageOf(stateIndex) {
-        return pageData[stateIndex] != null ? pageData[stateIndex] : null;
+    function pageOf(state) {
+        if (!state) return null;
+        if (pageData[state.stateId] != null) return pageData[state.stateId];
+        return pageData[state.index] != null ? pageData[state.index] : null;
     }
 
     // 收集所有受控 propRef (default + 各 state 的值 key 并集)
     const refSet = {};
     valueKeys(pageData.$$default$$, refSet);
-    for (let i = 0; i < states.length; i++) valueKeys(pageOf(states[i].index), refSet);
+    for (let i = 0; i < states.length; i++) valueKeys(pageOf(states[i]), refSet);
 
     for (const ref in refSet) {
         const valueByState = {};
         const distinct = {};
         let definedCount = 0;
         for (let i = 0; i < states.length; i++) {
-            const idx = states[i].index;
-            const pd = pageOf(idx);
+            const state = states[i];
+            const pd = pageOf(state);
             const raw = pd ? pd[ref] : undefined;
             const ser = serializeStateValue(raw);
-            valueByState[idx] = ser;
+            valueByState[state.stateId] = ser;
             if (raw !== undefined) {
                 definedCount++;
                 distinct[JSON.stringify(ser)] = 1;
@@ -269,7 +315,7 @@ function getPropStateValues(select, ctrl) {
         // M1-3: 当前 state 下值是否覆盖 default (两者均有定义且序列化后不等)
         let overriddenAtCurrent = false;
         if (selectedIndex >= 0 && defRaw !== undefined) {
-            const curPd = pageOf(selectedIndex);
+            const curPd = pageOf(states[selectedIndex]);
             const curRaw = curPd ? curPd[ref] : undefined;
             if (curRaw !== undefined) {
                 overriddenAtCurrent = JSON.stringify(serializeStateValue(curRaw)) !== JSON.stringify(defSer);
@@ -396,8 +442,8 @@ function buildTopology(ctrlsInfo, selectsInfo) {
                             combinedDefault = p.defaultValue;
                             if (sv.states) {
                                 for(let s = 0; s < sv.states.length; s++) {
-                                    const sIdx = sv.states[s].index;
-                                    combinedValueByState[sIdx] = p.valueByState ? p.valueByState[sIdx] : undefined;
+                                    const sId = sv.states[s].stateId;
+                                    combinedValueByState[sId] = p.valueByState ? p.valueByState[sId] : undefined;
                                 }
                             }
                         }
@@ -416,9 +462,9 @@ function buildTopology(ctrlsInfo, selectsInfo) {
                             
                             if (sv.states) {
                                 for(let s = 0; s < sv.states.length; s++) {
-                                    const sIdx = sv.states[s].index;
-                                    if (!combinedValueByState[sIdx]) combinedValueByState[sIdx] = {};
-                                    combinedValueByState[sIdx][refName] = p && p.valueByState ? p.valueByState[sIdx] : undefined;
+                                    const sId = sv.states[s].stateId;
+                                    if (!combinedValueByState[sId]) combinedValueByState[sId] = {};
+                                    combinedValueByState[sId][refName] = p && p.valueByState ? p.valueByState[sId] : undefined;
                                 }
                             }
                             if (p) {
@@ -464,6 +510,13 @@ module.exports = {
     cancelRecording: cancelRecording,
     addState: addState,
     removeState: removeState,
+    restoreLastDeletedState: restoreLastDeletedState,
+    listDeletedStates: listDeletedStates,
+    restoreDeletedState: restoreDeletedState,
+    purgeDeletedState: purgeDeletedState,
+    purgeAllDeletedStates: purgeAllDeletedStates,
+    previewDeletedState: previewDeletedState,
+    exitPreview: exitPreview,
     addProperty: addProperty,
     removeProperty: removeProperty,
     installBroadcastBridge: installBroadcastBridge,

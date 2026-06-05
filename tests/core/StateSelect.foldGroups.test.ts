@@ -1,5 +1,5 @@
 /**
- * inspector 折叠组重构: StateSelectV2 把「排除管理 / 录制 / 值搬运」搬进 owner 回引的折叠子类
+ * inspector 折叠组重构: StateSelect 把「排除管理 / 录制 / 值搬运」搬进 owner 回引的折叠子类
  * (excludeGroup / recording / valueOps), 顶层不再直显这些触发器; 普通访问器保留作 API.
  *
  * 本测试验证: 折叠组存在 + 组内 @property 可见性/displayName + 代理到 owner 同名访问器双向生效.
@@ -21,9 +21,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
+const { StateController, StateValue } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 
 const DELIMETER = "$_$";
 
@@ -39,20 +39,20 @@ function setup() {
     const selectNode = new ccL.Node("FG_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     ctrl.states = [
         StateValue.create("A", (ctrl as any).stateIdAuto++),
         StateValue.create("B", (ctrl as any).stateIdAuto++),
         StateValue.create("C", (ctrl as any).stateIdAuto++),
     ];
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
     return { ccL, root, ctrl, select };
 }
 
-describe("StateSelectV2 inspector 折叠组结构", () => {
+describe("StateSelect inspector 折叠组结构", () => {
     it("三个折叠组字段存在且 owner 已注入", () => {
         const { select } = setup();
         for (const g of ["excludeGroup", "recording", "valueOps"]) {
@@ -61,8 +61,8 @@ describe("StateSelectV2 inspector 折叠组结构", () => {
         }
     });
 
-    it("折叠组字段在 StateSelectV2 上 @property 可见 (visible !== false) + displayName 注入", () => {
-        const sa = attrsOf(StateSelectV2);
+    it("折叠组字段在 StateSelect 上 @property 可见 (visible !== false) + displayName 注入", () => {
+        const sa = attrsOf(StateSelect);
         const expectName: Record<string, string> = {
             excludeGroup: "排除管理", recording: "录制", valueOps: "值搬运",
         };
@@ -72,9 +72,9 @@ describe("StateSelectV2 inspector 折叠组结构", () => {
         }
     });
 
-    it("旧触发器已从 StateSelectV2 顶层 @property 移除 (改由折叠组承载)", () => {
-        const sa = attrsOf(StateSelectV2);
-        // cancelRecordTrigger 仍是 StateSelectV2 上的普通访问器(顶层不直显), 但 2026-06-03 起折叠组也不再
+    it("旧触发器已从 StateSelect 顶层 @property 移除 (改由折叠组承载)", () => {
+        const sa = attrsOf(StateSelect);
+        // cancelRecordTrigger 仍是 StateSelect 上的普通访问器(顶层不直显), 但 2026-06-03 起折叠组也不再
         // 直显它的按钮(回退改用 Ctrl+Z), 故不列入"折叠组承载"清单.
         const moved = [
             "excludedPropsDisplay", "addExcludeTrigger",
@@ -87,7 +87,7 @@ describe("StateSelectV2 inspector 折叠组结构", () => {
     });
 
     it("currentStateProps / ctrlState / refreshInspectorTrigger 保持顶层可见 (回归)", () => {
-        const sa = attrsOf(StateSelectV2);
+        const sa = attrsOf(StateSelect);
         for (const key of ["currentStateProps", "ctrlState", "refreshInspectorTrigger"]) {
             expect(sa[key + DELIMETER + "visible"]).not.toBe(false);
         }
@@ -107,13 +107,15 @@ describe("StateSelectV2 inspector 折叠组结构", () => {
     it("valueOps 折叠组: swap/copy 代理到 owner 同名访问器", () => {
         const { ctrl, select } = setup();
         const cid = (ctrl as any).ctrlId;
+        const stateA = ctrl.states[0].stateId;
+        const stateB = ctrl.states[1].stateId;
         // 种子: A(state0) 有 propData, B(state1) 空
         const page = (select as any)._ctrlData[cid] || ((select as any)._ctrlData[cid] = {});
-        page["0"] = { "cc.Node.x": 11 };
+        page[stateA] = { "cc.Node.x": 11 };
         // copy 当前(A=0) → 下一(B=1)
         ctrl.selectedIndex = 0;
         (select as any).valueOps.copyValueToNext = true;
-        expect((select as any)._ctrlData[cid]["1"]).toEqual({ "cc.Node.x": 11 });
+        expect((select as any)._ctrlData[cid][stateB]).toEqual({ "cc.Node.x": 11 });
     });
 
     it("excludeGroup 折叠组: userExcludedProps 代理同一份 owner._userExcludedProps", () => {

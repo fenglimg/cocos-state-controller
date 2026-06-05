@@ -1,11 +1,11 @@
 /**
- * StateControllerV2 可序列化跨控制器联动 (二期支柱 B)
+ * StateController 可序列化跨控制器联动 (二期支柱 B)
  *
  * 现状: MultiCtrlBindingCapability 的 binding 存进程级 WeakMap + target 对象引用, 不进场景序列化,
- * 编辑器静态观测看不到。本特性给 StateControllerV2 加:
+ * 编辑器静态观测看不到。本特性给 StateController 加:
  *   - 序列化字段 _bindingsData (JSON 串, 用 targetCtrlId 数字代替对象引用)
  *   - 公开 API: addBinding(sourceStateId, targetCtrlId, targetStateId) / removeBinding / getBindings / clearBindings
- *   - 静态注册表 StateControllerV2.getById(ctrlId)
+ *   - 静态注册表 StateController.getById(ctrlId)
  *   - rehydrateBindings(): 把序列化 binding 解析 id→ctrl 对象, 复用 MultiCtrlBindingCapability 接线 (运行时 start 调用)
  *
  * Red: 这些 API 尚不存在。
@@ -26,7 +26,7 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { SelectedPageIdCapability } = require("../../assets/script/controller/capabilities/SelectedPageIdCapability");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -36,17 +36,17 @@ let idSeq = 990000;
 function setupCtrl(name?: string) {
     const ccLocal = (globalThis as any).cc;
     const node = new ccLocal.Node(name || "CtrlNode");
-    const ctrl = node.addComponent(StateControllerV2);
+    const ctrl = node.addComponent(StateController);
     ctrl.ctrlId = ++idSeq;           // 显式唯一 id (Date.now() 同毫秒会撞)
     (ctrl as any).__preload();
     return ctrl;
 }
 
-describe("StateControllerV2 可序列化跨控制器联动 (支柱 B)", () => {
-    it("静态注册表: __preload 后 StateControllerV2.getById(ctrlId) 拿到实例", () => {
+describe("StateController 可序列化跨控制器联动 (支柱 B)", () => {
+    it("静态注册表: __preload 后 StateController.getById(ctrlId) 拿到实例", () => {
         const a = setupCtrl("A");
-        expect(typeof StateControllerV2.getById).toBe("function");
-        expect(StateControllerV2.getById(a.ctrlId)).toBe(a);
+        expect(typeof StateController.getById).toBe("function");
+        expect(StateController.getById(a.ctrlId)).toBe(a);
     });
 
     it("addBinding 写入序列化数据, getBindings 读回", () => {

@@ -1,7 +1,7 @@
 /**
- * TASK-005 (专项A-1): StateControllerV2 move↑↓ / dup / delete 触发器改组件 inspector visible:true.
+ * TASK-005 (专项A-1): StateController move↑↓ / dup / delete 触发器改组件 inspector visible:true.
  *
- * 设计 (SPEC 专项A / line 235): StateControllerV2 的 move↑↓ / dup / delete @property 触发器
+ * 设计 (SPEC 专项A / line 235): StateController 的 move↑↓ / dup / delete @property 触发器
  * 由 visible:false (panel 时代隐藏) 翻为 visible:true, 让用户不依赖面板即可在组件 inspector
  * 直接操作整个 State 列表 (增删改切由 states 数组 UI + 这 4 个触发器闭环).
  *
@@ -24,7 +24,7 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2, StateValue } = require("../../assets/script/controller/StateControllerV2");
+const { StateController, StateValue } = require("../../assets/script/controller/StateControllerV2");
 
 const DELIMETER = "$_$";
 
@@ -38,7 +38,7 @@ function setup() {
     const root = new ccL.Node("TVR_Root");
     const ctrlNode = new ccL.Node("TVR_CtrlNode");
     root.addChild(ctrlNode);
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     // 准备 3 个 state 供 move/dup/delete 操作 (用 StateValue.create 走正规构造)
     ctrl.states = [
@@ -49,15 +49,13 @@ function setup() {
     return { ccL, root, ctrl };
 }
 
-describe("专项A-1 StateControllerV2 触发器 (折叠组重构后)", () => {
+describe("专项A-1 StateController 触发器 (折叠组重构后)", () => {
     const opsTriggers = ["moveStateUp", "moveStateDown", "duplicateCurrentState", "deleteCurrentState"];
-    // 2026-06-03: cancelRecordTrigger 按钮已从 inspector 移除 (回退用 Ctrl+Z), recording 组只剩 recordTrigger.
-    const recordTriggers = ["recordTrigger"];
 
-    it("4 个状态操作触发器已从 StateControllerV2 顶层 @property 移除 (改由 stateOps 折叠组承载)", () => {
+    it("4 个状态操作触发器已从 StateController 顶层 @property 移除 (改由 stateOps 折叠组承载)", () => {
         for (const key of opsTriggers) {
             // 顶层不再注册 @property → visible 属性 undefined (普通访问器仍在原型上, 仅不直显)
-            expect({ propKey: key, visible: getVisibleAttr(StateControllerV2, key) })
+            expect({ propKey: key, visible: getVisibleAttr(StateController, key) })
                 .toEqual({ propKey: key, visible: undefined });
         }
     });
@@ -65,7 +63,7 @@ describe("专项A-1 StateControllerV2 触发器 (折叠组重构后)", () => {
     it("stateOps 折叠组对 inspector 可见, 组内 4 个触发器 visible !== false + displayName 注入", () => {
         const { ctrl } = setup();
         expect((ctrl as any).stateOps).toBeTruthy();
-        expect(getVisibleAttr(StateControllerV2, "stateOps")).not.toBe(false);
+        expect(getVisibleAttr(StateController, "stateOps")).not.toBe(false);
         const groupAttrs = (globalThis as any).cc.Class.Attr.getClassAttrs((ctrl as any).stateOps);
         const expectName: Record<string, string> = {
             moveStateUp: "状态上移", moveStateDown: "状态下移",
@@ -77,14 +75,15 @@ describe("专项A-1 StateControllerV2 触发器 (折叠组重构后)", () => {
         }
     });
 
-    it("recording 折叠组对 inspector 可见, 组内录制触发器 visible !== false", () => {
+    it("2026-06-04: 录制组已从 StateController inspector 移除 (录制改由 StateSelect 承载)", () => {
         const { ctrl } = setup();
-        expect((ctrl as any).recording).toBeTruthy();
-        expect(getVisibleAttr(StateControllerV2, "recording")).not.toBe(false);
-        const groupAttrs = (globalThis as any).cc.Class.Attr.getClassAttrs((ctrl as any).recording);
-        for (const key of recordTriggers) {
-            expect(groupAttrs[key + DELIMETER + "visible"]).not.toBe(false);
-        }
+        // 不再注册 recording 折叠组 @property → 实例上无该字段, inspector visible 属性 undefined
+        expect((ctrl as any).recording).toBeUndefined();
+        expect(getVisibleAttr(StateController, "recording")).toBeUndefined();
+    });
+
+    it("2026-06-04: 新增「🔄 刷新 inspector」触发器, 顶层 @property visible !== false", () => {
+        expect(getVisibleAttr(StateController, "refreshInspectorTrigger")).not.toBe(false);
     });
 
     it("普通访问器路径仍可用: ctrl.moveStateUp setter 代理到顺序调整 (回归)", () => {
@@ -118,13 +117,18 @@ describe("专项A-1 StateControllerV2 触发器 (折叠组重构后)", () => {
         expect(ctrl.states.map((s: any) => s.name)).toEqual(["A", "C"]);
     });
 
-    it("折叠组路径: recording.recordTrigger 代理 toggle 录制态", () => {
+    it("回归: ctrl.recordTrigger 访问器仍可 toggle 录制态 (StateSelect 录制组代理到此)", () => {
         const { ctrl } = setup();
         expect(ctrl.isRecording).toBe(false);
-        (ctrl as any).recording.recordTrigger = true; // toggle on
+        (ctrl as any).recordTrigger = true; // toggle on
         expect(ctrl.isRecording).toBe(true);
-        (ctrl as any).recording.recordTrigger = false; // toggle off
+        (ctrl as any).recordTrigger = false; // toggle off
         expect(ctrl.isRecording).toBe(false);
+    });
+
+    it("刷新触发器 setter 在编辑器环境不抛错 (刷新 selectedPage + inspector)", () => {
+        const { ctrl } = setup();
+        expect(() => { (ctrl as any).refreshInspectorTrigger = true; }).not.toThrow();
     });
 });
 

@@ -1,7 +1,7 @@
 /**
- * StateSelectV2 inspector 极简形态契约 (T19 of PLN-001 Wave 1)
+ * StateSelect inspector 极简形态契约 (T19 of PLN-001 Wave 1)
  *
- * Wave 1 后 StateSelectV2 inspector 只保留:
+ * Wave 1 后 StateSelect inspector 只保留:
  *   - currentStateProps (readonly string[], 美化值列表 "Color: ...", displayName "已跟随属性")
  *   - recordTrigger (录制按钮, displayName "🔴 录制")
  *
@@ -31,8 +31,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -43,16 +43,16 @@ function setup() {
     const selectNode = new ccL.Node("SI_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
     return { ctrl, select, selectNode };
 }
 
-describe("StateSelectV2 inspector 极简形态", () => {
+describe("StateSelect inspector 极简形态", () => {
     describe("[T19] currentStateProps 美化值列表", () => {
         it("currentStateProps 应为 string[] 类型", () => {
             const { select } = setup();
@@ -111,7 +111,7 @@ describe("StateSelectV2 inspector 极简形态", () => {
         });
     });
 
-    describe("StateSelectV2 上的切 state 入口 (ctrlState) — 无插件闭环", () => {
+    describe("StateSelect 上的切 state 入口 (ctrlState) — 无插件闭环", () => {
         it("ctrlState getter 返回 ctrl.selectedIndex", () => {
             const { select, ctrl } = setup();
             expect((select as any).ctrlState).toBe(ctrl.selectedIndex);

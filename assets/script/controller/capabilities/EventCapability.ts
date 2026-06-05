@@ -21,16 +21,16 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { CapabilityContext, ICapability } from "../Capability";
-import { StateErrorManagerV2 } from "../StateErrorManagerV2";
+import { StateErrorManager } from "../StateErrorManagerV2";
 
 export type EventName = "stateChanged";
 
 export interface StateChangedPayload {
-    ctrl: any;
-    fromState: number;
-    toState: number;
-    fromName: string | null;
-    toName: string | null;
+    ctrl: any
+    fromState: number
+    toState: number
+    fromName: string | null
+    toName: string | null
 }
 
 type Listener = (payload: StateChangedPayload) => void;
@@ -60,11 +60,11 @@ function stateNameAt(ctrl: any, idx: number): string | null {
 }
 
 export const EventCapability: ICapability & {
-    on: (ctrl: any, event: EventName, cb: Listener) => void,
-    off: (ctrl: any, event: EventName, cb: Listener) => void,
-    once: (ctrl: any, event: EventName, cb: Listener) => void,
-    clear: (ctrl: any) => void,
-    listenerCount: (ctrl: any, event: EventName) => number,
+    on: (ctrl: any, event: EventName, cb: Listener) => void
+    off: (ctrl: any, event: EventName, cb: Listener) => void
+    once: (ctrl: any, event: EventName, cb: Listener) => void
+    clear: (ctrl: any) => void
+    listenerCount: (ctrl: any, event: EventName) => number
 } = {
     name: "event",
 
@@ -131,7 +131,7 @@ export const EventCapability: ICapability & {
                 cb(payload);
             }
             catch (e) {
-                StateErrorManagerV2.warn("EventCapability listener 抛异常", {
+                StateErrorManager.warn("EventCapability listener 抛异常", {
                     component: "EventCapability",
                     method: "onStateChanged",
                     params: { error: (e as Error).message },

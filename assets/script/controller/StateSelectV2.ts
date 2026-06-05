@@ -34,7 +34,7 @@ const {
 import { SelectExcludeGroup, SelectRecordGroup, SelectValueOpsGroup } from "./props/SelectInspectorGroups";
 import { StateControllerV2 } from "./StateControllerV2";
 import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName } from "./StateEnumV2";
-import { StateErrorManagerV2 } from "./StateErrorManagerV2";
+import { StateErrorManager } from "./StateErrorManagerV2";
 import { PropHandlerManager } from "./StatePropHandlerV2";
 import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
@@ -73,6 +73,8 @@ export type TProp = TPropDictionary & {
 };
 
 type TPage = {
+    /** v2 storage: state data is keyed by StateValue.stateId, not mutable state index. */
+    $$stateKeyMode$$?: "stateId"
     /** 上次选择的状态 */
     // $$lastState$$?: number,
     /** 默认状态属性 */
@@ -128,6 +130,9 @@ export class StateSelectV2 extends cc.Component {
     @property({ visible: false })
     private _isDeleteCurr: boolean = false;
 
+    /** Track1: 切 state 复位 propKey 时置真, 抑制 handleValidPropSelection 的回写/物化 (非序列化, 瞬态). */
+    private _suppressPropCapture: boolean = false;
+
     // #endregion
 
     // #region W6-4 inspector 排除清单 UI
@@ -161,15 +166,23 @@ export class StateSelectV2 extends cc.Component {
         // 新加项: 在 current 不在 last → 排除 (从跟随中移除)
         for (const propRef of current) {
             if (!lastSet.has(propRef)) {
-                try { this.togglePropertyControl(propRef, false); }
-                catch (e) { StateErrorManagerV2.warn("reconcileUserExcluded: 排除失败", { component: "StateSelectV2", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } }); }
+                try {
+                    this.togglePropertyControl(propRef, false);
+                }
+                catch (e) {
+                    StateErrorManager.warn("reconcileUserExcluded: 排除失败", { component: "StateSelectV2", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } });
+                }
             }
         }
         // 删除项: 在 last 不在 current → 重新跟随
         for (const propRef of last) {
             if (!currentSet.has(propRef)) {
-                try { this.togglePropertyControl(propRef, true); }
-                catch (e) { StateErrorManagerV2.warn("reconcileUserExcluded: 恢复跟随失败", { component: "StateSelectV2", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } }); }
+                try {
+                    this.togglePropertyControl(propRef, true);
+                }
+                catch (e) {
+                    StateErrorManager.warn("reconcileUserExcluded: 恢复跟随失败", { component: "StateSelectV2", method: "reconcileUserExcluded", params: { propRef, error: (e as Error).message } });
+                }
             }
         }
         this._lastSeenExcluded = current.slice();
@@ -194,12 +207,21 @@ export class StateSelectV2 extends cc.Component {
         const idx = this._userExcludedProps.indexOf(propRef);
         if (excluded) {
             if (idx === -1) this._userExcludedProps.push(propRef);
-            try { this.togglePropertyControl(propRef, false); }
-            catch (e) { StateErrorManagerV2.warn("setPropExcluded: 排除失败", { component: "StateSelectV2", method: "setPropExcluded", params: { propRef, error: (e as Error).message } }); }
-        } else {
+            try {
+                this.togglePropertyControl(propRef, false);
+            }
+            catch (e) {
+                StateErrorManager.warn("setPropExcluded: 排除失败", { component: "StateSelectV2", method: "setPropExcluded", params: { propRef, error: (e as Error).message } });
+            }
+        }
+        else {
             if (idx >= 0) this._userExcludedProps.splice(idx, 1);
-            try { this.togglePropertyControl(propRef, true); }
-            catch (e) { StateErrorManagerV2.warn("setPropExcluded: 恢复跟随失败", { component: "StateSelectV2", method: "setPropExcluded", params: { propRef, error: (e as Error).message } }); }
+            try {
+                this.togglePropertyControl(propRef, true);
+            }
+            catch (e) {
+                StateErrorManager.warn("setPropExcluded: 恢复跟随失败", { component: "StateSelectV2", method: "setPropExcluded", params: { propRef, error: (e as Error).message } });
+            }
         }
         // 与 reconcile 路径快照一致, 避免下次 getter reconcile 把刚做的 toggle 又翻回去
         this._lastSeenExcluded = this._userExcludedProps.slice();
@@ -257,8 +279,9 @@ export class StateSelectV2 extends cc.Component {
         try {
             const list = listTrackableProps(this.node);
             trackableRefs = list.map(p => p.propRef);
-        } catch (e) {
-            StateErrorManagerV2.warn("refreshExcludeEnumLists: listTrackableProps 失败", {
+        }
+        catch (e) {
+            StateErrorManager.warn("refreshExcludeEnumLists: listTrackableProps 失败", {
                 component: "StateSelectV2",
                 method: "refreshExcludeEnumLists",
                 params: { error: (e as Error).message },
@@ -302,7 +325,7 @@ export class StateSelectV2 extends cc.Component {
      */
     // 序列化字段, inspector 不直显 (visible:false) — 由 excludeGroup.userExcludedProps 代理同一份数组引用展示/编辑.
     @property({ type: [cc.String], visible: false })
-    public _userExcludedProps: string[] = [];
+    public _userExcludedProps: string[] = []; // eslint-disable-line @typescript-eslint/naming-convention -- 序列化 key 固定, facade 跨类读写, 不可改名/私有
 
     /** reconcile 用的上次快照, 用于 diff 触发 togglePropertyControl */
     private _lastSeenExcluded: string[] = [];
@@ -365,7 +388,7 @@ export class StateSelectV2 extends cc.Component {
     public get ctrlState() {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.warn("ctrlState getter: 控制器为空", {
+            StateErrorManager.warn("ctrlState getter: 控制器为空", {
                 component: "StateSelectV2",
                 method: "ctrlState.getter",
             });
@@ -377,7 +400,7 @@ export class StateSelectV2 extends cc.Component {
     private set ctrlState(value: number) {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.warn("ctrlState setter: 控制器为空", {
+            StateErrorManager.warn("ctrlState setter: 控制器为空", {
                 component: "StateSelectV2",
                 method: "ctrlState.setter",
             });
@@ -398,7 +421,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
         if (!value) {
-            StateErrorManagerV2.warn("currCtrlId setter: value is null", {
+            StateErrorManager.warn("currCtrlId setter: value is null", {
                 component: "StateSelectV2",
                 method: "currCtrlId.setter",
             });
@@ -420,7 +443,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        StateErrorManagerV2.debug("开始设置属性键", {
+        StateErrorManager.debug("开始设置属性键", {
             component: "StateSelectV2",
             method: "propKey.setter",
             params: { oldPropKey: EnumPropName[this._propKey], newPropKey: EnumPropName[value] },
@@ -429,7 +452,7 @@ export class StateSelectV2 extends cc.Component {
         // 🔧 第一步：验证控制器有效性
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.warn("propKey setter: 控制器为空", {
+            StateErrorManager.warn("propKey setter: 控制器为空", {
                 component: "StateSelectV2",
                 method: "propKey.setter",
             });
@@ -440,7 +463,7 @@ export class StateSelectV2 extends cc.Component {
         if (value === EnumPropName.Non) {
             this._propKey = EnumPropName.Non;
             this.setPropValue(EnumPropName.Non);
-            StateErrorManagerV2.debug("设置属性为Non", {
+            StateErrorManager.debug("设置属性为Non", {
                 component: "StateSelectV2",
                 method: "propKey.setter",
             });
@@ -452,7 +475,7 @@ export class StateSelectV2 extends cc.Component {
         // 🔧 第三步：更新UI显示
         this.updateChangedProp();
 
-        StateErrorManagerV2.info("属性键设置完成", {
+        StateErrorManager.info("属性键设置完成", {
             component: "StateSelectV2",
             method: "propKey.setter",
             params: { finalPropKey: EnumPropName[this._propKey] },
@@ -463,7 +486,7 @@ export class StateSelectV2 extends cc.Component {
     private handleValidPropSelection(value: EnumPropName) {
         const propValue = this.handleValue(value);
         if (propValue === undefined) {
-            StateErrorManagerV2.warn("无法获取属性值", {
+            StateErrorManager.warn("无法获取属性值", {
                 component: "StateSelectV2",
                 method: "handleValidPropSelection",
                 params: { propType: EnumPropName[value] },
@@ -475,6 +498,15 @@ export class StateSelectV2 extends cc.Component {
         // 🔧 第二步：设置属性状态（确保属性值有效后再设置）
         this._propKey = value;
         this.setPropValue(value); // 显示属性值字段
+
+        // Track1 序列化瘦身: 切 state 触发的 propKey 复位仅为"保持显示选择", 不应把切 state 后
+        // 节点(可能刚被上一 state apply 改写)的当前值回写进 ctrlData / 物化到所有 state —— 否则:
+        //   (1) 每次切 state 即把各 state 物化 (re-bloat, 抵消瘦身);
+        //   (2) angle/eulerAngles 别名冲突时把被 apply 改坏的节点值污染进 state 存值。
+        // 真正的用户改值走录制/setDefaultProp 路径, 不经此 setter。
+        if (this._suppressPropCapture) {
+            return;
+        }
 
         // 🔧 第三步：更新数据结构
         this.updatePropData(value, propValue);
@@ -530,7 +562,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
         if (this._isPreloaded) {
-            StateErrorManagerV2.debug("跳过重复预加载", {
+            StateErrorManager.debug("跳过重复预加载", {
                 component: "StateSelectV2",
                 method: "__preload",
             });
@@ -543,6 +575,10 @@ export class StateSelectV2 extends cc.Component {
         // 跑一次, 确保后续 updateCtrlName / autoOptIn / dispatch 看到的 _ctrlData 已清理.
         this.migrateLegacyCtrlData();
 
+        // Track1 序列化瘦身: 读旧 fat prefab 后就地规范化为 compact (受控集只留 default, 各 state 只留
+        // 与 default 不同的 override), 之后内存即 compact, 下次存盘输出紧凑结构. 幂等, compact 数据再跑是 no-op.
+        this.compactCtrlData();
+
         // inspector 折叠组 facade 的 owner 回引
         this.excludeGroup.owner = this;
         this.recording.owner = this;
@@ -551,7 +587,7 @@ export class StateSelectV2 extends cc.Component {
         // IMPL-001.6: 通知控制器缓存失效
         this.notifyControllerCacheDirty();
 
-        StateErrorManagerV2.debug("开始StateSelectV2预加载", {
+        StateErrorManager.debug("开始StateSelectV2预加载", {
             component: "StateSelectV2",
             method: "__preload",
             params: { hasCurrentCtrl: !!this.currCtrlId },
@@ -566,17 +602,18 @@ export class StateSelectV2 extends cc.Component {
             if (ctrlIdKeys.length > 0) {
                 // 找到控制器，设置为当前控制器并初始化
                 this.currCtrlId = Number(ctrlIdKeys[0]);
-                StateErrorManagerV2.info("自动选择控制器", {
+                StateErrorManager.info("自动选择控制器", {
                     component: "StateSelectV2",
                     method: "__preload",
                     params: { selectedCtrlId: this.currCtrlId, availableControllers: ctrlIdKeys.length },
                 });
+                this.migrateStateIndexKeysForCtrl(this.getCurrCtrl());
                 this.updateCtrlPage(this.getCurrCtrl());
                 this.refProp();
             }
             else {
                 // 没有找到控制器，清理状态
-                StateErrorManagerV2.warn("未找到可用的控制器", {
+                StateErrorManager.warn("未找到可用的控制器", {
                     component: "StateSelectV2",
                     method: "__preload",
                 });
@@ -586,11 +623,12 @@ export class StateSelectV2 extends cc.Component {
         }
         else {
             // 已有当前控制器，更新页面并恢复属性选择
-            StateErrorManagerV2.debug("使用现有控制器", {
+            StateErrorManager.debug("使用现有控制器", {
                 component: "StateSelectV2",
                 method: "__preload",
                 params: { currentCtrlId: this.currCtrlId },
             });
+            this.migrateStateIndexKeysForCtrl(this.getCurrCtrl());
             this.updateCtrlPage(this.getCurrCtrl());
             this.refProp();
         }
@@ -611,7 +649,7 @@ export class StateSelectV2 extends cc.Component {
         // 必须在所有 controlled 状态稳定后调 (autoOptIn 完, _userExcludedProps 已应用).
         this.refreshExcludeEnumLists();
 
-        StateErrorManagerV2.info("StateSelectV2预加载完成", {
+        StateErrorManager.info("StateSelectV2预加载完成", {
             component: "StateSelectV2",
             method: "__preload",
             params: { finalCtrlId: this.currCtrlId, propKey: EnumPropName[this._propKey] },
@@ -638,6 +676,8 @@ export class StateSelectV2 extends cc.Component {
      */
     private static readonly CONTROLLER_SYSTEM_COMPS: ReadonlyArray<string> = [
         "StateSelectV2", "StateControllerV2", "StateValue",
+        // 防御: werewolf 内同存旧版 state-controller, V2 内省一并跳过旧 cid
+        "StateSelect", "StateController", "stateValue",
     ];
 
     /**
@@ -662,8 +702,9 @@ export class StateSelectV2 extends cc.Component {
         let trackable: TrackableProp[] = [];
         try {
             trackable = listTrackableProps(this.node);
-        } catch (e) {
-            StateErrorManagerV2.warn("autoOptInCustomComponentProps: listTrackableProps 失败", {
+        }
+        catch (e) {
+            StateErrorManager.warn("autoOptInCustomComponentProps: listTrackableProps 失败", {
                 component: "StateSelectV2",
                 method: "autoOptInCustomComponentProps",
                 params: { error: (e as Error).message },
@@ -687,15 +728,16 @@ export class StateSelectV2 extends cc.Component {
             try {
                 this.togglePropertyControlByPropRefAllStates(tp.propRef, true);
                 enabled++;
-            } catch (e) {
-                StateErrorManagerV2.warn("autoOptInCustomComponentProps: togglePropertyControlByPropRef 失败", {
+            }
+            catch (e) {
+                StateErrorManager.warn("autoOptInCustomComponentProps: togglePropertyControlByPropRef 失败", {
                     component: "StateSelectV2",
                     method: "autoOptInCustomComponentProps",
                     params: { propRef: tp.propRef, error: (e as Error).message },
                 });
             }
         }
-        StateErrorManagerV2.info("StateSelectV2 prop 自动接入完成 (X 方案 propRef 单一路径)", {
+        StateErrorManager.info("StateSelectV2 prop 自动接入完成 (X 方案 propRef 单一路径)", {
             component: "StateSelectV2",
             method: "autoOptInCustomComponentProps",
             params: { enabledCount: enabled, trackableCount: trackable.length },
@@ -713,30 +755,24 @@ export class StateSelectV2 extends cc.Component {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) return;
         const pageData = this.getPageData();
+        if (!on) {
+            // 全局移除 (含旧 fat 数据各 state 的残留 flag), 复用 #C6 全删路径.
+            this.removeControlledFlagAllStates(propRef);
+            return;
+        }
+        // Track1 序列化瘦身: opt-in 只种 $$default$$ (schema flag + baseline 值).
+        // 控制是全局 all-or-nothing (#C6), default 即受控真值源 (getControlledPropsMap 据此读),
+        // 各 state 不再内联 controlledProps/baseline → 切 state 的值由 apply 路径 state→default 兜底,
+        // state 仅在用户真正改值时(commitRecordingDiff/setDefaultProp) 写 override → compact 序列化.
         const tp = this.resolveTrackableProp(propRef);
         const cocosType = tp ? tp.cocosType : undefined;
         const current = this.readNodeValueByPropRef(propRef);
-        const cloneOf = () => current === undefined ? undefined : cloneValueByType(current, cocosType);
-        const writeOne = (data: TProp) => {
-            if (!data) return;
-            data.$$controlledProps$$ = data.$$controlledProps$$ || {};
-            if (on) {
-                data.$$controlledProps$$[propRef] = propRef as any;
-                if ((data as any)[propRef] === undefined) {
-                    const v = cloneOf();
-                    if (v !== undefined) (data as any)[propRef] = v;
-                }
-            } else {
-                delete data.$$controlledProps$$[propRef];
-            }
-        };
-        // default 槽
         if (pageData.$$default$$ == null) pageData.$$default$$ = {} as TProp;
-        writeOne(pageData.$$default$$);
-        // 所有 state
-        for (let i = 0; i < ctrl.states.length; i++) {
-            if (pageData[i] == null) pageData[i] = {} as TProp;
-            writeOne(pageData[i]);
+        const dd = pageData.$$default$$ as any;
+        dd.$$controlledProps$$ = dd.$$controlledProps$$ || {};
+        dd.$$controlledProps$$[propRef] = propRef;
+        if (dd[propRef] === undefined && current !== undefined) {
+            dd[propRef] = cloneValueByType(current, cocosType);
         }
     }
 
@@ -749,9 +785,30 @@ export class StateSelectV2 extends cc.Component {
      * 不再有 EnumPropName 反查名字 key ("Active") 的第二条轨. 本方法直接查 propRef key.
      */
     public isPropertyControlledByPropRef(propRef: string): boolean {
-        const propData = this.getPropData();
-        if (!propData || !propData.$$controlledProps$$) return false;
-        return propData.$$controlledProps$$[propRef] !== undefined;
+        return this.getControlledPropsMap()[propRef] !== undefined;
+    }
+
+    /**
+     * Track1 序列化瘦身: 受控集真值源 (ctrl 级). 控制是全局 all-or-nothing (#C6),
+     * $$default$$.$$controlledProps$$ 是权威集 —— opt-in 路径恒同时写 default
+     * (auto-opt 736/762, 单 state 819-820), opt-out 走 removeControlledFlagAllStates 全删,
+     * 故 default 恒为各 state 受控集的超集.
+     *
+     * 旧 fat 数据各 state 也内联同份 controlledProps; 新 compact 数据仅 default 持有.
+     * 取 default ∪ 当前 state 的并集: default 是权威超集(绝大多数 opt-in 都种 default), 但
+     * 单 state opt-in 且当时节点值 undefined 时只写了 state flag(819-820 在 current!==undefined 内),
+     * 故并上当前 state 以保 compact 前后行为一致. value 保留 number(内置 EnumPropName)/
+     * string(自定义 propRef 自指) 双形态, 调用方按 typeof 分发.
+     */
+    private getControlledPropsMap(ctrlId?: number): { [propRef: string]: EnumPropName | string } {
+        const pageData = this.getPageData(ctrlId);
+        const dd = pageData.$$default$$ as any;
+        const ddMap = (dd && dd.$$controlledProps$$) || {};
+        const sd = this.getPropData(undefined, ctrlId) as any;
+        const sdMap = (sd && sd.$$controlledProps$$) || {};
+        if (Object.keys(sdMap).length === 0) return ddMap;
+        if (Object.keys(ddMap).length === 0) return sdMap;
+        return { ...ddMap, ...sdMap };
     }
 
     /**
@@ -794,11 +851,12 @@ export class StateSelectV2 extends cc.Component {
                 // _snapshot(录制开始时拍的)→ 新接入 prop 的后续改动 stop 时丢失。
                 const recCtrl = this.getCurrCtrl();
                 if (recCtrl && recCtrl.isRecording && this._snapshot
-                    && (this._snapshot as any)[propRef] === undefined) {
+                  && (this._snapshot as any)[propRef] === undefined) {
                     (this._snapshot as any)[propRef] = cloneValueByType(current, tp ? tp.cocosType : undefined);
                 }
             }
-        } else {
+        }
+        else {
             // #C6: 取消是全局 (用户裁定: 控制 all-or-nothing) —— 移除所有 state + default 的 flag,
             // 配合 applyPropRefKeysToNode 门控, 取消后该 prop 冻结(不随 state 变)。数据保留(可再接入)。
             this.removeControlledFlagAllStates(propRef);
@@ -821,7 +879,10 @@ export class StateSelectV2 extends cc.Component {
         };
         removeFrom(pageData.$$default$$);
         if (ctrl) {
-            for (let i = 0; i < ctrl.states.length; i++) removeFrom(pageData[i]);
+            for (let i = 0; i < ctrl.states.length; i++) {
+                const stateId = this.getStateIdByIndex(ctrl, i);
+                if (stateId >= 0) removeFrom(pageData[stateId]);
+            }
         }
     }
 
@@ -833,7 +894,8 @@ export class StateSelectV2 extends cc.Component {
         try {
             const list = listTrackableProps(this.node);
             return list.find(p => p.propRef === propRef);
-        } catch (_) {
+        }
+        catch (_) {
             return undefined;
         }
     }
@@ -975,6 +1037,43 @@ export class StateSelectV2 extends cc.Component {
      * idempotent — 第二次扫已无数字 key, no-op. 老 .fire 加载后 __preload 跑一次, 之后 ctrlData
      * 内层 key 全是 string, c3 删 EnumPropName 后整体一致.
      */
+    /**
+     * Track1 序列化瘦身: 把 fat _ctrlData (每个 state 内联 $$controlledProps$$ + 全量值, auto-opt
+     * 历史遗留) 规范化为 compact —— 受控集真值源上提到 $$default$$, 各 state 只保留与 default 不同的
+     * override. apply 路径 state→default 兜底 (applyDataToNode:2777 / readPropByEnum:1163) 保证等价。
+     *
+     * 幂等: compact 数据再跑是 no-op. 在 __preload 读盘后跑一次, 内存即 compact, 下次存盘紧凑.
+     * 不动 $$default$$ (它是 schema + baseline 的唯一权威副本)。
+     */
+    private compactCtrlData(): void {
+        const ctrlData = this._ctrlData;
+        if (!ctrlData) return;
+        for (const ctrlId of Object.keys(ctrlData)) {
+            const page = (ctrlData as any)[ctrlId];
+            if (!page || typeof page !== "object") continue;
+            const def = page.$$default$$;
+            for (const stateKey of Object.keys(page)) {
+                if (stateKey === "$$default$$") continue;
+                const state = page[stateKey];
+                if (!state || typeof state !== "object") continue;
+                // 受控集真值源在 default → 删 per-state 内联副本 (62KB 级冗余主因)。
+                if (state.$$controlledProps$$ !== undefined) delete state.$$controlledProps$$;
+                // 删与 default 相等的值 (apply 兜底), 只留真正 override。
+                if (def) {
+                    for (const pk of Object.keys(state)) {
+                        if (pk.startsWith("$$")) continue;
+                        if ((def as any)[pk] === undefined) continue; // default 无此键 → state 是唯一来源, 保留
+                        const tp = this.resolveTrackableProp(pk);
+                        const cocosType = tp ? tp.cocosType : undefined;
+                        if (eqValueByType(state[pk], (def as any)[pk], cocosType)) {
+                            delete state[pk];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private migrateLegacyCtrlData(): void {
         const ctrlData = this._ctrlData;
         if (!ctrlData) {
@@ -1040,7 +1139,9 @@ export class StateSelectV2 extends cc.Component {
         };
         // #S4: 取某聚合 propRef 的子项 ref 列表 (用零探针调拆解函数, 仅取 key).
         const ambiguousSubRefs = (aggRef: string): string[] => {
-            const probe = { x: 0, y: 0, z: 0, width: 0, height: 0 };
+            const probe = {
+                x: 0, y: 0, z: 0, width: 0, height: 0,
+            };
             const decomposer = AMBIGUOUS_DECOMPOSE[aggRef];
             const pairs = decomposer ? decomposer(probe) : null;
             return pairs ? pairs.map(p => p[0]) : [];
@@ -1052,12 +1153,16 @@ export class StateSelectV2 extends cc.Component {
                 if (key.startsWith("$$")) continue;
                 if (!/^\d+$/.test(key)) continue; // 已是 string propRef key, 下面统一处理聚合
                 const num = Number(key);
-                if (dropSet.indexOf(num) !== -1) { delete cprops[key]; continue; }
+                if (dropSet.indexOf(num) !== -1) {
+                    delete cprops[key];
+                    continue;
+                }
                 const ref = enumToPropRef(num);
                 if (ref === undefined) continue;
                 if (isAmbiguousAggregatePropRef(ref)) {
                     for (const sub of ambiguousSubRefs(ref)) cprops[sub] = sub;
-                } else {
+                }
+                else {
                     cprops[ref] = ref;
                 }
                 delete cprops[key];
@@ -1179,7 +1284,7 @@ export class StateSelectV2 extends cc.Component {
             const ctrl = parent.getComponent(StateControllerV2);
             if (ctrl) {
                 ctrl.markCacheDirty();
-                StateErrorManagerV2.debug("已通知控制器缓存失效", {
+                StateErrorManager.debug("已通知控制器缓存失效", {
                     component: "StateSelectV2",
                     method: "notifyControllerCacheDirty",
                     params: { ctrlName: ctrl.ctrlName },
@@ -1216,7 +1321,9 @@ export class StateSelectV2 extends cc.Component {
         const ctrl = this.getCurrCtrl();
         if (ctrl) {
             for (let i = 0; i < ctrl.states.length; i++) {
-                const pdi = pageData[i];
+                const stateId = this.getStateIdByIndex(ctrl, i);
+                if (stateId < 0) continue;
+                const pdi = pageData[stateId];
                 if (pdi && (pdi as any).$$controlledProps$$ && (pdi as any).$$controlledProps$$[propRef] !== undefined) {
                     return true;
                 }
@@ -1250,10 +1357,10 @@ export class StateSelectV2 extends cc.Component {
             // M3-2 修 #2: Position 以子项 cc.Node.x/y/z 存, 改判子项 key.
             // #F-4 修 (TASK-004): gate 不再按"pageData 有值 key"(残留数据)判定, 改按"受控未排除"判定 —
             // 取消跟随/排除但 propData 残留 baseline 的轴不应触发坐标转换 (附录A 断言#3).
-            const hasPositionControl =
-                this.isAxisConvertible("cc.Node.x") ||
-                this.isAxisConvertible("cc.Node.y") ||
-                this.isAxisConvertible("cc.Node.z");
+            const hasPositionControl
+                = this.isAxisConvertible("cc.Node.x")
+                  || this.isAxisConvertible("cc.Node.y")
+                  || this.isAxisConvertible("cc.Node.z");
 
             if (hasPositionControl) {
                 this.parentChanged(oldParent);
@@ -1263,7 +1370,7 @@ export class StateSelectV2 extends cc.Component {
 
     /** 处理控制器承接 */
     private handleControllerTransition(oldParent: cc.Node, newParent: cc.Node) {
-        StateErrorManagerV2.debug("开始控制器承接处理", {
+        StateErrorManager.debug("开始控制器承接处理", {
             component: "StateSelectV2",
             method: "handleControllerTransition",
             params: {
@@ -1281,7 +1388,7 @@ export class StateSelectV2 extends cc.Component {
         const newCtrls = newParent ? this.getCtrls(newParent) : [];
         const newCtrl = this.selectBestController(newCtrls, oldCtrl);
 
-        StateErrorManagerV2.debug("控制器分析结果", {
+        StateErrorManager.debug("控制器分析结果", {
             component: "StateSelectV2",
             method: "handleControllerTransition",
             params: {
@@ -1300,7 +1407,7 @@ export class StateSelectV2 extends cc.Component {
             // 若 oldCtrl 正在录制, 先把当前 diff commit 到 oldCtrl 的当前 state, 再清 snapshot,
             // 避免数据随 ctrl 切换丢失。
             if (oldCtrl.isRecording && this._snapshot != null) {
-                StateErrorManagerV2.info("跨 ctrl 移动前自动 commit 录制 diff", {
+                StateErrorManager.info("跨 ctrl 移动前自动 commit 录制 diff", {
                     component: "StateSelectV2",
                     method: "handleControllerTransition",
                     params: { fromCtrl: oldCtrl.ctrlName, state: oldCtrl.selectedIndex },
@@ -1334,7 +1441,7 @@ export class StateSelectV2 extends cc.Component {
                 this.updateCtrlPage(newCtrl);
                 this.refProp();
 
-                StateErrorManagerV2.info("控制器承接完成", {
+                StateErrorManager.info("控制器承接完成", {
                     component: "StateSelectV2",
                     method: "handleControllerTransition",
                     params: { fromController: oldCtrl.ctrlName, toController: newCtrl.ctrlName },
@@ -1343,7 +1450,7 @@ export class StateSelectV2 extends cc.Component {
         }
         else if (newCtrl && !oldCtrl) {
             // 从无控制器环境移动到有控制器环境
-            StateErrorManagerV2.info("绑定到新控制器", {
+            StateErrorManager.info("绑定到新控制器", {
                 component: "StateSelectV2",
                 method: "handleControllerTransition",
                 params: { newController: newCtrl.ctrlName },
@@ -1451,7 +1558,6 @@ export class StateSelectV2 extends cc.Component {
         return cloned as TProp;
     }
 
-
     /** 选择最佳控制器用于承接 */
     private selectBestController(newCtrls: StateControllerV2[], oldCtrl: StateControllerV2): StateControllerV2 {
         if (!newCtrls || newCtrls.length === 0) {
@@ -1482,7 +1588,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
         if (!node || !node.isValid) {
-            StateErrorManagerV2.debug("updateCtrlName: 节点无效", {
+            StateErrorManager.debug("updateCtrlName: 节点无效", {
                 component: "StateSelectV2",
                 method: "updateCtrlName",
                 params: { hasNode: !!node, isValid: node?.isValid },
@@ -1490,7 +1596,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        StateErrorManagerV2.debug("开始更新控制器名称", {
+        StateErrorManager.debug("开始更新控制器名称", {
             component: "StateSelectV2",
             method: "updateCtrlName",
             params: { nodeName: node.name },
@@ -1506,7 +1612,7 @@ export class StateSelectV2 extends cc.Component {
         // @ts-expect-error setClassAttr is unavailable in Cocos Creator d.ts
         cc.Class.Attr.setClassAttr(this, "currCtrlId", "enumList", arr);
 
-        StateErrorManagerV2.info("控制器名称更新完成", {
+        StateErrorManager.info("控制器名称更新完成", {
             component: "StateSelectV2",
             method: "updateCtrlName",
             params: { controllersFound: ctrls.length, mappedControllers: Object.keys(this._ctrlsMap).length },
@@ -1517,7 +1623,7 @@ export class StateSelectV2 extends cc.Component {
     private getCtrls(node: cc.Node): StateControllerV2[] {
         if (!node || !CC_EDITOR) {
             if (!node) {
-                StateErrorManagerV2.debug("getCtrls: 节点为空", {
+                StateErrorManager.debug("getCtrls: 节点为空", {
                     component: "StateSelectV2",
                     method: "getCtrls",
                 });
@@ -1527,7 +1633,7 @@ export class StateSelectV2 extends cc.Component {
         const ctrls = node.getComponents(StateControllerV2);
         if (ctrls.length) {
             this._root = node;
-            StateErrorManagerV2.debug("找到控制器", {
+            StateErrorManager.debug("找到控制器", {
                 component: "StateSelectV2",
                 method: "getCtrls",
                 params: { ctrlCount: ctrls.length, nodeName: node.name },
@@ -1570,7 +1676,7 @@ export class StateSelectV2 extends cc.Component {
         }
 
         if (!moveInfo || moveInfo.fromIndex === undefined || moveInfo.toIndex === undefined) {
-            StateErrorManagerV2.warn("状态移动信息无效", {
+            StateErrorManager.warn("状态移动信息无效", {
                 component: "StateSelectV2",
                 method: "updateStateMove",
                 params: { moveInfo },
@@ -1584,7 +1690,7 @@ export class StateSelectV2 extends cc.Component {
         }
 
         if (fromIndex < 0 || toIndex < 0 || fromIndex >= ctrl.states.length || toIndex >= ctrl.states.length) {
-            StateErrorManagerV2.warn("状态移动索引越界，取消同步", {
+            StateErrorManager.warn("状态移动索引越界，取消同步", {
                 component: "StateSelectV2",
                 method: "updateStateMove",
                 params: { fromIndex, toIndex, stateCount: ctrl.states.length },
@@ -1592,11 +1698,10 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        const pageData = this.getPageData();
-        this.reorderStateData(pageData, fromIndex, toIndex, ctrl.states.length);
+        // state data is keyed by stable stateId; reorder only changes display order.
         this.updateChangedProp();
 
-        StateErrorManagerV2.info("状态数据顺序已同步", {
+        StateErrorManager.info("状态数据顺序已同步", {
             component: "StateSelectV2",
             method: "updateStateMove",
             params: { fromIndex, toIndex, stateCount: ctrl.states.length },
@@ -1625,7 +1730,7 @@ export class StateSelectV2 extends cc.Component {
         }
 
         if (!copyInfo || copyInfo.fromIndex === undefined || copyInfo.toIndex === undefined) {
-            StateErrorManagerV2.warn("状态复制信息无效", {
+            StateErrorManager.warn("状态复制信息无效", {
                 component: "StateSelectV2",
                 method: "updateStateCopy",
                 params: { copyInfo },
@@ -1637,7 +1742,7 @@ export class StateSelectV2 extends cc.Component {
         const statesLength = ctrl.states.length;
 
         if (fromIndex < 0 || toIndex < 0 || fromIndex >= statesLength || toIndex >= statesLength) {
-            StateErrorManagerV2.warn("状态复制索引越界, 取消同步", {
+            StateErrorManager.warn("状态复制索引越界, 取消同步", {
                 component: "StateSelectV2",
                 method: "updateStateCopy",
                 params: { fromIndex, toIndex, statesLength },
@@ -1650,29 +1755,22 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        // 1) 右移 [toIndex .. statesLength-2] 给新槽位腾位置 (从右往左以避免覆盖)
-        for (let i = statesLength - 1; i > toIndex; i--) {
-            const prev = pageData[i - 1];
-            if (prev != void 0) {
-                pageData[i] = prev;
-            }
-            else {
-                delete pageData[i];
-            }
-        }
+        const fromStateId = this.getStateIdByIndex(ctrl, fromIndex);
+        const toStateId = this.getStateIdByIndex(ctrl, toIndex);
+        if (fromStateId < 0 || toStateId < 0) return;
 
-        // 2) 深拷贝 fromIndex 槽位到 toIndex (#C5: 逐 key cloneValueByType, 保活 cc 实例)
-        const source = pageData[fromIndex];
+        // 深拷贝 source stateId 槽位到 target stateId (#C5: 逐 key cloneValueByType, 保活 cc 实例)
+        const source = pageData[fromStateId];
         if (source != void 0) {
-            pageData[toIndex] = this.deepClonePropData(source);
+            pageData[toStateId] = this.deepClonePropData(source);
         }
         else {
-            delete pageData[toIndex];
+            delete pageData[toStateId];
         }
 
         this.updateChangedProp();
 
-        StateErrorManagerV2.info("状态数据已深拷贝", {
+        StateErrorManager.info("状态数据已深拷贝", {
             component: "StateSelectV2",
             method: "updateStateCopy",
             params: { fromIndex, toIndex, statesLength },
@@ -1688,16 +1786,15 @@ export class StateSelectV2 extends cc.Component {
         if (!CC_EDITOR) return null;
         const ctrl = ctrlId != void 0 ? this._ctrlsMap[ctrlId] : this.getCurrCtrl();
         if (!ctrl || !ctrl.states) {
-            StateErrorManagerV2.warn("局部值操作: 控制器无效", {
-                component: "StateSelectV2", method: "validateStateValueOp", params: { ctrlId },
-            });
+            StateErrorManager.warn("局部值操作: 控制器无效", { component: "StateSelectV2", method: "validateStateValueOp", params: { ctrlId } });
             return null;
         }
         const len = ctrl.states.length;
         if (stateA < 0 || stateB < 0 || stateA >= len || stateB >= len
-            || !Number.isInteger(stateA) || !Number.isInteger(stateB)) {
-            StateErrorManagerV2.warn("局部值操作: state 索引越界", {
-                component: "StateSelectV2", method: "validateStateValueOp",
+          || !Number.isInteger(stateA) || !Number.isInteger(stateB)) {
+            StateErrorManager.warn("局部值操作: state 索引越界", {
+                component: "StateSelectV2",
+                method: "validateStateValueOp",
                 params: { stateA, stateB, stateCount: len },
             });
             return null;
@@ -1714,10 +1811,16 @@ export class StateSelectV2 extends cc.Component {
         const pageData = this.validateStateValueOp(stateA, stateB, ctrlId);
         if (!pageData) return false;
         if (stateA === stateB) return true;
-        const a = pageData[stateA];
-        const b = pageData[stateB];
-        if (b !== void 0) pageData[stateA] = b; else delete pageData[stateA];
-        if (a !== void 0) pageData[stateB] = a; else delete pageData[stateB];
+        const ctrl = ctrlId != void 0 ? this._ctrlsMap[ctrlId] : this.getCurrCtrl();
+        const keyA = this.getStateIdByIndex(ctrl, stateA);
+        const keyB = this.getStateIdByIndex(ctrl, stateB);
+        if (keyA < 0 || keyB < 0) return false;
+        const a = pageData[keyA];
+        const b = pageData[keyB];
+        if (b !== void 0) pageData[keyA] = b;
+        else delete pageData[keyA];
+        if (a !== void 0) pageData[keyB] = a;
+        else delete pageData[keyB];
         this.updateChangedProp();
         this.reapplyCurrentStateIfAffected([stateA, stateB]);
         return true;
@@ -1739,13 +1842,17 @@ export class StateSelectV2 extends cc.Component {
         const pageData = this.validateStateValueOp(fromState, toState, ctrlId);
         if (!pageData) return false;
         if (fromState === toState) return true;
-        const source = pageData[fromState];
+        const ctrl = ctrlId != void 0 ? this._ctrlsMap[ctrlId] : this.getCurrCtrl();
+        const fromKey = this.getStateIdByIndex(ctrl, fromState);
+        const toKey = this.getStateIdByIndex(ctrl, toState);
+        if (fromKey < 0 || toKey < 0) return false;
+        const source = pageData[fromKey];
         if (source !== void 0) {
             // #C5: 逐 key cloneValueByType 深拷, 保活 cc 类实例 (propData 存活 cc.Color/Vec3 等, 同 updateStateCopy).
-            pageData[toState] = this.deepClonePropData(source);
+            pageData[toKey] = this.deepClonePropData(source);
         }
         else {
-            delete pageData[toState];
+            delete pageData[toKey];
         }
         this.updateChangedProp();
         this.reapplyCurrentStateIfAffected([toState]);
@@ -1756,7 +1863,7 @@ export class StateSelectV2 extends cc.Component {
 
     /** 🔧 新增：处理状态删除逻辑 */
     private handleStateDelete(ctrl: StateControllerV2, deleteIndex: number) {
-        StateErrorManagerV2.debug("开始处理状态删除", {
+        StateErrorManager.debug("开始处理状态删除", {
             component: "StateSelectV2",
             method: "handleStateDelete",
             params: { deleteIndex: deleteIndex, ctrlId: ctrl.ctrlId },
@@ -1768,7 +1875,7 @@ export class StateSelectV2 extends cc.Component {
         // 之前用 `>= ctrl.states.length` 的判断把这种情况当成 "无效", 导致 migrateStateData
         // 错过末尾槽位的 delete pageData[deleteIndex] (B3 数据残留 bug)。
         if (deleteIndex < 0) {
-            StateErrorManagerV2.warn("删除索引为负", {
+            StateErrorManager.warn("删除索引为负", {
                 component: "StateSelectV2",
                 method: "handleStateDelete",
                 params: { deleteIndex: deleteIndex, stateCount: ctrl.states.length },
@@ -1776,29 +1883,14 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        const pageData = this.getPageData();
-        if (!pageData) {
-            StateErrorManagerV2.warn("页面数据为空", {
-                component: "StateSelectV2",
-                method: "handleStateDelete",
-            });
-            return;
-        }
+        // state data is keyed by stable stateId. Removing a state from active list is soft-delete:
+        // keep its prop data so restore/re-add by stateId brings the exact values back.
+        this.updateChangedProp();
 
-        // #C4: 迁移会左移并删除末槽, 故被删 state 的数据必须**在迁移前**捕获,
-        // 否则 cleanup 拿到的是已被 migrateStateData 删掉的槽 (undefined) → 整段成死代码。
-        const deletedStateData = pageData[deleteIndex];
-
-        // 🔧 执行数据迁移：将后面的状态数据前移
-        this.migrateStateData(pageData, deleteIndex, ctrl.states.length);
-
-        // 🔧 同步处理属性清理 (#C4: 传入捕获的被删数据, 不再按已失效的槽 index 取)
-        this.cleanupDeletedStateProps(pageData, ctrl, deletedStateData);
-
-        StateErrorManagerV2.info("状态删除处理完成", {
+        StateErrorManager.info("状态删除处理完成", {
             component: "StateSelectV2",
             method: "handleStateDelete",
-            params: { deletedIndex: deleteIndex, remainingStates: ctrl.states.length },
+            params: { deletedIndex: deleteIndex, remainingStates: ctrl.states.length, softDelete: true },
         });
     }
 
@@ -1858,7 +1950,9 @@ export class StateSelectV2 extends cc.Component {
     private isOtherHansByPropRef(ctrl: StateControllerV2, propRef: string): boolean {
         const pageData = this.getPageData();
         for (let i = 0, len = ctrl.states.length; i < len; i++) {
-            const propData = pageData[i];
+            const stateId = this.getStateIdByIndex(ctrl, i);
+            if (stateId < 0) continue;
+            const propData = pageData[stateId];
             if (propData && (propData as any)[propRef] != void 0) {
                 return true;
             }
@@ -1892,7 +1986,7 @@ export class StateSelectV2 extends cc.Component {
     /** 🔧 新增：更新状态枚举列表 */
     private updateStateEnumList(ctrl: StateControllerV2) {
         if (!ctrl || !ctrl.states) {
-            StateErrorManagerV2.warn("控制器或状态数据无效", {
+            StateErrorManager.warn("控制器或状态数据无效", {
                 component: "StateSelectV2",
                 method: "updateStateEnumList",
             });
@@ -1902,7 +1996,7 @@ export class StateSelectV2 extends cc.Component {
         // 🔧 生成状态枚举数组
         const enumList = ctrl.states.map((state, index) => {
             if (!state || typeof state.name !== "string") {
-                StateErrorManagerV2.warn("状态数据无效", {
+                StateErrorManager.warn("状态数据无效", {
                     component: "StateSelectV2",
                     method: "updateStateEnumList",
                     params: { stateIndex: index },
@@ -1918,7 +2012,7 @@ export class StateSelectV2 extends cc.Component {
             cc.Class.Attr.setClassAttr(this, "ctrlState", "enumList", enumList);
         }
         catch (error) {
-            StateErrorManagerV2.warn("更新状态枚举列表失败", {
+            StateErrorManager.warn("更新状态枚举列表失败", {
                 component: "StateSelectV2",
                 method: "updateStateEnumList",
                 params: { error: error.message },
@@ -1939,6 +2033,32 @@ export class StateSelectV2 extends cc.Component {
         else {
             setTimeout(() => {
                 this.updateCtrlName(ctrl.node);
+            });
+        }
+    }
+
+    /**
+     * 回收站硬删: 清掉指定 stateId 在本 select 上的页数据 (_ctrlData[ctrlId][stateId]).
+     * 仅删该 state 页, 不碰 $$default$$ 与其它 state。由 StateControllerV2.purgeDeletedState
+     * 经 EnumUpdateType.PurgeStateId 广播触发, 不可恢复。
+     */
+    public purgeStateData(ctrl: StateControllerV2, stateId: number): void {
+        if (!CC_EDITOR) {
+            return;
+        }
+        if (!ctrl || typeof stateId !== "number") {
+            return;
+        }
+        const pageData = this._ctrlData && this._ctrlData[ctrl.ctrlId];
+        if (!pageData) {
+            return;
+        }
+        if ((pageData as any)[stateId] !== undefined) {
+            delete (pageData as any)[stateId];
+            StateErrorManager.info("已清除 state 页数据 (回收站硬删)", {
+                component: "StateSelectV2",
+                method: "purgeStateData",
+                params: { ctrlId: ctrl.ctrlId, stateId },
             });
         }
     }
@@ -2019,7 +2139,7 @@ export class StateSelectV2 extends cc.Component {
     /** 更新状态 */
     public updateState(ctrl: StateControllerV2) {
         if (!ctrl) {
-            StateErrorManagerV2.warn("updateState: 控制器为空", {
+            StateErrorManager.warn("updateState: 控制器为空", {
                 component: "StateSelectV2",
                 method: "updateState",
             });
@@ -2031,7 +2151,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        StateErrorManagerV2.debug("开始状态更新", {
+        StateErrorManager.debug("开始状态更新", {
             component: "StateSelectV2",
             method: "updateState",
             params: {
@@ -2050,56 +2170,16 @@ export class StateSelectV2 extends cc.Component {
         const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
         const defaultData = this.getDefaultData(ctrl.ctrlId);
 
-        // 🔧 第三步：构建属性更新批次
-        const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
-        const processedKeys = new Set<number>();
-
-        // W6-2c2: ENUM_TO_PROPREF 36 + AMBIGUOUS 3 = 39 项内置 prop 数据存在 string propRef key 下.
-        // 但 PropHandler 体系按 EnumPropName 数字派发, updateBatch 仍按 propType 走老路径.
-        // 用 PROPREF_TO_ENUM 反查 string propRef → EnumPropName, 把 updateBatch 桥到老路径.
-        const defaultPropTypes = this.extractEnumPropTypes(defaultData);
-        for (const propType of defaultPropTypes) {
-            const stateValue = this.readPropByEnum(propData, propType);
-            const defaultValue = this.readPropByEnum(defaultData, propType);
-            const value = stateValue != void 0 ? stateValue : defaultValue;
-            if (value == void 0) {
-                continue;
-            }
-            updateBatch.push({ type: propType, value });
-            processedKeys.add(propType);
-        }
-
-        const statePropTypes = this.extractEnumPropTypes(propData);
-        for (const propType of statePropTypes) {
-            if (processedKeys.has(propType)) {
-                continue;
-            }
-            const value = this.readPropByEnum(propData, propType);
-            if (value == void 0) {
-                continue;
-            }
-            updateBatch.push({ type: propType, value });
-        }
-
-        StateErrorManagerV2.debug("构建属性更新批次", {
-            component: "StateSelectV2",
-            method: "updateState",
-            params: { batchSize: updateBatch.length, autoSyncEnabled: this.autoSyncEnabled },
-        });
-
-        // 🔧 第四步：批量应用UI更新
-        this.batchUpdateUI(updateBatch);
-
-        // W6-2a: 数字 key 走 batchUpdateUI 上面 EnumPropName/PropHandler, 不覆盖 propData 内层
-        // string propRef key. 这里单独扫 propRef key, 走 cocos type 分发写回 (cc.Node[propKey] /
-        // component[propKey] = value). 不进 updateBatch 是因为 PropHandler 体系只识别 EnumPropName.
-        this.applyPropRefKeysToNode(propData, defaultData);
+        // 🔧 第三/四步：构建属性批次 + 批量应用 (抽到 applyDataToNode, 与回收站预览共用单一 apply 路径)
+        this.applyDataToNode(propData, defaultData);
 
         // 🔧 第五步：根据同步模式恢复属性选择
         if (shouldKeepPropKey) {
-            // 自动同步模式：保持当前选中的属性
+            // 自动同步模式：保持当前选中的属性 (Track1: 仅刷新显示, 抑制回写/物化)
+            this._suppressPropCapture = true;
             this.propKey = currentPropKey;
-            StateErrorManagerV2.debug("保持当前属性选择", {
+            this._suppressPropCapture = false;
+            StateErrorManager.debug("保持当前属性选择", {
                 component: "StateSelectV2",
                 method: "updateState",
                 params: { keptPropKey: EnumPropName[currentPropKey] },
@@ -2108,19 +2188,18 @@ export class StateSelectV2 extends cc.Component {
         else {
             // 其他模式：使用新状态的lastProp
             this.refProp();
-            StateErrorManagerV2.debug("使用状态lastProp", {
+            StateErrorManager.debug("使用状态lastProp", {
                 component: "StateSelectV2",
                 method: "updateState",
             });
         }
 
-        StateErrorManagerV2.info("状态更新完成", {
+        StateErrorManager.info("状态更新完成", {
             component: "StateSelectV2",
             method: "updateState",
             params: {
                 targetState: ctrl.selectedIndex,
                 finalPropKey: EnumPropName[this._propKey],
-                appliedUpdates: updateBatch.length,
             },
         });
     }
@@ -2140,7 +2219,8 @@ export class StateSelectV2 extends cc.Component {
         // (decompose 后 controlledProps 记子项 x/y/z, 聚合 key 不存在 → 不能用 readPropByEnum(聚合)判)。
         const cr = enumToPropRef(type);
         const crSubs = (cr !== undefined && isAmbiguousAggregatePropRef(cr))
-            ? this.getControllableAmbiguousSubRefs(cr) : [];
+            ? this.getControllableAmbiguousSubRefs(cr)
+            : [];
         const controlled = crSubs.length > 0
             ? crSubs.some(s => this.isPropertyControlledByPropRef(s))
             : (this.readPropByEnum(propData, type) !== undefined); // 非聚合 / euler 走聚合 key 判
@@ -2176,8 +2256,8 @@ export class StateSelectV2 extends cc.Component {
         if (!ctrl) {
             return snap;
         }
-        const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-        const controlledProps = (propData && propData.$$controlledProps$$) || {};
+        // Track1: 受控集从 ctrl 级 default 读 (compact 后 state 不再内联 controlledProps).
+        const controlledProps = this.getControlledPropsMap(ctrl.ctrlId);
         // W6-2a: 双 key 共存. 内置 prop key 是 EnumPropName name string (e.g. "Active"), value 是数字;
         // 自定义 prop key 和 value 都是 propRef 字符串 (togglePropertyControlByPropRef 写入).
         // 先用 typeof value 区分: 数字 → 老 PropHandlerManager.getValue; 字符串 → propRef 路径.
@@ -2189,7 +2269,8 @@ export class StateSelectV2 extends cc.Component {
                 if (value !== undefined) {
                     (snap as TPropDictionary)[ctrlVal] = value;
                 }
-            } else if (typeof ctrlVal === "string") {
+            }
+            else if (typeof ctrlVal === "string") {
                 // 新路径: propRef string key snapshot. 用 cocos type 分发深拷.
                 const tp = this.resolveTrackableProp(ctrlVal);
                 const current = this.readNodeValueByPropRef(ctrlVal);
@@ -2251,7 +2332,8 @@ export class StateSelectV2 extends cc.Component {
                     // number key (遗留): writePropByEnum 切回 string propRef key 写入
                     if (num === EnumPropName.Non) continue;
                     this.writePropByEnum(propData, num as EnumPropName, snap[key]);
-                } else {
+                }
+                else {
                     // string propRef key: 直写顶层 propData[propRef] (cocosType-aware clone)
                     const tp = this.resolveTrackableProp(propRef as string);
                     (propData as any)[propRef as string] = cloneValueByType(snap[propRef as string], tp ? tp.cocosType : undefined);
@@ -2262,7 +2344,7 @@ export class StateSelectV2 extends cc.Component {
         this._initialSnapshot = null;
         this._initialPropDataKeys = null;
         this._fullSnapshot = null;
-        StateErrorManagerV2.debug("撤销录制: snapshot 回滚到 ctrlData", {
+        StateErrorManager.debug("撤销录制: snapshot 回滚到 ctrlData", {
             component: "StateSelectV2",
             method: "applyRecordingSnapshot",
             params: { fromState, ctrlId: ctrl.ctrlId },
@@ -2308,7 +2390,7 @@ export class StateSelectV2 extends cc.Component {
         if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
         if (!ctrl.isRecording) return;
         this._snapshot = this.readControlledPropsFromNode(ctrl);
-        StateErrorManagerV2.debug("录制 snapshot 已重拍", {
+        StateErrorManager.debug("录制 snapshot 已重拍", {
             component: "StateSelectV2",
             method: "onStateChanged",
             params: { newState: ctrl.selectedIndex },
@@ -2337,7 +2419,7 @@ export class StateSelectV2 extends cc.Component {
         this._initialPropDataKeys = new Set(
             curPd ? Object.keys(curPd).filter(k => !k.startsWith("$$")) : [],
         );
-        StateErrorManagerV2.debug("录制双 snapshot 已拍", {
+        StateErrorManager.debug("录制双 snapshot 已拍", {
             component: "StateSelectV2",
             method: "onRecordingStart",
             params: {
@@ -2391,7 +2473,7 @@ export class StateSelectV2 extends cc.Component {
         // TASK-002: 同步清初始 snapshot
         this._initialSnapshot = null;
         this._initialPropDataKeys = null;
-        StateErrorManagerV2.debug("录制 snapshot 已清", {
+        StateErrorManager.debug("录制 snapshot 已清", {
             component: "StateSelectV2",
             method: "onRecordingStop",
             params: { auto: isAuto, committed: committed.length, untracked: untracked.length },
@@ -2415,7 +2497,10 @@ export class StateSelectV2 extends cc.Component {
         if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return out;
         if (!this.node) return out;
         const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-        const controlledProps = (propData && propData.$$controlledProps$$) || {};
+        const defaultData = this.getDefaultData(ctrl.ctrlId);
+        // Track1: 受控集从 ctrl 级 default 读; stored 值 state→default 兜底 (compact 后等于 default 的
+        // 属性不再内联 state, 旧 fat 数据每个 state 都存 baseline, 兜底后两种格式 dirty 判定一致).
+        const controlledProps = this.getControlledPropsMap(ctrl.ctrlId);
         for (const propName in controlledProps) {
             const ctrlVal = controlledProps[propName];
             if (typeof ctrlVal === "number") {
@@ -2424,18 +2509,21 @@ export class StateSelectV2 extends cc.Component {
                 if (propType === EnumPropName.Non) continue;
                 const current = PropHandlerManager.getValue(propType, this.node);
                 if (current === undefined) continue;
-                // W6-2c2: 双 key 读
-                const stored = this.readPropByEnum(propData, propType);
+                // W6-2c2: 双 key 读; state 无值则回落 default baseline
+                let stored = this.readPropByEnum(propData, propType);
+                if (stored === undefined) stored = this.readPropByEnum(defaultData, propType);
                 if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
                 if (!PropHandlerManager.isEqual(propType, stored, current)) {
                     out.push({ propType, current, stored });
                 }
-            } else if (typeof ctrlVal === "string") {
+            }
+            else if (typeof ctrlVal === "string") {
                 // W6-2a-fixup 新路径: 自定义 propRef 字符串
                 const propRef = ctrlVal;
                 const current = this.readPropFromNodeByPropRef(propRef);
                 if (current === undefined) continue;
-                const stored = (propData as any)[propRef];
+                let stored = (propData as any)[propRef];
+                if (stored === undefined) stored = (defaultData as any)[propRef];
                 if (stored === undefined) continue;
                 const tp = this.resolveTrackableProp(propRef);
                 const cocosType = tp ? tp.cocosType : undefined;
@@ -2563,7 +2651,8 @@ export class StateSelectV2 extends cc.Component {
                         // W6-2c2: 写 string propRef key
                         this.writePropByEnum(propData, propType, current);
                     }
-                } else {
+                }
+                else {
                     // W6-2a-fixup: 自定义 propRef 路径
                     const propRef = item;
                     this.togglePropertyControl(propRef, true);
@@ -2630,7 +2719,10 @@ export class StateSelectV2 extends cc.Component {
                     }
                     if (opts.buttons.length === 3) {
                         const first = w.confirm(`${head}\n\n确定 = ${opts.buttons[0]}\n取消 = (进入下一选项)`);
-                        if (first) { cb(0); return; }
+                        if (first) {
+                            cb(0);
+                            return;
+                        }
                         const second = w.confirm(`继续选择:\n\n确定 = ${opts.buttons[1]}\n取消 = ${opts.buttons[2]}`);
                         cb(second ? 1 : 2);
                         return;
@@ -2647,14 +2739,16 @@ export class StateSelectV2 extends cc.Component {
         try {
             const Ed = (globalThis as any).Editor;
             if (Ed && typeof Ed.log === "function") Ed.log(msg);
-        } catch (_) { /* noop */ }
+        }
+        catch (_) { /* noop */ }
     }
 
     private editorWarn(msg: string): void {
         try {
             const Ed = (globalThis as any).Editor;
             if (Ed && typeof Ed.warn === "function") Ed.warn(msg);
-        } catch (_) { /* noop */ }
+        }
+        catch (_) { /* noop */ }
     }
 
     /**
@@ -2691,13 +2785,14 @@ export class StateSelectV2 extends cc.Component {
                     this.writePropByEnum(propData, propType as EnumPropName, currentValue);
                     (snap as TPropDictionary)[propType] = currentValue;
                     committed.push(propType as EnumPropName);
-                    StateErrorManagerV2.debug("录制 diff 提交 (enum)", {
+                    StateErrorManager.debug("录制 diff 提交 (enum)", {
                         component: "StateSelectV2",
                         method: "commitRecordingDiff",
                         params: { state: targetState, propType: EnumPropName[propType as EnumPropName] },
                     });
                 }
-            } else {
+            }
+            else {
                 // 新路径: propRef 字符串 key
                 const propRef = key;
                 if (isExcluded(propRef)) continue; // #T4: 排除的 prop 不 commit
@@ -2717,7 +2812,7 @@ export class StateSelectV2 extends cc.Component {
                     if (mappedEnum !== undefined) {
                         committed.push(mappedEnum as EnumPropName);
                     }
-                    StateErrorManagerV2.debug("录制 diff 提交 (propRef)", {
+                    StateErrorManager.debug("录制 diff 提交 (propRef)", {
                         component: "StateSelectV2",
                         method: "commitRecordingDiff",
                         params: { state: targetState, propRef },
@@ -2737,19 +2832,143 @@ export class StateSelectV2 extends cc.Component {
      * 走此路径的 propRef 都是 togglePropertyControlByPropRef 接入的自定义组件 prop,
      * 因为 EnumPropName 老路径覆盖的 propRef 由 batchUpdateUI 处理.
      */
+    /**
+     * 把一份 propData(+default 兜底) 应用到节点 (enum 数字路径 batchUpdateUI + propRef 字符串路径).
+     * 从 updateState 抽出, updateState(当前 selectedIndex) 与回收站预览(任意 stateId) 共用单一 apply 路径.
+     */
+    private applyDataToNode(propData: TProp, defaultData: TProp): void {
+        const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
+        const processedKeys = new Set<number>();
+
+        // W6-2c2: 内置 prop 数据多在 string propRef key 下, 但 PropHandler 按 EnumPropName 数字派发,
+        // 这里仍按 propType 走老路径桥接 (extractEnumPropTypes 把 propRef 反查回 EnumPropName).
+        const defaultPropTypes = this.extractEnumPropTypes(defaultData);
+        for (const propType of defaultPropTypes) {
+            const stateValue = this.readPropByEnum(propData, propType);
+            const defaultValue = this.readPropByEnum(defaultData, propType);
+            const value = stateValue != void 0 ? stateValue : defaultValue;
+            if (value == void 0) {
+                continue;
+            }
+            updateBatch.push({ type: propType, value });
+            processedKeys.add(propType);
+        }
+
+        const statePropTypes = this.extractEnumPropTypes(propData);
+        for (const propType of statePropTypes) {
+            if (processedKeys.has(propType)) {
+                continue;
+            }
+            const value = this.readPropByEnum(propData, propType);
+            if (value == void 0) {
+                continue;
+            }
+            updateBatch.push({ type: propType, value });
+        }
+
+        // enum 数字路径
+        this.batchUpdateUI(updateBatch);
+        // string propRef 路径 (cocos type 分发写回, 带排除/受控门控)
+        this.applyPropRefKeysToNode(propData, defaultData);
+    }
+
+    /**
+     * 回收站预览快照 (非 @property, 不序列化): 进入预览前拍下"即将被 apply 覆盖的所有 key 的当前节点值",
+     * 退出预览时按它精确还原 —— 不依赖"重画激活态", 故回收态与激活态的受控属性集不对称也能干净还原。
+     *   enums: EnumPropName 数字路径的原值;  refs: propRef 字符串路径的原值 (按 cocosType 深拷)。
+     */
+    private _previewSnapshot: { enums: { [t: number]: TPropValue }, refs: { [ref: string]: any } } | null = null;
+
+    /**
+     * 进入某 stateId 的只读预览: 先快照将被覆盖的 key 的当前节点值, 再 apply 该 state 数据到节点.
+     * 该 select 在此 state 无数据则 no-op (可能别的受控 select 才有)。由 StateControllerV2 经
+     * EnumUpdateType.PreviewEnter 广播触发。幂等性由 controller 侧单实例预览保证。
+     */
+    public enterPreview(ctrl: StateControllerV2, stateId: number): void {
+        if (!CC_EDITOR) return;
+        if (!ctrl || ctrl.ctrlId !== this.currCtrlId) return;
+        if (!this.node || !this.node.isValid) return;
+        const pageData = this.getPageData(ctrl.ctrlId);
+        const previewData = pageData ? (pageData as any)[stateId] : undefined;
+        if (previewData == null) return;
+        const defaultData = this.getDefaultData(ctrl.ctrlId);
+        this._previewSnapshot = this.snapshotNodeForData(previewData, defaultData);
+        this.applyDataToNode(previewData, defaultData);
+    }
+
+    /** 退出预览: 按快照把节点精确还原到预览前, 清快照. 幂等, 无快照安全 no-op. */
+    public exitPreview(): void {
+        if (!CC_EDITOR) return;
+        const snap = this._previewSnapshot;
+        this._previewSnapshot = null;
+        if (!snap || !this.node || !this.node.isValid) return;
+        // propRef 路径还原
+        for (const ref of Object.keys(snap.refs)) {
+            const tp = this.resolveTrackableProp(ref);
+            try {
+                this.writeNodeValueByPropRef(ref, cloneValueByType(snap.refs[ref], tp ? tp.cocosType : undefined));
+            }
+            catch (_) { /* noop */ }
+        }
+        // enum 路径还原
+        for (const k of Object.keys(snap.enums)) {
+            const handler = PropHandlerManager.getHandler(Number(k) as EnumPropName);
+            if (handler) {
+                try {
+                    handler.setValue(this.node, (snap.enums as any)[k]);
+                }
+                catch (_) { /* noop */ }
+            }
+        }
+    }
+
+    /** 拍下 applyDataToNode(propData, defaultData) 将写到的所有 key 的当前节点值 (供 exitPreview 还原). */
+    private snapshotNodeForData(propData: TProp, defaultData: TProp): { enums: { [t: number]: TPropValue }, refs: { [ref: string]: any } } {
+        const enums: { [t: number]: TPropValue } = {};
+        const refs: { [ref: string]: any } = {};
+        // enum 数字路径: default + state 的 enum 类型
+        const enumTypes = Array.from(new Set<number>([...this.extractEnumPropTypes(defaultData), ...this.extractEnumPropTypes(propData)]));
+        for (const t of enumTypes) {
+            const cur = PropHandlerManager.getValue(t as EnumPropName, this.node);
+            if (cur !== undefined) enums[t] = cur;
+        }
+        // propRef 字符串路径: default + state 的 propRef key
+        const refSet = Array.from(new Set<string>([...this.extractPropRefKeys(propData), ...this.extractPropRefKeys(defaultData)]));
+        for (const ref of refSet) {
+            const cur = this.readNodeValueByPropRef(ref);
+            if (cur !== undefined) {
+                const tp = this.resolveTrackableProp(ref);
+                refs[ref] = cloneValueByType(cur, tp ? tp.cocosType : undefined);
+            }
+        }
+        return { enums, refs };
+    }
+
     private applyPropRefKeysToNode(propData: TProp, defaultData: TProp): void {
         const seen = new Set<string>();
         // W6-axis-decomp: 排除清单 (系统 + 用户) 的 propRef 不 apply, 即使 propData 残留 baseline 也不 push 回节点.
         // 修 BUG-10: user 排 cc.Node.x 后 propData['cc.Node.x']=0 baseline 仍存, 不 filter 就 apply 把 x 拽回 0.
         const userExcl = new Set(this._userExcludedProps || []);
         const sysExcl = new Set(SYSTEM_EXCLUDE);
-        const apply = (data: TProp) => {
+        // Track1: compact 后 state 不内联 controlledProps, 受控真值源在 default. apply state 层时
+        // 以 default 的 controlledProps 作门控回退集 (而非 apply all), 否则 state 残留的未受控值
+        // (取消控制后留下的 baseline) 会被误 apply → 破坏 #C6 冻结。
+        const ddCp = defaultData ? (defaultData as any).$$controlledProps$$ : undefined;
+        const apply = (data: TProp, fallbackCprops?: any) => {
             if (!data) return;
             // #C6/#S1: 取消控制(非排除)的 prop 不再 apply → 冻结(SPEC line53)。门控:controlledProps
-            // **存在**(即便空 {} = 全取消)→ 严格门控, 不含此 key 则 skip(冻结); controlledProps **缺失**
-            // (undefined, 真老 .fire 无元桶, 迁移后由 #S4 补全)→ 退回 apply all(向后兼容)。
-            // #S1 修: 用"存在与否"而非"非空", 否则全取消后 {} 退回 apply all → 误解冻。
-            const cprops = (data as any).$$controlledProps$$;
+            // **存在**→ 严格门控, 不含此 key 则 skip(冻结); 本层缺失则回退到 fallbackCprops(default 受控集);
+            // 两层皆缺失(真老 .fire 无元桶)→ apply all(向后兼容)。
+            // 空 state map 但 default 仍有 schema 时按 compact state 处理, 回退 default; default 也空才表示全取消。
+            let cprops = (data as any).$$controlledProps$$;
+            const hasFallbackControlledInfo = fallbackCprops !== undefined
+              && fallbackCprops !== null
+              && Object.keys(fallbackCprops).length > 0;
+            if (cprops === undefined
+              || cprops === null
+              || (Object.keys(cprops).length === 0 && hasFallbackControlledInfo)) {
+                cprops = fallbackCprops;
+            }
             const hasControlledInfo = cprops !== undefined && cprops !== null;
             const keys = this.extractPropRefKeys(data);
             for (const propRef of keys) {
@@ -2763,8 +2982,9 @@ export class StateSelectV2 extends cc.Component {
                 try {
                     this.writeNodeValueByPropRef(propRef, cloneValueByType(value, cocosType));
                     seen.add(propRef);
-                } catch (e) {
-                    StateErrorManagerV2.warn("applyPropRefKeysToNode 写值失败", {
+                }
+                catch (e) {
+                    StateErrorManager.warn("applyPropRefKeysToNode 写值失败", {
                         component: "StateSelectV2",
                         method: "applyPropRefKeysToNode",
                         params: { propRef, error: (e as Error).message },
@@ -2772,15 +2992,22 @@ export class StateSelectV2 extends cc.Component {
                 }
             }
         };
-        // 先 state 数据, 再 default 兜底 (与老 updateState 默认优先级一致, seen 跳过)
-        apply(propData);
+        // 先 state 数据 (compact 时门控回退到 default 受控集), 再 default 兜底 (seen 跳过)
+        apply(propData, ddCp);
+        // cc.Node.angle / eulerAngles / quat 是同一节点旋转的三种别名(不同 propRef key, seen 无法识别).
+        // state 已 apply 其一时, default 兜底的其它别名不得再写 → 否则把 state 旋转拽回 default baseline
+        // (尤以 default 的 quat=单位四元数最隐蔽: 它会把刚写好的 euler 归零)。
+        // compact 后 state 常只控其一而 default 仍含 auto-opt 的另外两个, 不护 alias 会互相覆盖。
+        // (position/scale/anchor/size 聚合走子轴 x/y/z 同 key, 由 seen 天然去重, 无需别名表; 旋转是唯一例外)
+        const ROT_ALIAS = ["cc.Node.angle", "cc.Node.eulerAngles", "cc.Node.quat"];
+        if (ROT_ALIAS.some(r => seen.has(r))) for (const r of ROT_ALIAS) seen.add(r);
         apply(defaultData);
     }
 
     /** 🔧 批量更新UI，使用属性处理器系统和错误处理机制 */
     private batchUpdateUI(updateBatch: { type: EnumPropName, value: TPropValue }[]) {
         // 🔧 验证节点有效性
-        if (!StateErrorManagerV2.validateNode(this.node, {
+        if (!StateErrorManager.validateNode(this.node, {
             component: "StateSelectV2",
             method: "batchUpdateUI",
             params: { batchSize: updateBatch.length },
@@ -2797,14 +3024,14 @@ export class StateSelectV2 extends cc.Component {
             }
 
             // 🔧 使用属性处理器系统，带错误处理
-            StateErrorManagerV2.gracefulFallback(
+            StateErrorManager.gracefulFallback(
                 () => {
                     const handler = PropHandlerManager.getHandler(type);
                     if (handler) {
                         handler.setValue(this.node, value);
                     }
                     else {
-                        StateErrorManagerV2.warn(
+                        StateErrorManager.warn(
                             `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
                             { component: "StateSelectV2", method: "batchUpdateUI", params: { propType: type } },
                         );
@@ -2820,6 +3047,22 @@ export class StateSelectV2 extends cc.Component {
         return this._ctrlsMap[this.currCtrlId];
     }
 
+    private migrateStateIndexKeysForCtrl(ctrl: StateControllerV2): void {
+        if (!ctrl || !ctrl.states) return;
+        const pageData = this.getPageData(ctrl.ctrlId);
+        if (!pageData || pageData.$$stateKeyMode$$ === "stateId") return;
+        for (let index = 0; index < ctrl.states.length; index++) {
+            const stateId = this.getStateIdByIndex(ctrl, index);
+            if (stateId < 0 || stateId === index) continue;
+            const indexData = pageData[index];
+            if (indexData !== undefined && pageData[stateId] === undefined) {
+                pageData[stateId] = indexData;
+            }
+            delete pageData[index];
+        }
+        pageData.$$stateKeyMode$$ = "stateId";
+    }
+
     /**
      * 其他状态是否有存在这个属性
      * @param ctrl
@@ -2828,7 +3071,9 @@ export class StateSelectV2 extends cc.Component {
     private isOtherHans(ctrl: StateControllerV2, prop: number) {
         const pageData = this.getPageData();
         for (let index = 0, len = ctrl.states.length; index < len; index++) {
-            const propData = pageData[index];
+            const stateId = this.getStateIdByIndex(ctrl, index);
+            if (stateId < 0) continue;
+            const propData = pageData[stateId];
             // W6-2c2: 双 key 读
             if (propData && this.readPropByEnum(propData, prop as EnumPropName) != void 0) {
                 return true;
@@ -2870,16 +3115,36 @@ export class StateSelectV2 extends cc.Component {
         return this._ctrlData[targetCtrlId];
     }
 
+    private getStateIdByIndex(ctrl: StateControllerV2, index: number): number {
+        const states = ctrl && ctrl.states;
+        if (!states || index < 0 || index >= states.length) return -1;
+        const state = states[index];
+        return state && typeof state.stateId === "number" ? state.stateId : -1;
+    }
+
+    private getStateDataKey(stateIndex?: number, ctrlId?: number): number {
+        const targetCtrlId = ctrlId != void 0 ? ctrlId : this.currCtrlId;
+        const ctrl = targetCtrlId != void 0 ? this._ctrlsMap[targetCtrlId] : this.getCurrCtrl();
+        const targetIndex = stateIndex != void 0 ? stateIndex : this.ctrlState;
+        const stateId = this.getStateIdByIndex(ctrl, targetIndex);
+        return stateId >= 0 ? stateId : targetIndex;
+    }
+
+    private getPropDataByIndex(stateIndex: number, ctrlId?: number): TProp {
+        return this.getPropData(stateIndex, ctrlId);
+    }
+
     /**
      * 获取某个状态的属性数据
      */
-    private getPropData(state?: number, ctrlId?: number): TProp {
+    private getPropData(stateIndex?: number, ctrlId?: number): TProp {
         const pageData = this.getPageData(ctrlId);
-        const targetState = state != void 0 ? state : this.ctrlState;
-        if (pageData[targetState] == void 0) {
-            pageData[targetState] = {} as TProp;
+        pageData.$$stateKeyMode$$ = "stateId";
+        const targetStateKey = this.getStateDataKey(stateIndex, ctrlId);
+        if (pageData[targetStateKey] == void 0) {
+            pageData[targetStateKey] = {} as TProp;
         }
-        return pageData[targetState];
+        return pageData[targetStateKey];
     }
 
     /** 获取默认属性 */
@@ -2907,7 +3172,7 @@ export class StateSelectV2 extends cc.Component {
         }
 
         // 🔧 验证节点有效性
-        if (!StateErrorManagerV2.validateNode(this.node, {
+        if (!StateErrorManager.validateNode(this.node, {
             component: "StateSelectV2",
             method: "handleValue",
             params: { propType: EnumPropName[type] },
@@ -2916,14 +3181,14 @@ export class StateSelectV2 extends cc.Component {
         }
 
         // 🔧 使用属性处理器系统，带错误处理
-        return StateErrorManagerV2.gracefulFallback(
+        return StateErrorManager.gracefulFallback(
             () => {
                 const handler = PropHandlerManager.getHandler(type);
                 if (handler) {
                     return handler.getValue(this.node);
                 }
 
-                StateErrorManagerV2.warn(
+                StateErrorManager.warn(
                     `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
                     { component: "StateSelectV2", method: "handleValue", params: { propType: type } },
                 );
@@ -2933,7 +3198,6 @@ export class StateSelectV2 extends cc.Component {
             `获取属性值失败: ${EnumPropName[type]}`,
         );
     }
-
 
     /** 父节点改变，转换已经缓存的位置 */
     private transPosition(oldParent: cc.Node) {
@@ -2948,7 +3212,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 检查oldParent是否是有效的cc.Node对象且具有必要的方法
         if (!oldParent.isValid || typeof oldParent.convertToWorldSpaceAR !== "function") {
-            StateErrorManagerV2.warn("oldParent 节点无效或已销毁", {
+            StateErrorManager.warn("oldParent 节点无效或已销毁", {
                 component: "StateSelectV2",
                 method: "transPosition",
             });
@@ -2956,7 +3220,7 @@ export class StateSelectV2 extends cc.Component {
         }
         // 检查parent是否具有必要的方法
         if (typeof parent.convertToNodeSpaceAR !== "function") {
-            StateErrorManagerV2.warn("parent 节点缺少 convertToNodeSpaceAR 方法", {
+            StateErrorManager.warn("parent 节点缺少 convertToNodeSpaceAR 方法", {
                 component: "StateSelectV2",
                 method: "transPosition",
             });
@@ -3002,7 +3266,7 @@ export class StateSelectV2 extends cc.Component {
                 if (convZ && sz !== undefined) propData["cc.Node.z"] = localPos.z;
             }
             catch (error) {
-                StateErrorManagerV2.error("坐标转换过程中发生错误", {
+                StateErrorManager.error("坐标转换过程中发生错误", {
                     component: "StateSelectV2",
                     method: "transPosition",
                     params: { error: error.message },
@@ -3015,14 +3279,14 @@ export class StateSelectV2 extends cc.Component {
     private syncPropToAllStatesInternal(propKey: EnumPropName) {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.error("同步属性失败：控制器为空", {
+            StateErrorManager.error("同步属性失败：控制器为空", {
                 component: "StateSelectV2",
                 method: "syncPropToAllStatesInternal",
             });
             return;
         }
 
-        StateErrorManagerV2.debug("开始同步属性到所有状态", {
+        StateErrorManager.debug("开始同步属性到所有状态", {
             component: "StateSelectV2",
             method: "syncPropToAllStatesInternal",
             params: { propType: EnumPropName[propKey], stateCount: ctrl.states.length },
@@ -3030,7 +3294,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 🔧 修复：不同步Non属性
         if (propKey === EnumPropName.Non) {
-            StateErrorManagerV2.warn("不能同步Non属性", {
+            StateErrorManager.warn("不能同步Non属性", {
                 component: "StateSelectV2",
                 method: "syncPropToAllStatesInternal",
             });
@@ -3041,7 +3305,7 @@ export class StateSelectV2 extends cc.Component {
         const currentStateValue = this.handleValue(propKey); // 获取当前节点的属性值作为默认值
 
         if (currentStateValue === undefined) {
-            StateErrorManagerV2.error("同步失败：无法获取当前属性值", {
+            StateErrorManager.error("同步失败：无法获取当前属性值", {
                 component: "StateSelectV2",
                 method: "syncPropToAllStatesInternal",
                 params: { propType: EnumPropName[propKey] },
@@ -3052,10 +3316,12 @@ export class StateSelectV2 extends cc.Component {
         // 遍历所有状态
         let syncedStates = 0;
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
-            if (pageData[stateIndex] == void 0) {
-                pageData[stateIndex] = {};
+            const stateId = this.getStateIdByIndex(ctrl, stateIndex);
+            if (stateId < 0) continue;
+            if (pageData[stateId] == void 0) {
+                pageData[stateId] = {};
             }
-            const statePropData = pageData[stateIndex];
+            const statePropData = pageData[stateId];
 
             // W6-2c2: 双 key 读 (优先 string propRef, fallback number)
             if (this.readPropByEnum(statePropData, propKey) === undefined) {
@@ -3079,7 +3345,7 @@ export class StateSelectV2 extends cc.Component {
             this.writePropByEnum(defaultData, propKey, currentStateValue);
         }
 
-        StateErrorManagerV2.info("属性同步完成", {
+        StateErrorManager.info("属性同步完成", {
             component: "StateSelectV2",
             method: "syncPropToAllStatesInternal",
             params: {
@@ -3095,14 +3361,14 @@ export class StateSelectV2 extends cc.Component {
     private syncDeletePropFromAllStates(propKey: EnumPropName) {
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.error("删除属性失败：控制器为空", {
+            StateErrorManager.error("删除属性失败：控制器为空", {
                 component: "StateSelectV2",
                 method: "syncDeletePropFromAllStates",
             });
             return;
         }
 
-        StateErrorManagerV2.debug("开始同步删除属性", {
+        StateErrorManager.debug("开始同步删除属性", {
             component: "StateSelectV2",
             method: "syncDeletePropFromAllStates",
             params: { propType: EnumPropName[propKey], stateCount: ctrl.states.length },
@@ -3110,7 +3376,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 🔧 修复：不删除Non属性
         if (propKey === EnumPropName.Non) {
-            StateErrorManagerV2.warn("不能删除Non属性", {
+            StateErrorManager.warn("不能删除Non属性", {
                 component: "StateSelectV2",
                 method: "syncDeletePropFromAllStates",
             });
@@ -3125,7 +3391,9 @@ export class StateSelectV2 extends cc.Component {
         const propRef = enumToPropRef(propKey);
         // 遍历所有状态，删除指定属性
         for (let stateIndex = 0; stateIndex < ctrl.states.length; stateIndex++) {
-            const statePropData = pageData[stateIndex];
+            const stateId = this.getStateIdByIndex(ctrl, stateIndex);
+            if (stateId < 0) continue;
+            const statePropData = pageData[stateId];
             if (statePropData) {
                 // 删除属性值 (string + number 双删)
                 const hadValue = this.readPropByEnum(statePropData, propKey) !== undefined;
@@ -3161,7 +3429,7 @@ export class StateSelectV2 extends cc.Component {
             if (propRef !== undefined) delete (defaultData.$$controlledProps$$ as any)[propRef];
         }
 
-        StateErrorManagerV2.info("属性删除完成", {
+        StateErrorManager.info("属性删除完成", {
             component: "StateSelectV2",
             method: "syncDeletePropFromAllStates",
             params: {
@@ -3236,7 +3504,9 @@ export class StateSelectV2 extends cc.Component {
     private getAmbiguousSubRefs(aggRef: string): string[] {
         const decomposer = AMBIGUOUS_DECOMPOSE[aggRef];
         if (!decomposer) return [];
-        const pairs = decomposer({ x: 0, y: 0, z: 0, width: 0, height: 0 });
+        const pairs = decomposer({
+            x: 0, y: 0, z: 0, width: 0, height: 0,
+        });
         return pairs ? pairs.map(p => p[0]) : [];
     }
 
@@ -3323,7 +3593,7 @@ export class StateSelectV2 extends cc.Component {
         if (!CC_EDITOR) return;
         const ctrl = this.getCurrCtrl();
         if (!ctrl) {
-            StateErrorManagerV2.warn("recordTrigger: 未找到当前控制器", {
+            StateErrorManager.warn("recordTrigger: 未找到当前控制器", {
                 component: "StateSelectV2",
                 method: "recordTrigger.setter",
             });
@@ -3368,7 +3638,9 @@ export class StateSelectV2 extends cc.Component {
 
     /** 专项A-2: 交换当前 state 与下一 state 的值数据 (节点级局部操作). */
     /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
-    public get swapValueWithNext(): boolean { return false; }
+    public get swapValueWithNext(): boolean {
+        return false;
+    }
 
     public set swapValueWithNext(_v: boolean) {
         if (!CC_EDITOR) return;
@@ -3378,7 +3650,9 @@ export class StateSelectV2 extends cc.Component {
 
     /** 专项A-2: 复制当前 state 的值数据到下一 state (节点级局部操作). */
     /** 普通访问器, inspector 可见性由 valueOps 折叠组代理. */
-    public get copyValueToNext(): boolean { return false; }
+    public get copyValueToNext(): boolean {
+        return false;
+    }
 
     public set copyValueToNext(_v: boolean) {
         if (!CC_EDITOR) return;
@@ -3401,14 +3675,21 @@ export class StateSelectV2 extends cc.Component {
 
     public set refreshInspectorTrigger(_value: boolean) {
         if (!CC_EDITOR) return;
-        try { this.reconcileUserExcluded(); } catch { /* swallow, 兜底 */ }
-        try { this.refreshExcludeEnumLists(); } catch { /* swallow */ }
+        try {
+            this.reconcileUserExcluded();
+        }
+        catch { /* swallow, 兜底 */ }
+        try {
+            this.refreshExcludeEnumLists();
+        }
+        catch { /* swallow */ }
         try {
             if (this.node && (Editor as any)?.Utils?.refreshSelectedInspector) {
                 (Editor as any).Utils.refreshSelectedInspector("node", this.node.uuid);
             }
-        } catch (e) {
-            StateErrorManagerV2.warn("refreshInspectorTrigger: Editor.Utils.refreshSelectedInspector 失败", {
+        }
+        catch (e) {
+            StateErrorManager.warn("refreshInspectorTrigger: Editor.Utils.refreshSelectedInspector 失败", {
                 component: "StateSelectV2",
                 method: "refreshInspectorTrigger.setter",
                 params: { error: (e as Error).message },
@@ -3488,7 +3769,7 @@ export class StateSelectV2 extends cc.Component {
         const propType: EnumPropName = propTypeOrRef;
         const propRef: string | undefined = ENUM_TO_PROPREF[propType];
 
-        StateErrorManagerV2.debug("切换属性控制状态", {
+        StateErrorManager.debug("切换属性控制状态", {
             component: "StateSelectV2",
             method: "togglePropertyControl",
             params: { propType: EnumPropName[propType], propRef, enable },
@@ -3501,7 +3782,7 @@ export class StateSelectV2 extends cc.Component {
             // 🔧 第二步：立即更新界面标识变量
             this._currentDisplayProp = propType;
 
-            StateErrorManagerV2.debug("属性控制已启用，界面标识已更新", {
+            StateErrorManager.debug("属性控制已启用，界面标识已更新", {
                 component: "StateSelectV2",
                 method: "togglePropertyControl",
                 params: {
@@ -3527,7 +3808,8 @@ export class StateSelectV2 extends cc.Component {
             // AMBIGUOUS 聚合 → 释放各子项 (与接入对称, 子项独立); 其余 → 删该 propRef。
             const offRef = enumToPropRef(propType);
             const offSubs = (offRef !== undefined && isAmbiguousAggregatePropRef(offRef))
-                ? this.getControllableAmbiguousSubRefs(offRef) : [];
+                ? this.getControllableAmbiguousSubRefs(offRef)
+                : [];
             if (offSubs.length > 0) {
                 for (const subRef of offSubs) this.removeControlledFlagAllStates(subRef);
             }
@@ -3541,7 +3823,7 @@ export class StateSelectV2 extends cc.Component {
                 this._currentDisplayProp = EnumPropName.Non;
             }
 
-            StateErrorManagerV2.debug("属性控制已禁用，界面标识已清空", {
+            StateErrorManager.debug("属性控制已禁用，界面标识已清空", {
                 component: "StateSelectV2",
                 method: "togglePropertyControl",
                 params: {
@@ -3582,7 +3864,7 @@ export class StateSelectV2 extends cc.Component {
         }
 
         // 自定义 propRef → 走 string key 路径
-        StateErrorManagerV2.debug("切换属性控制状态 (propRef 路径)", {
+        StateErrorManager.debug("切换属性控制状态 (propRef 路径)", {
             component: "StateSelectV2",
             method: "togglePropertyControlStringPath",
             params: { propRef, enable },
@@ -3602,7 +3884,7 @@ export class StateSelectV2 extends cc.Component {
     /** 🔧 智能属性推断：扫描节点所有可用的属性 */
     public scanAvailableProperties(): EnumPropName[] {
         const availableProps = PropertyControlService.scanAvailableProperties(this.node);
-        StateErrorManagerV2.info("扫描可用属性完成", {
+        StateErrorManager.info("扫描可用属性完成", {
             component: "StateSelectV2",
             method: "scanAvailableProperties",
             params: { count: availableProps.length, props: availableProps.map(p => EnumPropName[p]) },
@@ -3614,12 +3896,12 @@ export class StateSelectV2 extends cc.Component {
      * 智能属性推断: 批量启用所有 applicable prop. TASK-003 之后 __preload 已自动接入,
      * 此方法保留作为外部工具入口 (例: panel 命令 / 脚本批量配置 / 现有 jest 测试).
      */
-    public autoConfigureAllProperties(): { enabled: number; skipped: number; failed: number } {
+    public autoConfigureAllProperties(): { enabled: number, skipped: number, failed: number } {
         if (!CC_EDITOR) {
             return { enabled: 0, skipped: 0, failed: 0 };
         }
 
-        StateErrorManagerV2.info("开始批量启用所有可用属性", {
+        StateErrorManager.info("开始批量启用所有可用属性", {
             component: "StateSelectV2",
             method: "autoConfigureAllProperties",
         });
@@ -3639,7 +3921,7 @@ export class StateSelectV2 extends cc.Component {
                 this.togglePropertyControl(propType, true);
                 result.enabled++;
 
-                StateErrorManagerV2.debug("属性已自动启用", {
+                StateErrorManager.debug("属性已自动启用", {
                     component: "StateSelectV2",
                     method: "autoConfigureAllProperties",
                     params: { propType: EnumPropName[propType] },
@@ -3647,7 +3929,7 @@ export class StateSelectV2 extends cc.Component {
             }
             catch (error) {
                 result.failed++;
-                StateErrorManagerV2.warn("属性启用失败", {
+                StateErrorManager.warn("属性启用失败", {
                     component: "StateSelectV2",
                     method: "autoConfigureAllProperties",
                     params: { propType: EnumPropName[propType], error: error.message },
@@ -3658,7 +3940,7 @@ export class StateSelectV2 extends cc.Component {
         // 刷新编辑器界面
         this.forceRefreshInspector();
 
-        StateErrorManagerV2.info("批量启用完成", {
+        StateErrorManager.info("批量启用完成", {
             component: "StateSelectV2",
             method: "autoConfigureAllProperties",
             params: result,
@@ -3671,7 +3953,7 @@ export class StateSelectV2 extends cc.Component {
     private addPropertyControl(propType: EnumPropName) {
         const propData = this.getPropData();
         if (!propData) {
-            StateErrorManagerV2.warn("无法获取属性数据", {
+            StateErrorManager.warn("无法获取属性数据", {
                 component: "StateSelectV2",
                 method: "addPropertyControl",
                 params: { propType: EnumPropName[propType] },
@@ -3707,7 +3989,7 @@ export class StateSelectV2 extends cc.Component {
             if ((propData as any)[propRef] === undefined) {
                 const currentValue = this.handleValue(propType);
                 if (currentValue === undefined) {
-                    StateErrorManagerV2.warn("无法获取属性值，跳过数据创建", {
+                    StateErrorManager.warn("无法获取属性值，跳过数据创建", {
                         component: "StateSelectV2",
                         method: "addPropertyControl",
                         params: { propType: propName },
@@ -3727,14 +4009,15 @@ export class StateSelectV2 extends cc.Component {
                 }
             }
             this._propValue = (propData as any)[propRef];
-        } else {
+        }
+        else {
             // 无 propRef 映射的遗留 prop (正常不走到): 保留老 number key + $$propertyData$$ 兜底
             propData.$$propertyData$$ = propData.$$propertyData$$ || {};
             propData.$$controlledProps$$[propName] = propType;
             if ((propData.$$propertyData$$ as any)[propType] === undefined) {
                 const currentValue = this.handleValue(propType);
                 if (currentValue === undefined) {
-                    StateErrorManagerV2.warn("无法获取属性值，跳过数据创建", {
+                    StateErrorManager.warn("无法获取属性值，跳过数据创建", {
                         component: "StateSelectV2",
                         method: "addPropertyControl",
                         params: { propType: propName },
@@ -3762,7 +4045,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 🔧 注意：界面标识变量(_currentDisplayProp)由togglePropertyControl统一管理
 
-        StateErrorManagerV2.info("属性控制已添加", {
+        StateErrorManager.info("属性控制已添加", {
             component: "StateSelectV2",
             method: "addPropertyControl",
             params: { propType: propName, propRef, isControlled: true },
@@ -3773,7 +4056,7 @@ export class StateSelectV2 extends cc.Component {
     private removePropertyControl(propType: EnumPropName) {
         const propData = this.getPropData();
         if (!propData) {
-            StateErrorManagerV2.warn("无法获取属性数据", {
+            StateErrorManager.warn("无法获取属性数据", {
                 component: "StateSelectV2",
                 method: "removePropertyControl",
                 params: { propType: EnumPropName[propType] },
@@ -3814,7 +4097,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 🔧 注意：界面标识变量(_currentDisplayProp)由togglePropertyControl统一管理
 
-        StateErrorManagerV2.info("属性已从控制列表移除（数据完整保留）", {
+        StateErrorManager.info("属性已从控制列表移除（数据完整保留）", {
             component: "StateSelectV2",
             method: "removePropertyControl",
             params: {
@@ -3836,7 +4119,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        StateErrorManagerV2.info("刷新属性列表", {
+        StateErrorManager.info("刷新属性列表", {
             component: "StateSelectV2",
             method: "updateAvailableProps",
         });
@@ -3852,13 +4135,13 @@ export class StateSelectV2 extends cc.Component {
         }
         try {
             Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
-            StateErrorManagerV2.info("属性检查器已刷新", {
+            StateErrorManager.info("属性检查器已刷新", {
                 component: "StateSelectV2",
                 method: "forceRefreshInspector",
             });
         }
         catch (error) {
-            StateErrorManagerV2.warn("刷新属性检查器失败", {
+            StateErrorManager.warn("刷新属性检查器失败", {
                 component: "StateSelectV2",
                 method: "forceRefreshInspector",
                 params: { error: error.message },
@@ -3872,7 +4155,7 @@ export class StateSelectV2 extends cc.Component {
             return;
         }
 
-        StateErrorManagerV2.info("开始手动重新获取控制器", {
+        StateErrorManager.info("开始手动重新获取控制器", {
             component: "StateSelectV2",
             method: "manualReloadController",
             params: { currentCtrlId: this.currCtrlId },
@@ -3893,7 +4176,7 @@ export class StateSelectV2 extends cc.Component {
             // 🔧 第四步：强制刷新界面
             this.forceRefreshInspector();
 
-            StateErrorManagerV2.info("控制器重新获取完成", {
+            StateErrorManager.info("控制器重新获取完成", {
                 component: "StateSelectV2",
                 method: "manualReloadController",
                 params: {
@@ -3904,7 +4187,7 @@ export class StateSelectV2 extends cc.Component {
             });
         }
         catch (error) {
-            StateErrorManagerV2.error("控制器重新获取失败", {
+            StateErrorManager.error("控制器重新获取失败", {
                 component: "StateSelectV2",
                 method: "manualReloadController",
                 params: { error: error.message },
@@ -3927,7 +4210,7 @@ export class StateSelectV2 extends cc.Component {
         try {
             const propData = this.getPropData();
             if (!propData) {
-                StateErrorManagerV2.warn("无法获取属性数据", {
+                StateErrorManager.warn("无法获取属性数据", {
                     component: "StateSelectV2",
                     method: "syncDataFromMemory",
                 });
@@ -3964,7 +4247,7 @@ export class StateSelectV2 extends cc.Component {
             this.forceRefreshInspector();
         }
         catch (error) {
-            StateErrorManagerV2.error("数据同步失败", {
+            StateErrorManager.error("数据同步失败", {
                 component: "StateSelectV2",
                 method: "syncDataFromMemory",
                 params: { error: (error as Error).message },
@@ -3980,7 +4263,7 @@ export class StateSelectV2 extends cc.Component {
 
         // 检查是否有选中的属性
         if (this._propKey === EnumPropName.Non || !this._propKey) {
-            StateErrorManagerV2.userFriendlyError(
+            StateErrorManager.userFriendlyError(
                 "没有选中的属性",
                 "请先选择要删除的属性",
                 { component: "StateSelectV2", method: "deletePropertyWithConfirmation" },
@@ -4022,7 +4305,7 @@ export class StateSelectV2 extends cc.Component {
                 // 🔧 优化：静默处理Editor.Dialog失败，不显示错误日志
                 // 只在开发模式下记录调试信息
                 if (CC_DEV) {
-                    StateErrorManagerV2.debug("Editor.Dialog不可用，降级到confirm对话框", {
+                    StateErrorManager.debug("Editor.Dialog不可用，降级到confirm对话框", {
                         component: "StateSelectV2",
                         method: "deletePropertyWithConfirmation",
                         params: {
@@ -4047,7 +4330,7 @@ export class StateSelectV2 extends cc.Component {
             catch (error) {
                 // 🔧 优化：confirm对话框失败是极少见的情况，静默处理
                 if (CC_DEV) {
-                    StateErrorManagerV2.debug("确认对话框调用失败", {
+                    StateErrorManager.debug("确认对话框调用失败", {
                         component: "StateSelectV2",
                         method: "deletePropertyWithConfirmation",
                         params: {
@@ -4065,7 +4348,7 @@ export class StateSelectV2 extends cc.Component {
             if (!useConfirmDialog()) {
                 // 🔧 优化：只有在所有对话框都失败时才显示错误
                 // 这种情况极其罕见，通常是浏览器环境问题
-                StateErrorManagerV2.warn("无法显示任何确认对话框，删除操作已取消", {
+                StateErrorManager.warn("无法显示任何确认对话框，删除操作已取消", {
                     component: "StateSelectV2",
                     method: "deletePropertyWithConfirmation",
                     params: { propName: propName },
@@ -4143,7 +4426,7 @@ export class StateSelectV2 extends cc.Component {
             // 🔧 第六步：更新显示
             this.updateChangedProp();
 
-            StateErrorManagerV2.info("属性彻底删除成功", {
+            StateErrorManager.info("属性彻底删除成功", {
                 component: "StateSelectV2",
                 method: "performPropertyDeletion",
                 params: {
@@ -4156,7 +4439,7 @@ export class StateSelectV2 extends cc.Component {
             });
         }
         catch (error) {
-            StateErrorManagerV2.userFriendlyError(
+            StateErrorManager.userFriendlyError(
                 "属性删除失败",
                 `删除属性 "${propName}" 时发生错误：${error.message}`,
                 { component: "StateSelectV2", method: "performPropertyDeletion" },
@@ -4166,3 +4449,6 @@ export class StateSelectV2 extends cc.Component {
 
     // #endregion 7.
 }
+
+// back-compat 导出别名: 仅 JS 导出名, 不触发 @ccclass (引擎/panel 按 cid "StateSelectV2" 识别).
+export { StateSelectV2 as StateSelect };

@@ -6,9 +6,12 @@ import { cloneValueByType } from "./NestedCtrlData";
 // "Cannot find module './capabilities'" (jest 用 node resolver 能解出, 编辑器不行).
 import "./capabilities/index";
 import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnumV2";
-import { StateErrorManagerV2 } from "./StateErrorManagerV2";
+import { StateErrorManager } from "./StateErrorManagerV2";
 import { StateSelectV2 } from "./StateSelectV2";
-import { CtrlRecordGroup, CtrlStateOpsGroup } from "./props/CtrlInspectorGroups";
+// 仅取 CtrlStateOpsGroup; CtrlRecordGroup 不再在 controller inspector 暴露(录制改由 StateSelect 承载).
+// 该 import 仍会加载整个模块, 触发 CtrlRecordGroup 的 @ccclass 注册 — 旧 prefab 序列化里残留的
+// 录制组按 cid 反序列化不报错(重存即清).
+import { CtrlRecycleBinGroup, CtrlStateOpsGroup } from "./props/CtrlInspectorGroups";
 // 支柱 B: 可序列化跨控制器联动 — 复用运行时 binding capability 接线 (无循环依赖: 该 capability 不 import 本类).
 import { MultiCtrlBindingCapability } from "./capabilities/MultiCtrlBindingCapability";
 
@@ -60,9 +63,11 @@ export class StateControllerV2 extends cc.Component {
     public static getById(id: number): StateControllerV2 | null {
         return (typeof id === "number" && StateControllerV2._byId[id]) || null;
     }
+
     private static _register(ctrl: StateControllerV2): void {
         if (ctrl && typeof ctrl.ctrlId === "number") StateControllerV2._byId[ctrl.ctrlId] = ctrl;
     }
+
     private static _unregister(ctrl: StateControllerV2): void {
         if (ctrl && typeof ctrl.ctrlId === "number" && StateControllerV2._byId[ctrl.ctrlId] === ctrl) {
             delete StateControllerV2._byId[ctrl.ctrlId];
@@ -123,7 +128,7 @@ export class StateControllerV2 extends cc.Component {
 
     public set ctrlName(value: string) {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.error("非编辑器环境，不更新名称", {
+            StateErrorManager.error("非编辑器环境，不更新名称", {
                 component: "StateControllerV2",
                 method: "ctrlName.setter",
             });
@@ -191,6 +196,30 @@ export class StateControllerV2 extends cc.Component {
     @property({ type: StateValue, visible: false })
     private _states: StateValue[] = [];
 
+    /**
+     * 上一次稳定的 state 快照。
+     * Cocos Inspector 数组 UI 会先原地改 this._states 再调 setter, 不能依赖 this._states
+     * 推导旧长度/旧 id, 否则新增默认 StateValue(name="", stateId=0) 和删除迁移都会漏判。
+     */
+    private _stateSnapshot: StateValue[] = [];
+
+    /** 软删除 state 暂存。缩短 states 只移出活跃列表, 不立刻清对应 stateId 数据。 */
+    @property({ type: StateValue, visible: false })
+    private _deletedStates: StateValue[] = [];
+
+    /**
+     * 回收站下拉 (restoreTarget / purgeTarget) 的选项→stateId 反查表 (非序列化)。
+     * refreshRecycleBinEnums 注入 enumList 时同步刷新; 选项 value=v 对应 _recycleBinOptionIds[v-1]。
+     */
+    private _recycleBinOptionIds: number[] = [];
+
+    /**
+     * 回收站只读预览中的 stateId (非 @property, 不序列化, 重载/反序列化后自动回 -1)。
+     * -1 = 未预览。预览不改 selectedIndex (激活态高亮不变), 仅把回收态数据只读叠加到节点;
+     * 任何退出路径 (退出/恢复/切state/录制/销毁) 都先 exitPreview 按快照精确还原。
+     */
+    private _previewingStateId: number = -1;
+
     /** 状态列表 inspector 入口. cocos 数组 UI 的 + / × / 拖动会调 setter, 走完整 invariants. */
     @property({ type: StateValue, displayName: "states", tooltip: "状态列表 — 用 cocos 数组 UI 直接添加/删除/重排/改名" })
     public get states() {
@@ -199,7 +228,7 @@ export class StateControllerV2 extends cc.Component {
 
     private set states(value: StateValue[]) {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.error("非编辑器环境，不更新状态", {
+            StateErrorManager.error("非编辑器环境，不更新状态", {
                 component: "StateControllerV2",
                 method: "states.setter",
             });
@@ -208,7 +237,7 @@ export class StateControllerV2 extends cc.Component {
 
         // TASK-002: 录制中不能修改状态列表 (避免 ctrlData 索引错位).
         if (this._recording) {
-            StateErrorManagerV2.warn("录制中不能修改状态列表, 请先停止/撤销录制", {
+            StateErrorManager.warn("录制中不能修改状态列表, 请先停止/撤销录制", {
                 component: "StateControllerV2",
                 method: "states.setter",
             });
@@ -217,7 +246,7 @@ export class StateControllerV2 extends cc.Component {
 
         // 🔧 输入验证：确保数组有效
         if (!value || !Array.isArray(value)) {
-            StateErrorManagerV2.warn("states必须是有效的数组", {
+            StateErrorManager.warn("states必须是有效的数组", {
                 component: "StateControllerV2",
                 method: "states.setter",
                 params: { valueType: typeof value, isArray: Array.isArray(value) },
@@ -225,7 +254,8 @@ export class StateControllerV2 extends cc.Component {
             return;
         }
 
-        const oldLen = this._states.length;
+        const oldStates = this._stateSnapshot.length > 0 ? this._stateSnapshot : this.cloneStateSnapshot(this._states);
+        const oldLen = oldStates.length;
         const newLen = value.length;
 
         let applyIndex: number = this._selectedIndex;
@@ -233,7 +263,7 @@ export class StateControllerV2 extends cc.Component {
         // 处理状态数量不足的情况
         if (newLen < 2) {
             applyIndex = 0;
-            StateErrorManagerV2.warn("建议至少添加两个状态", {
+            StateErrorManager.warn("建议至少添加两个状态", {
                 component: "StateControllerV2",
                 method: "states.setter",
                 params: { currentStateCount: newLen },
@@ -246,11 +276,11 @@ export class StateControllerV2 extends cc.Component {
         // 🔧 首先检查并初始化所有未正确初始化的状态对象
         for (let index = 0; index < newLen; index++) {
             // 🔧 新增的状态由编辑器默认构造，name为""且stateId为0（未分配），需要正确初始化
-            const isUninitialized =
-                !value[index] ||
-                value[index].name === undefined ||
-                value[index].stateId === undefined ||
-                (value[index].name === "" && value[index].stateId === 0 && index >= oldLen);
+            const isUninitialized
+                = !value[index]
+                  || value[index].name === undefined
+                  || value[index].stateId === undefined
+                  || (value[index].name === "" && value[index].stateId === 0 && index >= oldLen);
             if (isUninitialized) {
                 // 🔧 使用智能命名方法生成状态名字
                 const smartStateName = this.getSmartStateName(index);
@@ -284,7 +314,8 @@ export class StateControllerV2 extends cc.Component {
 
         if (oldLen > newLen) {
             // 🔧 处理状态删除：找到所有被删除的状态索引
-            deletedIndices = this.findDeletedIndices(this._states, value);
+            deletedIndices = this.findDeletedIndices(oldStates, value);
+            this.stashDeletedStates(oldStates, deletedIndices, value);
             let adjustment = 0;
             // #S5: 仅"删在选中**之前**(严格 <)"的 state 才下移选中, 让选中跟随; 删选中**自身**
             // (deletedIndex == applyIndex) 不下移 → 选中保持原 index = 补位进来的下一个 state(用户裁定"选下一个")。
@@ -301,18 +332,19 @@ export class StateControllerV2 extends cc.Component {
         }
 
         // 🔧 更新内部状态数组
-        StateErrorManagerV2.debug("开始更新状态数组", {
+        StateErrorManager.debug("开始更新状态数组", {
             component: "StateControllerV2",
             method: "states.setter",
             params: { oldLength: oldLen, newLength: newLen, deletedCount: deletedIndices.length },
         });
 
         this._states = value;
+        this.ensureUniqueStateIds();
 
         const stateMap: { [key: string]: boolean } = {};
         const array = value.map((val, i) => {
             if (!val) {
-                StateErrorManagerV2.error("状态对象不能为空", {
+                StateErrorManager.error("状态对象不能为空", {
                     component: "StateControllerV2",
                     method: "states.setter",
                     params: { stateIndex: i },
@@ -323,7 +355,7 @@ export class StateControllerV2 extends cc.Component {
             // 🔧 处理重复状态名
             if (stateMap[val.name]) {
                 const newName = val.name + "_" + i;
-                StateErrorManagerV2.warn("检测到重复的状态名，自动重命名", {
+                StateErrorManager.warn("检测到重复的状态名，自动重命名", {
                     component: "StateControllerV2",
                     method: "states.setter",
                     params: { originalName: val.name, newName: newName },
@@ -342,18 +374,25 @@ export class StateControllerV2 extends cc.Component {
         // 刻意不调 forceRefreshInspector: 自动强刷会打断当前操作 (焦点丢失 / 抖动),
         // selectedPage 等 getter @property 的陈旧显示由用户点 "刷新检查器" 按钮解决.
 
+        this.refreshStateSnapshot();
+
         // 🔧 通知相关组件状态列表已更新
         if (deletedIndices.length > 0) {
-            StateErrorManagerV2.info("状态列表更新完成（包含删除）", {
+            StateErrorManager.info("状态列表更新完成（包含删除）", {
                 component: "StateControllerV2",
                 method: "states.setter",
                 params: { finalStateCount: newLen, deletedIndices: deletedIndices, currentIndex: applyIndex },
             });
-            // 如果有删除，通知第一个删除的索引
-            this.updateState(EnumUpdateType.SelPage, deletedIndices[0]);
+            // state 数据以 stateId 为身份保留。缩短 states 只刷新枚举, 不做 index 数据迁移/清理。
+            this.updateState(EnumUpdateType.SelPage);
+            // 删除后选中态可能补位/clamp 到新 index (这里 _selectedIndex 是直接赋值, 没走 setter 的
+            // 节点 apply 流程), 故主动重绘节点到新选中 state — 否则节点残留被删 state 的视觉,
+            // 表现为"删除后当前状态没切换"(尤其删末位/只剩一个状态时)。
+            // 注意: 只在删除分支补 apply。新增分支若也 apply 会污染新 state 的 propData。
+            this.updateState(EnumUpdateType.State);
         }
         else {
-            StateErrorManagerV2.info("状态列表更新完成", {
+            StateErrorManager.info("状态列表更新完成", {
                 component: "StateControllerV2",
                 method: "states.setter",
                 params: { finalStateCount: newLen, currentIndex: applyIndex },
@@ -371,6 +410,9 @@ export class StateControllerV2 extends cc.Component {
     public set selectedIndex(value: EnumStateName) {
         if (this.isInit || this._selectedIndex != value) {
             this.isInit = false;
+
+            // 切换激活态前先退出回收态预览 (按快照还原, 避免预览值残留/与新激活态混淆)
+            if (this._previewingStateId >= 0) this.exitPreview();
 
             // 模型 Z: 录制中切 state → 自动 stopRecording, 把改动 commit 到 fromState 后再切.
             // 标记 stopRecordingMode="auto" 让 StateSelectV2.onRecordingStop 走静默 + log 路径,
@@ -391,14 +433,14 @@ export class StateControllerV2 extends cc.Component {
             value = Math.max(0, Math.min(this._states.length - 1, value));
 
             if (originalValue !== value) {
-                StateErrorManagerV2.warn("状态索引超出范围，已自动调整", {
+                StateErrorManager.warn("状态索引超出范围，已自动调整", {
                     component: "StateControllerV2",
                     method: "selectedIndex.setter",
                     params: { requestedIndex: originalValue, adjustedIndex: value, maxIndex: this._states.length - 1 },
                 });
             }
 
-            StateErrorManagerV2.debug("开始状态切换", {
+            StateErrorManager.debug("开始状态切换", {
                 component: "StateControllerV2",
                 method: "selectedIndex.setter",
                 params: { fromState: this._selectedIndex, toState: value, isInit: this.isInit },
@@ -412,7 +454,9 @@ export class StateControllerV2 extends cc.Component {
             // Wave 2 T25: capability 层广播 state 切换
             // W6-2b: 留 propType / propRef 字段位 (state-change 事件本身不针对单 prop, 占位让下游 capability
             //   读 ctx 不会 undefined 报错; per-prop 事件在 onPropertyControlled / onPropertyReleased 派发).
-            CapabilityRegistry.dispatch("onStateWillChange", { ctrl: this, fromState: this._selectedIndex, toState: value, propType: undefined, propRef: undefined });
+            CapabilityRegistry.dispatch("onStateWillChange", {
+                ctrl: this, fromState: this._selectedIndex, toState: value, propType: undefined, propRef: undefined,
+            });
 
             this._previousIndex = this._selectedIndex;
             this._selectedIndex = value;
@@ -421,7 +465,9 @@ export class StateControllerV2 extends cc.Component {
             this.updateState(EnumUpdateType.State);
             // Wave 2 T25: capability 层广播 state 已切
             // W6-2b: 同 onStateWillChange, 留 propType / propRef 字段位
-            CapabilityRegistry.dispatch("onStateChanged", { ctrl: this, fromState: this._previousIndex, toState: value, propType: undefined, propRef: undefined });
+            CapabilityRegistry.dispatch("onStateChanged", {
+                ctrl: this, fromState: this._previousIndex, toState: value, propType: undefined, propRef: undefined,
+            });
 
             // 🔧 编辑器环境下同步属性更新
             if (CC_EDITOR) {
@@ -432,7 +478,7 @@ export class StateControllerV2 extends cc.Component {
 
             this.isChanging = false;
 
-            StateErrorManagerV2.info("状态切换完成", {
+            StateErrorManager.info("状态切换完成", {
                 component: "StateControllerV2",
                 method: "selectedIndex.setter",
                 params: { newState: value, stateName: this.selectedPage },
@@ -444,14 +490,29 @@ export class StateControllerV2 extends cc.Component {
     @property({ type: CtrlStateOpsGroup, displayName: "状态操作", tooltip: "对当前选中状态的结构操作 (上移/下移/复制/删除)" })
     public stateOps = new CtrlStateOpsGroup();
 
-    /** 录制折叠组 — inspector 可折叠区域, 代理到本类 recordTrigger / cancelRecordTrigger. */
-    @property({ type: CtrlRecordGroup, displayName: "录制", tooltip: "录制工作流: 进入/退出录制 (回退整次录制用编辑器 Ctrl+Z)" })
-    public recording = new CtrlRecordGroup();
+    /** 回收站折叠组 (恢复/彻底删除已移除状态) — inspector 可折叠区域, 代理到本类回收站访问器. */
+    @property({ type: CtrlRecycleBinGroup, displayName: "回收站", tooltip: "已移除状态的暂存区 — 可恢复, 或彻底删除 (硬删数据, 不可恢复)" })
+    public recycleBin = new CtrlRecycleBinGroup();
+
+    /**
+     * 一键刷新 inspector (对齐 StateSelectV2.refreshInspectorTrigger).
+     * 在 panel/外部改了状态后 inspector 偶尔不自动刷新时手动触发, 重建 state 枚举 + 强制 cocos refreshSelectedInspector.
+     */
+    @property({ displayName: "🔄 刷新 inspector", tooltip: "手动刷新 inspector: 重建 state 枚举显示 + 强制 cocos refreshSelectedInspector" })
+    public get refreshInspectorTrigger(): boolean {
+        return false;
+    }
+
+    public set refreshInspectorTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        this.refreshSelectedPage();
+        this.forceRefreshInspector();
+    }
 
     /** 🔧 调整当前选中状态的顺序 */
     private adjustSelectedStateOrder(offset: number) {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.error("仅在编辑器中调整状态顺序", {
+            StateErrorManager.error("仅在编辑器中调整状态顺序", {
                 component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
@@ -460,7 +521,7 @@ export class StateControllerV2 extends cc.Component {
 
         // TASK-002: 录制中不能调整状态顺序.
         if (this._recording) {
-            StateErrorManagerV2.warn("录制中不能调整状态顺序, 请先停止/撤销录制", {
+            StateErrorManager.warn("录制中不能调整状态顺序, 请先停止/撤销录制", {
                 component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
@@ -468,7 +529,7 @@ export class StateControllerV2 extends cc.Component {
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManagerV2.warn("当前没有可调整的状态", {
+            StateErrorManager.warn("当前没有可调整的状态", {
                 component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
             });
@@ -477,7 +538,7 @@ export class StateControllerV2 extends cc.Component {
 
         const fromIndex = this._selectedIndex;
         if (fromIndex < 0 || fromIndex >= this._states.length) {
-            StateErrorManagerV2.warn("选中的状态索引无效，无法调整顺序", {
+            StateErrorManager.warn("选中的状态索引无效，无法调整顺序", {
                 component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
                 params: { selectedIndex: fromIndex, stateCount: this._states.length },
@@ -487,7 +548,7 @@ export class StateControllerV2 extends cc.Component {
 
         const targetIndex = fromIndex + offset;
         if (targetIndex < 0 || targetIndex >= this._states.length) {
-            StateErrorManagerV2.warn("已到达边界，无法继续移动", {
+            StateErrorManager.warn("已到达边界，无法继续移动", {
                 component: "StateControllerV2",
                 method: "adjustSelectedStateOrder",
                 params: { fromIndex: fromIndex, targetIndex: targetIndex, stateCount: this._states.length },
@@ -509,7 +570,7 @@ export class StateControllerV2 extends cc.Component {
         // 🔧 通知 StateSelectV2 携带数据一起移动
         this.updateState(EnumUpdateType.Move, { fromIndex: fromIndex, toIndex: targetIndex });
 
-        StateErrorManagerV2.info("状态顺序已调整", {
+        StateErrorManager.info("状态顺序已调整", {
             component: "StateControllerV2",
             method: "adjustSelectedStateOrder",
             params: { fromIndex: fromIndex, toIndex: targetIndex, stateName: moved?.name },
@@ -554,7 +615,7 @@ export class StateControllerV2 extends cc.Component {
     /** 🔧 复制当前选中的状态并插入到下一位 */
     private copySelectedState() {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.error("仅在编辑器中复制状态", {
+            StateErrorManager.error("仅在编辑器中复制状态", {
                 component: "StateControllerV2",
                 method: "copySelectedState",
             });
@@ -563,7 +624,7 @@ export class StateControllerV2 extends cc.Component {
 
         // TASK-002: 录制中不能复制状态.
         if (this._recording) {
-            StateErrorManagerV2.warn("录制中不能复制状态, 请先停止/撤销录制", {
+            StateErrorManager.warn("录制中不能复制状态, 请先停止/撤销录制", {
                 component: "StateControllerV2",
                 method: "copySelectedState",
             });
@@ -571,7 +632,7 @@ export class StateControllerV2 extends cc.Component {
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManagerV2.warn("当前没有可复制的状态", {
+            StateErrorManager.warn("当前没有可复制的状态", {
                 component: "StateControllerV2",
                 method: "copySelectedState",
             });
@@ -580,7 +641,7 @@ export class StateControllerV2 extends cc.Component {
 
         const index = this._selectedIndex;
         if (index < 0 || index >= this._states.length) {
-            StateErrorManagerV2.warn("选中的状态索引无效，无法复制", {
+            StateErrorManager.warn("选中的状态索引无效，无法复制", {
                 component: "StateControllerV2",
                 method: "copySelectedState",
                 params: { selectedIndex: index, stateCount: this._states.length },
@@ -603,7 +664,7 @@ export class StateControllerV2 extends cc.Component {
         this.updateState(EnumUpdateType.Copy, { fromIndex: index, toIndex: insertIndex });
         this.updateState(EnumUpdateType.State);
 
-        StateErrorManagerV2.info("已复制当前状态", {
+        StateErrorManager.info("已复制当前状态", {
             component: "StateControllerV2",
             method: "copySelectedState",
             params: { fromIndex: index, insertIndex: insertIndex, originName: baseName, newName: copyName },
@@ -613,7 +674,7 @@ export class StateControllerV2 extends cc.Component {
     /** 🔧 删除当前选中的状态，至少保留一个 */
     private removeSelectedState() {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.error("仅在编辑器中删除状态", {
+            StateErrorManager.error("仅在编辑器中删除状态", {
                 component: "StateControllerV2",
                 method: "removeSelectedState",
             });
@@ -622,7 +683,7 @@ export class StateControllerV2 extends cc.Component {
 
         // TASK-002: 录制中不能删除状态.
         if (this._recording) {
-            StateErrorManagerV2.warn("录制中不能删除状态, 请先停止/撤销录制", {
+            StateErrorManager.warn("录制中不能删除状态, 请先停止/撤销录制", {
                 component: "StateControllerV2",
                 method: "removeSelectedState",
             });
@@ -630,7 +691,7 @@ export class StateControllerV2 extends cc.Component {
         }
 
         if (!this._states || this._states.length === 0) {
-            StateErrorManagerV2.warn("当前没有可删除的状态", {
+            StateErrorManager.warn("当前没有可删除的状态", {
                 component: "StateControllerV2",
                 method: "removeSelectedState",
             });
@@ -638,7 +699,7 @@ export class StateControllerV2 extends cc.Component {
         }
 
         if (this._states.length <= 1) {
-            StateErrorManagerV2.warn("至少保留一个状态，已取消删除", {
+            StateErrorManager.warn("至少保留一个状态，已取消删除", {
                 component: "StateControllerV2",
                 method: "removeSelectedState",
                 params: { stateCount: this._states.length },
@@ -648,7 +709,7 @@ export class StateControllerV2 extends cc.Component {
 
         const index = this._selectedIndex;
         if (index < 0 || index >= this._states.length) {
-            StateErrorManagerV2.warn("选中的状态索引无效，无法删除", {
+            StateErrorManager.warn("选中的状态索引无效，无法删除", {
                 component: "StateControllerV2",
                 method: "removeSelectedState",
                 params: { selectedIndex: index, stateCount: this._states.length },
@@ -682,7 +743,7 @@ export class StateControllerV2 extends cc.Component {
 
         this.states = newStates;
 
-        StateErrorManagerV2.info("已删除当前状态", {
+        StateErrorManager.info("已删除当前状态", {
             component: "StateControllerV2",
             method: "removeSelectedState",
             params: {
@@ -696,16 +757,16 @@ export class StateControllerV2 extends cc.Component {
 
     // eslint-disable-next-line @typescript-eslint/naming-convention
     protected __preload() {
-        StateControllerV2._register(this);   // 支柱 B: 编辑器期也登记, 供 binding 解析 + 面板观测
+        StateControllerV2._register(this); // 支柱 B: 编辑器期也登记, 供 binding 解析 + 面板观测
         if (!CC_EDITOR) {
             return;
         }
 
         // 初始化 inspector 折叠组的 owner 回引 (facade 代理到本类访问器)
         this.stateOps.owner = this;
-        this.recording.owner = this;
+        this.recycleBin.owner = this;
 
-        StateErrorManagerV2.debug("开始控制器预加载", {
+        StateErrorManager.debug("开始控制器预加载", {
             component: "StateControllerV2",
             method: "__preload",
             params: { hasStates: !!this._states.length, ctrlName: this._ctrlName },
@@ -714,12 +775,17 @@ export class StateControllerV2 extends cc.Component {
         if (!this._states.length) {
             // 🔧 从1开始命名状态
             this._states = [StateValue.create("1", this.stateIdAuto++), StateValue.create("2", this.stateIdAuto++)];
-            StateErrorManagerV2.info("创建默认状态", {
+            StateErrorManager.info("创建默认状态", {
                 component: "StateControllerV2",
                 method: "__preload",
                 params: { defaultStates: ["1", "2"] },
             });
         }
+
+        // 🔧 修复历史数据: 部分老 prefab 的 state 全是 stateId=0(未分配)或存在重复,
+        // 会导致"按 id 切换/联动定位"落到首个匹配 state(无法切换), 这里保证 stateId 唯一.
+        this.ensureUniqueStateIds();
+        this.refreshStateSnapshot();
 
         const array = this.states.map((val, i) => {
             return { name: val.name, value: i };
@@ -728,10 +794,13 @@ export class StateControllerV2 extends cc.Component {
         // @ts-expect-error 允许使用该方法
         cc.Class.Attr.setClassAttr(this, "selectedIndex", "enumList", array);
 
+        // 回收站下拉初始 enumList 注入 (反序列化后 _deletedStates 可能已有暂存项)
+        this.refreshRecycleBinEnums();
+
         // 🔧 确保selectedIndex在有效范围内，默认选择第一个状态
         if (this._states.length > 0 && (this._selectedIndex < 0 || this._selectedIndex >= this._states.length)) {
             this._selectedIndex = 0;
-            StateErrorManagerV2.info("初始化时自动设置selectedIndex为第一个状态", {
+            StateErrorManager.info("初始化时自动设置selectedIndex为第一个状态", {
                 component: "StateControllerV2",
                 method: "__preload",
             });
@@ -739,14 +808,14 @@ export class StateControllerV2 extends cc.Component {
 
         if (!this._ctrlName) {
             this.ctrlName = `ctrl_${Date.now().toString()}`;
-            StateErrorManagerV2.debug("生成默认控制器名称", {
+            StateErrorManager.debug("生成默认控制器名称", {
                 component: "StateControllerV2",
                 method: "__preload",
                 params: { generatedName: this._ctrlName },
             });
         }
 
-        StateErrorManagerV2.info("控制器预加载完成", {
+        StateErrorManager.info("控制器预加载完成", {
             component: "StateControllerV2",
             method: "__preload",
             params: { ctrlId: this.ctrlId, ctrlName: this._ctrlName, stateCount: this._states.length },
@@ -761,10 +830,379 @@ export class StateControllerV2 extends cc.Component {
         this.updateState(EnumUpdateType.Init);
     }
 
+    /**
+     * 保证每个 state 的 stateId 唯一(修复历史数据)。
+     * 重复 / 非法(undefined/非数字)的 stateId 会重新分配自增 id, 并把 stateIdAuto seed 到最大 id 之后,
+     * 避免后续新增 state 再次撞 id。首个出现的合法 id 保留(含 0), 故对已正常的数据是幂等空操作。
+     */
+    private ensureUniqueStateIds(): void {
+        const states = this._states || [];
+        let maxId = -1;
+        for (const s of states) {
+            if (s && typeof s.stateId === "number" && s.stateId > maxId) {
+                maxId = s.stateId;
+            }
+        }
+        // stateIdAuto 必须领先于现存最大 id, 否则自增分配会与既有 id 撞车
+        if (this.stateIdAuto <= maxId) {
+            this.stateIdAuto = maxId + 1;
+        }
+
+        const seen: { [id: number]: boolean } = {};
+        let repaired = 0;
+        for (const s of states) {
+            if (!s) {
+                continue;
+            }
+            const invalid = typeof s.stateId !== "number" || seen[s.stateId];
+            if (invalid) {
+                s.stateId = this.stateIdAuto++;
+                repaired++;
+            }
+            seen[s.stateId] = true;
+        }
+
+        if (repaired > 0) {
+            StateErrorManager.info("修复重复/未分配的 stateId", {
+                component: "StateControllerV2",
+                method: "ensureUniqueStateIds",
+                params: { ctrlName: this._ctrlName, repairedCount: repaired, stateCount: states.length },
+            });
+        }
+    }
+
+    private cloneStateSnapshot(states: StateValue[]): StateValue[] {
+        const snapshot: StateValue[] = [];
+        for (const state of states || []) {
+            if (!state) continue;
+            snapshot.push(StateValue.create(state.name, state.stateId));
+        }
+        return snapshot;
+    }
+
+    private refreshStateSnapshot(): void {
+        this._stateSnapshot = this.cloneStateSnapshot(this._states);
+    }
+
+    private stashDeletedStates(oldStates: StateValue[], deletedIndices: number[], activeStates: StateValue[]): void {
+        if (!deletedIndices.length) return;
+        if (!this._deletedStates) this._deletedStates = [];
+        const activeIds = new Set<number>();
+        for (const state of activeStates || []) {
+            if (state && typeof state.stateId === "number") {
+                activeIds.add(state.stateId);
+            }
+        }
+        const stashedIds = new Set<number>();
+        for (const state of this._deletedStates) {
+            if (state && typeof state.stateId === "number") {
+                stashedIds.add(state.stateId);
+            }
+        }
+        for (const index of deletedIndices) {
+            const state = oldStates[index];
+            if (!state || typeof state.stateId !== "number") continue;
+            if (activeIds.has(state.stateId) || stashedIds.has(state.stateId)) continue;
+            this._deletedStates.push(StateValue.create(state.name, state.stateId));
+            stashedIds.add(state.stateId);
+        }
+        this.refreshRecycleBinEnums();
+    }
+
+    /** 回收站: 列出所有暂存的已删除 state (不可变副本, panel 渲染回收站列表用). */
+    public listDeletedStates(): { name: string, stateId: number }[] {
+        const out: { name: string, stateId: number }[] = [];
+        for (const s of this._deletedStates || []) {
+            if (s && typeof s.stateId === "number") out.push({ name: s.name, stateId: s.stateId });
+        }
+        return out;
+    }
+
+    public restoreLastDeletedState(): boolean {
+        if (!this._deletedStates || this._deletedStates.length === 0) {
+            StateErrorManager.warn("没有可恢复的 state", {
+                component: "StateControllerV2",
+                method: "restoreLastDeletedState",
+            });
+            return false;
+        }
+        const last = this._deletedStates[this._deletedStates.length - 1];
+        return this.restoreDeletedState(last.stateId);
+    }
+
+    /**
+     * 回收站: 恢复指定 stateId 的暂存 state, 追加到尾部并选中.
+     * 具体属性数据自动接回 —— _ctrlData 以 stateId 寻址, 软删时从未清理过该页数据。
+     */
+    public restoreDeletedState(stateId: number): boolean {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中恢复状态", {
+                component: "StateControllerV2",
+                method: "restoreDeletedState",
+            });
+            return false;
+        }
+        if (!this._deletedStates || this._deletedStates.length === 0) return false;
+        const i = this._deletedStates.findIndex(s => s && s.stateId === stateId);
+        if (i < 0) {
+            StateErrorManager.warn("回收站中找不到该 state, 无法恢复", {
+                component: "StateControllerV2",
+                method: "restoreDeletedState",
+                params: { stateId },
+            });
+            return false;
+        }
+        // 恢复前退出预览: 恢复后会以激活态重新 apply, 不需要预览叠加
+        if (this._previewingStateId >= 0) this.exitPreview();
+        const restored = this._deletedStates.splice(i, 1)[0];
+        if (!restored) return false;
+        this.states = [...this._states, StateValue.create(restored.name, restored.stateId)];
+        this.selectedIndex = this._states.length - 1;
+        this.refreshRecycleBinEnums();
+        return true;
+    }
+
+    /**
+     * 回收站硬删: 把指定 stateId 从回收站移除, 并广播 PurgeStateId 让所有受控
+     * StateSelectV2 清掉 _ctrlData[stateId] 的页数据 —— 不可恢复。
+     */
+    public purgeDeletedState(stateId: number): boolean {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中彻底删除状态", {
+                component: "StateControllerV2",
+                method: "purgeDeletedState",
+            });
+            return false;
+        }
+        if (!this._deletedStates || this._deletedStates.length === 0) return false;
+        const i = this._deletedStates.findIndex(s => s && s.stateId === stateId);
+        if (i < 0) {
+            StateErrorManager.warn("回收站中找不到该 state, 无法彻底删除", {
+                component: "StateControllerV2",
+                method: "purgeDeletedState",
+                params: { stateId },
+            });
+            return false;
+        }
+        // 硬删前退出预览 (尤其当正预览的就是它 — 数据即将被清, 先按快照还原节点)
+        if (this._previewingStateId >= 0) this.exitPreview();
+        this._deletedStates.splice(i, 1);
+        // 数据实体散在各受控 StateSelectV2 上, 广播让它们各自 delete pageData[stateId]
+        this.updateState(EnumUpdateType.PurgeStateId, stateId);
+        this.refreshRecycleBinEnums();
+        StateErrorManager.info("已彻底删除 state 数据 (不可恢复)", {
+            component: "StateControllerV2",
+            method: "purgeDeletedState",
+            params: { stateId },
+        });
+        return true;
+    }
+
+    /** 回收站: 清空 —— 对所有暂存项执行硬删. */
+    public purgeAllDeletedStates(): boolean {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中清空回收站", {
+                component: "StateControllerV2",
+                method: "purgeAllDeletedStates",
+            });
+            return false;
+        }
+        if (!this._deletedStates || this._deletedStates.length === 0) return false;
+        // 清空前退出预览 (数据即将被清, 先按快照还原节点)
+        if (this._previewingStateId >= 0) this.exitPreview();
+        const ids: number[] = [];
+        for (const s of this._deletedStates) {
+            if (s && typeof s.stateId === "number") ids.push(s.stateId);
+        }
+        this._deletedStates = [];
+        for (const id of ids) {
+            this.updateState(EnumUpdateType.PurgeStateId, id);
+        }
+        this.refreshRecycleBinEnums();
+        StateErrorManager.info("已清空回收站 (不可恢复)", {
+            component: "StateControllerV2",
+            method: "purgeAllDeletedStates",
+            params: { count: ids.length },
+        });
+        return true;
+    }
+
+    // ===== 回收站 inspector 折叠组 (CtrlRecycleBinGroup) 代理 =====
+
+    /** 回收站只读展示: ["name (id N)", ...]. */
+    public getDeletedStatesDisplay(): string[] {
+        return (this._deletedStates || []).map(s => `${s.name} (id ${s.stateId})`);
+    }
+
+    /**
+     * 注入回收站两个下拉 (restoreTarget / purgeTarget) 的 enumList 到 CtrlRecycleBinGroup 类上,
+     * 并刷新 value→stateId 反查表. 在回收站内容变化处调 (stash / restore / purge / __preload)。
+     * 注入到类而非实例: 编辑器读嵌套 facade 枚举走类 __attrs__ (同 SelectExcludeGroup.addExcludeTrigger)。
+     */
+    public refreshRecycleBinEnums(): void {
+        if (!CC_EDITOR) return;
+        const items = this._deletedStates || [];
+        this._recycleBinOptionIds = items.map(s => s.stateId);
+        const options = items.map((s, i) => ({ name: `${s.name} (id ${s.stateId})`, value: i + 1 }));
+        const restoreEnum = [
+            { name: items.length ? "(选择要恢复的状态…)" : "(回收站为空)", value: 0 },
+            ...options,
+        ];
+        const purgeEnum = [
+            { name: items.length ? "(选择要彻底删除的状态…)" : "(回收站为空)", value: 0 },
+            ...options,
+        ];
+        const previewEnum = [
+            { name: items.length ? "(选择要预览的状态…)" : "(回收站为空)", value: 0 },
+            ...options,
+        ];
+        // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
+        cc.Class.Attr.setClassAttr(CtrlRecycleBinGroup, "restoreTarget", "enumList", restoreEnum);
+        // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
+        cc.Class.Attr.setClassAttr(CtrlRecycleBinGroup, "purgeTarget", "enumList", purgeEnum);
+        // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
+        cc.Class.Attr.setClassAttr(CtrlRecycleBinGroup, "previewTarget", "enumList", previewEnum);
+    }
+
+    /** 把下拉 value 反查成 stateId (value>=1, 选项 index=value-1). */
+    private _recycleStateIdOfOption(value: number): number {
+        if (typeof value !== "number" || value <= 0) return -1;
+        const stateId = this._recycleBinOptionIds[value - 1];
+        return typeof stateId === "number" ? stateId : -1;
+    }
+
+    /** 回收站下拉「↩ 恢复状态」: 选中即恢复. */
+    public recycleRestorePick(value: number): void {
+        if (!CC_EDITOR) return;
+        const stateId = this._recycleStateIdOfOption(value);
+        if (stateId < 0) return;
+        this.restoreDeletedState(stateId);
+    }
+
+    /** 回收站下拉「🗑 彻底删除」: 选中 → 弹窗确认 → 硬删 (不可恢复). */
+    public recyclePurgePick(value: number): void {
+        if (!CC_EDITOR) return;
+        const stateId = this._recycleStateIdOfOption(value);
+        if (stateId < 0) return;
+        const item = (this._deletedStates || []).find(s => s.stateId === stateId);
+        const label = item ? `${item.name} (id ${stateId})` : `id ${stateId}`;
+        this.showDialog({
+            type: "warning",
+            title: "彻底删除状态数据",
+            message: `将彻底删除「${label}」的数据, 不可恢复。确定?`,
+            buttons: ["彻底删除", "取消"],
+            defaultId: 1,
+            cancelId: 1,
+        }, (idx) => {
+            if (idx === 0) this.purgeDeletedState(stateId);
+        });
+    }
+
+    /** 回收站「清空回收站」: 弹窗确认 → 全部硬删 (不可恢复). */
+    public recyclePurgeAll(): void {
+        if (!CC_EDITOR) return;
+        const n = (this._deletedStates || []).length;
+        if (!n) return;
+        this.showDialog({
+            type: "warning",
+            title: "清空回收站",
+            message: `将彻底删除回收站内全部 ${n} 个状态的数据, 不可恢复。确定?`,
+            buttons: ["清空回收站", "取消"],
+            defaultId: 1,
+            cancelId: 1,
+        }, (idx) => {
+            if (idx === 0) this.purgeAllDeletedStates();
+        });
+    }
+
+    /** 回收站下拉「👁 预览」: 选中即进入只读预览 (inspector 折叠组代理). */
+    public recyclePreviewPick(value: number): void {
+        if (!CC_EDITOR) return;
+        const stateId = this._recycleStateIdOfOption(value);
+        if (stateId < 0) return;
+        this.previewDeletedState(stateId);
+    }
+
+    /** 回收站「退出预览」按钮 (inspector 折叠组代理). */
+    public recycleExitPreview(): void {
+        if (!CC_EDITOR) return;
+        this.exitPreview();
+    }
+
+    // ===== 回收站只读预览 =====
+
+    /** 是否正在预览某个回收态. */
+    public get isPreviewing(): boolean {
+        return this._previewingStateId >= 0;
+    }
+
+    /** 当前预览的 stateId (-1 = 未预览). */
+    public get previewingStateId(): number {
+        return this._previewingStateId;
+    }
+
+    /**
+     * 进入某个回收态的只读预览: 把该 stateId 的数据叠加到受控节点 (不改 selectedIndex)。
+     * 单实例: 预览另一个前先退出当前预览。仅回收站内的 stateId 可预览; 录制中先停预览不允许进入。
+     */
+    public previewDeletedState(stateId: number): boolean {
+        if (!CC_EDITOR) {
+            StateErrorManager.error("仅在编辑器中预览状态", {
+                component: "StateControllerV2",
+                method: "previewDeletedState",
+            });
+            return false;
+        }
+        // 录制中不预览 (避免把预览值 commit 进激活态)
+        if (this._recording) {
+            StateErrorManager.warn("录制中不能预览回收态, 请先停止录制", {
+                component: "StateControllerV2",
+                method: "previewDeletedState",
+            });
+            return false;
+        }
+        const exists = (this._deletedStates || []).some(s => s && s.stateId === stateId);
+        if (!exists) {
+            StateErrorManager.warn("回收站中找不到该 state, 无法预览", {
+                component: "StateControllerV2",
+                method: "previewDeletedState",
+                params: { stateId },
+            });
+            return false;
+        }
+        // 已在预览同一个 → no-op; 预览别的 → 先退出当前 (按快照还原) 再进
+        if (this._previewingStateId === stateId) return true;
+        if (this._previewingStateId >= 0) this.exitPreview();
+        this._previewingStateId = stateId;
+        this.updateState(EnumUpdateType.PreviewEnter, stateId);
+        StateErrorManager.info("进入回收态只读预览", {
+            component: "StateControllerV2",
+            method: "previewDeletedState",
+            params: { stateId },
+        });
+        return true;
+    }
+
+    /** 退出预览: 通知所有受控 StateSelectV2 按快照精确还原节点. 幂等, 未预览时 no-op. */
+    public exitPreview(): boolean {
+        if (this._previewingStateId < 0) return false;
+        const wasPreviewing = this._previewingStateId;
+        this._previewingStateId = -1;
+        this.updateState(EnumUpdateType.PreviewExit);
+        StateErrorManager.info("退出回收态预览", {
+            component: "StateControllerV2",
+            method: "exitPreview",
+            params: { stateId: wasPreviewing },
+        });
+        return true;
+    }
+
     /** Wave 2 T16: 场景切换前的兜底 commit hook. */
     private _onSceneBeforeLaunch(): void {
+        // 场景切换前退出预览, 按快照还原节点 (预览态不应被序列化进场景)
+        if (this._previewingStateId >= 0) this.exitPreview();
         if (this._recording) {
-            StateErrorManagerV2.info("场景切换前自动停止录制", {
+            StateErrorManager.info("场景切换前自动停止录制", {
                 component: "StateControllerV2",
                 method: "_onSceneBeforeLaunch",
                 params: { ctrlName: this._ctrlName },
@@ -774,7 +1212,7 @@ export class StateControllerV2 extends cc.Component {
     }
 
     protected onLoad() {
-        StateControllerV2._register(this);   // 支柱 B: 运行时也登记 (start() rehydrate 需按 id 解析目标)
+        StateControllerV2._register(this); // 支柱 B: 运行时也登记 (start() rehydrate 需按 id 解析目标)
         if (!CC_EDITOR) {
             // Wave 3: runtime 启动 capability hook (HomePage 等用此跳到指定 state)
             CapabilityRegistry.dispatch("onRuntimeInit", { ctrl: this });
@@ -794,13 +1232,15 @@ export class StateControllerV2 extends cc.Component {
     }
 
     protected onDestroy() {
-        StateControllerV2._unregister(this);   // 支柱 B
+        StateControllerV2._unregister(this); // 支柱 B
         if (!CC_EDITOR) {
             return;
         }
+        // 销毁前退出预览, 按快照还原节点
+        if (this._previewingStateId >= 0) this.exitPreview();
         // Wave 2 T16: onDestroy 兜底 - 若仍在录制, stopRecording 触发 final commit
         if (this._recording) {
-            StateErrorManagerV2.info("控制器销毁前自动停止录制 (commit final diff)", {
+            StateErrorManager.info("控制器销毁前自动停止录制 (commit final diff)", {
                 component: "StateControllerV2",
                 method: "onDestroy",
             });
@@ -815,7 +1255,7 @@ export class StateControllerV2 extends cc.Component {
     // ===== 支柱 B: 可序列化跨控制器联动 API =====
 
     /** 读出序列化的联动声明 (容错: 坏数据返回空). */
-    public getBindings(): { sourceStateId: number; targetCtrlId: number; targetStateId: number }[] {
+    public getBindings(): { sourceStateId: number, targetCtrlId: number, targetStateId: number }[] {
         if (!this._bindingsData) return [];
         try {
             const arr = JSON.parse(this._bindingsData);
@@ -823,12 +1263,13 @@ export class StateControllerV2 extends cc.Component {
             return arr
                 .filter(b => b && typeof b.sourceStateId === "number" && typeof b.targetCtrlId === "number" && typeof b.targetStateId === "number")
                 .map(b => ({ sourceStateId: b.sourceStateId, targetCtrlId: b.targetCtrlId, targetStateId: b.targetStateId }));
-        } catch (e) {
+        }
+        catch {
             return [];
         }
     }
 
-    private _saveBindings(list: { sourceStateId: number; targetCtrlId: number; targetStateId: number }[]): void {
+    private _saveBindings(list: { sourceStateId: number, targetCtrlId: number, targetStateId: number }[]): void {
         this._bindingsData = JSON.stringify(list);
     }
 
@@ -876,7 +1317,7 @@ export class StateControllerV2 extends cc.Component {
     /** 选择的状态名字 */
     public get selectedPage(): string {
         // 🔧 IMPL-002.4: 添加调试日志
-        StateErrorManagerV2.debug("获取selectedPage", {
+        StateErrorManager.debug("获取selectedPage", {
             component: "StateControllerV2",
             method: "selectedPage.getter",
             params: { selectedIndex: this._selectedIndex, statesCount: this._states.length },
@@ -892,7 +1333,7 @@ export class StateControllerV2 extends cc.Component {
                 return currentState.name;
             }
             else {
-                StateErrorManagerV2.warn("当前状态对象无效或名称为空", {
+                StateErrorManager.warn("当前状态对象无效或名称为空", {
                     component: "StateControllerV2",
                     method: "selectedPage.getter",
                     params: { currentState: currentState, selectedIndex: this._selectedIndex },
@@ -914,7 +1355,7 @@ export class StateControllerV2 extends cc.Component {
         if (!CC_EDITOR) {
             return;
         }
-        StateErrorManagerV2.debug("selectedPage 变更", {
+        StateErrorManager.debug("selectedPage 变更", {
             component: "StateControllerV2",
             method: "_emitSelectedPageChanged",
             params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
@@ -927,14 +1368,14 @@ export class StateControllerV2 extends cc.Component {
      */
     public refreshSelectedPage(): void {
         if (!CC_EDITOR) {
-            StateErrorManagerV2.warn("refreshSelectedPage仅在编辑器环境可用", {
+            StateErrorManager.warn("refreshSelectedPage仅在编辑器环境可用", {
                 component: "StateControllerV2",
                 method: "refreshSelectedPage",
             });
             return;
         }
 
-        StateErrorManagerV2.info("手动刷新selectedPage", {
+        StateErrorManager.info("手动刷新selectedPage", {
             component: "StateControllerV2",
             method: "refreshSelectedPage",
             params: { selectedPage: this.selectedPage, selectedIndex: this._selectedIndex },
@@ -954,7 +1395,7 @@ export class StateControllerV2 extends cc.Component {
 
     /** 找到所有被删除的状态索引 */
     private findDeletedIndices(oldStates: StateValue[], newStates: StateValue[]): number[] {
-        StateErrorManagerV2.debug("开始检测删除的状态", {
+        StateErrorManager.debug("开始检测删除的状态", {
             component: "StateControllerV2",
             method: "findDeletedIndices",
             params: { oldCount: oldStates.length, newCount: newStates.length },
@@ -974,7 +1415,7 @@ export class StateControllerV2 extends cc.Component {
             const oldState = oldStates[i];
 
             if (!oldState || oldState.stateId === undefined) {
-                StateErrorManagerV2.warn("发现无效的旧状态对象", {
+                StateErrorManager.warn("发现无效的旧状态对象", {
                     component: "StateControllerV2",
                     method: "findDeletedIndices",
                     params: { stateIndex: i },
@@ -988,7 +1429,7 @@ export class StateControllerV2 extends cc.Component {
         }
 
         if (deletedIndices.length > 0) {
-            StateErrorManagerV2.info("检测到删除的状态", {
+            StateErrorManager.info("检测到删除的状态", {
                 component: "StateControllerV2",
                 method: "findDeletedIndices",
                 params: { deletedIndices: deletedIndices, deletedCount: deletedIndices.length },
@@ -1007,7 +1448,7 @@ export class StateControllerV2 extends cc.Component {
 
         // 默认从1开始命名
         const defaultName = (index + 1).toString();
-        StateErrorManagerV2.debug("使用默认状态名字", {
+        StateErrorManager.debug("使用默认状态名字", {
             component: "StateControllerV2",
             method: "getSmartStateName",
             params: { index: index, defaultName: defaultName },
@@ -1026,7 +1467,7 @@ export class StateControllerV2 extends cc.Component {
             return; // 缓存有效，无需重建
         }
 
-        StateErrorManagerV2.debug("开始重建StateSelectV2缓存", {
+        StateErrorManager.debug("开始重建StateSelectV2缓存", {
             component: "StateControllerV2",
             method: "rebuildStateSelectCache",
             params: { ctrlName: this._ctrlName },
@@ -1037,7 +1478,7 @@ export class StateControllerV2 extends cc.Component {
 
         this._cacheDirty = false;
 
-        StateErrorManagerV2.info("StateSelectV2缓存重建完成", {
+        StateErrorManager.info("StateSelectV2缓存重建完成", {
             component: "StateControllerV2",
             method: "rebuildStateSelectCache",
             params: { cachedCount: this._stateSelectCache.length },
@@ -1085,7 +1526,7 @@ export class StateControllerV2 extends cc.Component {
      */
     public markCacheDirty(): void {
         this._cacheDirty = true;
-        StateErrorManagerV2.debug("缓存已标记为脏", {
+        StateErrorManager.debug("缓存已标记为脏", {
             component: "StateControllerV2",
             method: "markCacheDirty",
             params: { ctrlName: this._ctrlName },
@@ -1165,6 +1606,24 @@ export class StateControllerV2 extends cc.Component {
                     (stateSelect as any).onStateWillChange(this, value as number);
                 }
             }
+            else if (type == EnumUpdateType.PurgeStateId) {
+                // 回收站硬删: 清掉该 stateId 在本 select 上的页数据, value = stateId
+                if (typeof (stateSelect as any).purgeStateData === "function") {
+                    (stateSelect as any).purgeStateData(this, value as number);
+                }
+            }
+            else if (type == EnumUpdateType.PreviewEnter) {
+                // 回收站预览: 快照 + apply 该 stateId 数据到节点, value = stateId
+                if (typeof (stateSelect as any).enterPreview === "function") {
+                    (stateSelect as any).enterPreview(this, value as number);
+                }
+            }
+            else if (type == EnumUpdateType.PreviewExit) {
+                // 回收站预览退出: 按快照精确还原节点
+                if (typeof (stateSelect as any).exitPreview === "function") {
+                    (stateSelect as any).exitPreview();
+                }
+            }
         }
     }
 
@@ -1188,6 +1647,8 @@ export class StateControllerV2 extends cc.Component {
         if (this._recording) {
             return;
         }
+        // 录制前先退出回收态预览 (避免把预览值当作节点改动 commit 进激活态)
+        if (this._previewingStateId >= 0) this.exitPreview();
         const dirty = this.collectControlledDirty();
         if (dirty.length === 0) {
             this._doStartRecording();
@@ -1201,7 +1662,7 @@ export class StateControllerV2 extends cc.Component {
         this._recording = true;
         // TASK-002: 记录录制开始时的 state, 供 cancelRecording 回滚定位.
         this._recordingStartState = this._selectedIndex;
-        StateErrorManagerV2.info("开始录制", {
+        StateErrorManager.info("开始录制", {
             component: "StateControllerV2",
             method: "_doStartRecording",
             params: { ctrlName: this._ctrlName },
@@ -1230,7 +1691,7 @@ export class StateControllerV2 extends cc.Component {
                 for (const entry of list) out.push({ select, ...entry });
             }
             catch (e) {
-                StateErrorManagerV2.warn("collectControlledDirty: StateSelectV2 收集 dirty 失败", {
+                StateErrorManager.warn("collectControlledDirty: StateSelectV2 收集 dirty 失败", {
                     component: "StateControllerV2",
                     method: "collectControlledDirty",
                     params: { error: (e as Error).message },
@@ -1247,7 +1708,7 @@ export class StateControllerV2 extends cc.Component {
      *  2 = 取消                    → 不进入录制态
      */
     private promptDirtyAndStart(dirty: Array<{ select: StateSelectV2, propType?: EnumPropName, propRef?: string, current: unknown, stored: unknown }>): void {
-        const lines = dirty.map(d => {
+        const lines = dirty.map((d) => {
             const nodeName = (d.select.node && d.select.node.name) || "?";
             // W6-2a-fixup: 显示兼容 - 自定义走 propRef, 内置走 EnumPropName[propType]
             const label = d.propRef !== undefined
@@ -1272,7 +1733,8 @@ export class StateControllerV2 extends cc.Component {
                         (propData as any)[d.propRef] = tp
                             ? cloneValueByType(d.current, tp.cocosType)
                             : d.current;
-                    } else if (d.propType !== undefined) {
+                    }
+                    else if (d.propType !== undefined) {
                         // W6-2c2: 走 StateSelectV2.writePropByEnum 保证写 string propRef key (跟 production 一致)
                         (d.select as any).writePropByEnum(propData, d.propType, d.current);
                     }
@@ -1286,7 +1748,9 @@ export class StateControllerV2 extends cc.Component {
             this.rebuildStateSelectCache();
             if (this._stateSelectCache) {
                 for (const select of this._stateSelectCache) {
-                    try { select.updateState(this); }
+                    try {
+                        select.updateState(this);
+                    }
                     catch (_) { /* noop */ }
                 }
             }
@@ -1349,7 +1813,10 @@ export class StateControllerV2 extends cc.Component {
                     }
                     if (opts.buttons.length === 3) {
                         const first = w.confirm(`${head}\n\n确定 = ${opts.buttons[0]}\n取消 = (进入下一选项)`);
-                        if (first) { cb(0); return; }
+                        if (first) {
+                            cb(0);
+                            return;
+                        }
                         const second = w.confirm(`继续选择:\n\n确定 = ${opts.buttons[1]}\n取消 = ${opts.buttons[2]}`);
                         cb(second ? 1 : 2);
                         return;
@@ -1371,7 +1838,7 @@ export class StateControllerV2 extends cc.Component {
             return;
         }
         this._recording = false;
-        StateErrorManagerV2.info("停止录制", {
+        StateErrorManager.info("停止录制", {
             component: "StateControllerV2",
             method: "stopRecording",
             params: { ctrlName: this._ctrlName },
@@ -1419,9 +1886,11 @@ export class StateControllerV2 extends cc.Component {
             for (const select of this._stateSelectCache) {
                 if (!select || !select.node || !select.node.isValid) continue;
                 if (typeof (select as any).applyRecordingSnapshot === "function") {
-                    try { (select as any).applyRecordingSnapshot(this, fromState); }
+                    try {
+                        (select as any).applyRecordingSnapshot(this, fromState);
+                    }
                     catch (e) {
-                        StateErrorManagerV2.warn("cancelRecording: applyRecordingSnapshot 失败", {
+                        StateErrorManager.warn("cancelRecording: applyRecordingSnapshot 失败", {
                             component: "StateControllerV2",
                             method: "cancelRecording",
                             params: { error: (e as Error).message },
@@ -1431,7 +1900,7 @@ export class StateControllerV2 extends cc.Component {
             }
         }
         this._recording = false;
-        StateErrorManagerV2.info("撤销录制", {
+        StateErrorManager.info("撤销录制", {
             component: "StateControllerV2",
             method: "cancelRecording",
             params: { ctrlName: this._ctrlName, fromState },
@@ -1466,7 +1935,7 @@ export class StateControllerV2 extends cc.Component {
             Editor.Utils.refreshSelectedInspector("node", this.node.uuid);
         }
         catch (error) {
-            StateErrorManagerV2.warn("刷新属性检查器失败", {
+            StateErrorManager.warn("刷新属性检查器失败", {
                 component: "StateControllerV2",
                 method: "forceRefreshInspector",
                 params: { error: (error as Error).message },
@@ -1474,3 +1943,7 @@ export class StateControllerV2 extends cc.Component {
         }
     }
 }
+
+// back-compat 导出别名: 仅 JS 导出名, 不触发 @ccclass (引擎/panel 按 cid "StateControllerV2" 识别).
+// 供既有测试用 `{ StateController }` / `Mod.StateController` 沿用, 不影响 V2 与旧版共存.
+export { StateControllerV2 as StateController };

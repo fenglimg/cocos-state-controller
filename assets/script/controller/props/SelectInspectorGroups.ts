@@ -1,5 +1,5 @@
 import { EnumExcludeSlot } from "../StateEnumV2";
-import { StateSelectV2 } from "../StateSelectV2";
+import type { StateSelectV2 } from "../StateSelectV2";
 
 const { ccclass, property } = cc._decorator;
 
@@ -26,8 +26,13 @@ export class SelectExcludeGroup {
     }
 
     @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单 (用 cocos 数组 - 按钮恢复跟随)" })
-    public get addExcludeTrigger(): number { return 0; }
-    public set addExcludeTrigger(v: number) { if (this.owner) this.owner.addExcludeTrigger = v; }
+    public get addExcludeTrigger(): number {
+        return 0;
+    }
+
+    public set addExcludeTrigger(v: number) {
+        if (this.owner) this.owner.addExcludeTrigger = v;
+    }
 
     @property({
         type: [cc.String],
@@ -38,6 +43,7 @@ export class SelectExcludeGroup {
     public get userExcludedProps(): string[] {
         return this.owner ? this.owner._userExcludedProps : [];
     }
+
     public set userExcludedProps(v: string[]) {
         if (this.owner) this.owner._userExcludedProps = v;
     }
@@ -52,8 +58,13 @@ export class SelectRecordGroup {
     public owner: StateSelectV2 = null;
 
     @property({ displayName: "🔴 录制", tooltip: "进入/退出录制模式. 录制中, 节点改动自动写入当前 state. 要回退整次录制用编辑器 Ctrl+Z" })
-    public get recordTrigger() { return this.owner ? this.owner.recordTrigger : false; }
-    public set recordTrigger(v: boolean) { if (this.owner) this.owner.recordTrigger = v; }
+    public get recordTrigger() {
+        return this.owner ? this.owner.recordTrigger : false;
+    }
+
+    public set recordTrigger(v: boolean) {
+        if (this.owner) this.owner.recordTrigger = v;
+    }
 }
 
 /**
@@ -65,10 +76,20 @@ export class SelectValueOpsGroup {
     public owner: StateSelectV2 = null;
 
     @property({ displayName: "⇄ 与下一 state 交换值", tooltip: "把本节点当前 state 的值数据与下一 state 互换 (仅本节点, 不改 state 数量/选中)" })
-    public get swapValueWithNext(): boolean { return false; }
-    public set swapValueWithNext(v: boolean) { if (this.owner) this.owner.swapValueWithNext = v; }
+    public get swapValueWithNext(): boolean {
+        return false;
+    }
+
+    public set swapValueWithNext(v: boolean) {
+        if (this.owner) this.owner.swapValueWithNext = v;
+    }
 
     @property({ displayName: "⎘ 复制值到下一 state", tooltip: "把本节点当前 state 的值数据深拷到下一 state (仅本节点, 不改 state 数量/选中)" })
-    public get copyValueToNext(): boolean { return false; }
-    public set copyValueToNext(v: boolean) { if (this.owner) this.owner.copyValueToNext = v; }
+    public get copyValueToNext(): boolean {
+        return false;
+    }
+
+    public set copyValueToNext(v: boolean) {
+        if (this.owner) this.owner.copyValueToNext = v;
+    }
 }

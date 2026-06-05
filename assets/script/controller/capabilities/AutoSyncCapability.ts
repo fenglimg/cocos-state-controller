@@ -17,12 +17,14 @@ import { ICapability } from "../Capability";
 let _enabled = true;
 
 export const AutoSyncCapability: ICapability & {
-    isEnabled: () => boolean,
-    setEnabled: (v: boolean) => void,
+    isEnabled: () => boolean
+    setEnabled: (v: boolean) => void
 } = {
     name: "autoSync",
     isEnabled: () => _enabled,
-    setEnabled: (v: boolean) => { _enabled = !!v; },
+    setEnabled: (v: boolean) => {
+        _enabled = !!v;
+    },
 };
 
 CapabilityRegistry.register(AutoSyncCapability);

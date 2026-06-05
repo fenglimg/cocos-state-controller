@@ -2,8 +2,8 @@
  * TASK-001 (RED): 双轨缺陷对称性红测试 — 内置 prop (老 facade EnumPropName 路径) vs 自定义 prop
  * (propRef string key 路径) 行为对照. 证明 F-6/F-7/F-8/F-9 双轨缺陷存在.
  *
- * 真 cocos 引擎集成测试 (不 mock cc). harness 同 StateSelectV2.setPropExcluded.test.ts:
- *   root → ctrlNode(StateControllerV2) → selectNode(StateSelectV2 + Fixture), 各 __preload(), markCacheDirty().
+ * 真 cocos 引擎集成测试 (不 mock cc). harness 同 StateSelect.setPropExcluded.test.ts:
+ *   root → ctrlNode(StateController) → selectNode(StateSelect + Fixture), 各 __preload(), markCacheDirty().
  *
  * 内置 prop 选 cc.Node.active (EnumPropName.Active=1, 布尔, ENUM_TO_PROPREF / PROPREF_TO_ENUM 命中,
  * 走老 facade togglePropertyControl(EnumPropName.Active) → addPropertyControl).
@@ -36,9 +36,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 
@@ -66,10 +66,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     selectNode.addComponent(DualTrackFixture);
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -84,15 +84,16 @@ function setup() {
     return { ctrl, select, selectNode };
 }
 
-describe("StateSelectV2 双轨对称性 (内置 facade vs 自定义 propRef)", () => {
+describe("StateSelect 双轨对称性 (内置 facade vs 自定义 propRef)", () => {
 
     describe("F-8: 内置接入后判定/注册应走 propRef 单一路径 (无名字 key 残留)", () => {
         it("自定义 prop: $$controlledProps$$ 仅 propRef key, 无名字 key 残留 (基准对照)", () => {
             const { ctrl, select } = setup();
-            const pd = (select as any).getPropData(0, ctrl.ctrlId);
+            // Track1: 受控集上提到 ctrl 级 $$default$$ (auto-opt 不再逐 state 内联).
+            const cp = (select as any).getDefaultData(ctrl.ctrlId).$$controlledProps$$ || {};
             // 自定义 prop 注册为 propRef self-ref, 不写 "heat" 名字 key.
             expect(select.isPropertyControlledByPropRef(CUSTOM_PROPREF)).toBe(true);
-            expect(pd.$$controlledProps$$["heat"]).toBeUndefined();
+            expect(cp["heat"]).toBeUndefined();
         });
 
         it("内置 prop 经 facade 接入后不应残留名字 key 'Active' (与自定义对称) [F-8 红: addPropertyControl 写名字 key]", () => {
@@ -165,7 +166,8 @@ describe("StateSelectV2 双轨对称性 (内置 facade vs 自定义 propRef)", (
     describe("F-9: 内置 propRef apply 只走一条路径, 无 batchUpdateUI + applyPropRefKeysToNode 双写", () => {
         it("自定义 prop 仅经 applyPropRefKeysToNode apply, 不进 ENUM/batchUpdateUI 路径 (基准对照)", () => {
             const { ctrl, select } = setup();
-            const pd = (select as any).getPropData(1, ctrl.ctrlId);
+            // Track1: auto-opt baseline 上提到 ctrl 级 $$default$$, state 仅在改值时存 override.
+            const pd = (select as any).getDefaultData(ctrl.ctrlId);
             // 自定义 propRef 只在 propRef apply 轨; extractEnumPropTypes 反查不命中 → 不进 batchUpdateUI.
             const enums = (select as any).extractEnumPropTypes(pd);
             const reEnum = require("../../assets/script/controller/EnumPropRefMap").PROPREF_TO_ENUM[CUSTOM_PROPREF];

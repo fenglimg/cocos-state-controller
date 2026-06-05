@@ -85,12 +85,12 @@ class PropertyControlCapabilityImpl implements ICapability {
  *   hook 占位 (优先用 ctx.propRef, fallback propType).
  */
 export const PropertyControlCapability: ICapability & {
-    isPropertyAvailable: typeof PropertyControlCapabilityImpl.isPropertyAvailable,
-    isPropertyControlled: typeof PropertyControlCapabilityImpl.isPropertyControlled,
-    scanAvailableProperties: typeof PropertyControlCapabilityImpl.scanAvailableProperties,
-    registerComponentProp: typeof PropertyControlCapabilityImpl.registerComponentProp,
-    resolvePropRef: typeof PropertyControlCapabilityImpl.resolvePropRef,
-    resolvePropType: typeof PropertyControlCapabilityImpl.resolvePropType,
+    isPropertyAvailable: typeof PropertyControlCapabilityImpl.isPropertyAvailable
+    isPropertyControlled: typeof PropertyControlCapabilityImpl.isPropertyControlled
+    scanAvailableProperties: typeof PropertyControlCapabilityImpl.scanAvailableProperties
+    registerComponentProp: typeof PropertyControlCapabilityImpl.registerComponentProp
+    resolvePropRef: typeof PropertyControlCapabilityImpl.resolvePropRef
+    resolvePropType: typeof PropertyControlCapabilityImpl.resolvePropType
 } = {
     name: "propertyControl",
     isPropertyAvailable: PropertyControlCapabilityImpl.isPropertyAvailable,

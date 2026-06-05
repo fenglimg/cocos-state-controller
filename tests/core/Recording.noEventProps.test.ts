@@ -35,8 +35,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup(attachComp?: (node: any) => any) {
@@ -47,13 +47,13 @@ function setup(attachComp?: (node: any) => any) {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    // 组件挂载必须早于 StateSelectV2.__preload (以便 PropertyControlService 识别)
+    // 组件挂载必须早于 StateSelect.__preload (以便 PropertyControlService 识别)
     if (attachComp) attachComp(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();

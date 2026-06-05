@@ -6,7 +6,7 @@
  * 设计要点:
  *   - TNestedProp: 内层 propRef (e.g. "cc.Sprite.spriteFrame") -> value
  *   - TNestedCtrl: 外层 ctrlId -> { $$default$$?, [state]: TNestedProp }
- *   - cloneValueByType / eqValueByType: 按 cocos type 分发, 与 StatePropHandlerV2 的 eqVec3/eqColor 等等价
+ *   - cloneValueByType / eqValueByType: 按 cocos type 分发, 与 StatePropHandler 的 eqVec3/eqColor 等等价
  */
 
 /** 单个 prop 的值集合 (propRef 字符串 -> any) */
@@ -18,8 +18,8 @@ export type TNestedProp = { [propRef: string]: any };
  *   [stateIndex] — 各 state 下的 override
  */
 export type TNestedCtrlEntry = {
-    $$default$$?: TNestedProp;
-    [state: number]: TNestedProp;
+    $$default$$?: TNestedProp
+    [state: number]: TNestedProp
 };
 
 /** 多控制器嵌套结构: ctrlId -> Entry */
@@ -170,7 +170,11 @@ export function eqValueByType(a: any, b: any, cocosType: any): boolean {
         if (t === "Color" && has(a, ["r", "g", "b"]) && has(b, ["r", "g", "b"])) {
             return a.r === b.r && a.g === b.g && a.b === b.b && ((a.a ?? 255) === (b.a ?? 255));
         }
-        if (t === "Quat" && has(a, ["x", "y", "z", "w"]) && has(b, ["x", "y", "z", "w"])) {
+        if (t === "Quat" && has(a, [
+            "x", "y", "z", "w",
+        ]) && has(b, [
+            "x", "y", "z", "w",
+        ])) {
             return a.x === b.x && a.y === b.y && a.z === b.z && a.w === b.w;
         }
         if (t === "Vec3" && has(a, ["x", "y", "z"]) && has(b, ["x", "y", "z"])) {

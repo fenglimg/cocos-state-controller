@@ -24,6 +24,7 @@ module.exports = {
         btnAddBinding: '#btn-add-binding',
         bindingsGraph: '#bindings-graph',
         bindingsEmpty: '#bindings-empty',
+        bindingsForm: '#bindings-form',
         filterLevel: '#filter-level',
         searchInput: '#search-input',
         // 观测总览
@@ -37,6 +38,7 @@ module.exports = {
         issuesCount: '#issues-count',
         issuesList: '#issues-list',
         overviewEmpty: '#overview-empty',
+        overviewBody: '#overview-body',
         // inspector flags
         chkInspectorMaster: '#chk-inspector-master',
         chkInspectorViz: '#chk-inspector-viz',
@@ -46,8 +48,30 @@ module.exports = {
         // 编辑视图
         statesList: '#states-list',
         btnAddState: '#btn-add-state',
+        // 回收站
+        recycleBin: '#recycle-bin',
+        binHeader: '#bin-header',
+        binCount: '#bin-count',
+        binBody: '#bin-body',
+        binList: '#bin-list',
+        btnPurgeAll: '#btn-purge-all',
+        tplBinItem: '#tpl-bin-item',
+        // 回收态预览横幅
+        previewBanner: '#preview-banner',
+        pvName: '#pv-name',
+        btnPreviewRestore: '#btn-preview-restore',
+        btnPreviewExit: '#btn-preview-exit',
+        // 自定义确认弹窗
+        confirmModal: '#confirm-modal',
+        cmBackdrop: '#cm-backdrop',
+        cmTitle: '#cm-title',
+        cmBody: '#cm-body',
+        cmCancel: '#cm-cancel',
+        cmConfirm: '#cm-confirm',
         stateDetail: '#state-detail',
         emptyTip: '#empty-tip',
+        emptyTipTitle: '#empty-tip-title',
+        ctrlListHint: '#ctrl-list-hint',
         ctrlList: '#ctrl-list',
         btnPrevCtrl: '#btn-prev-ctrl',
         ctrlSwitchSelect: '#ctrl-switch-select',
@@ -154,6 +178,49 @@ module.exports = {
                 this.refreshSnapshot();
             });
         });
+        // --- 回收站 ---
+        this.$binHeader.addEventListener('click', () => {
+            this.$recycleBin.classList.toggle('is-collapsed');
+        });
+        this.$btnPurgeAll.addEventListener('click', () => {
+            if (!this._binActionable()) return;
+            const n = (this.currentSnapshot.deletedStates || []).length;
+            if (!n) return;
+            this._confirm({
+                title: '清空回收站？',
+                body: `将彻底删除回收站里全部 ${n} 个状态的数据，<b>不可恢复</b>。`,
+                confirmLabel: '清空回收站',
+            }, () => {
+                this._callScene('purge-all-deleted-states', { uuid: this.currentCtrlUuid }, (err) => {
+                    if (err) Editor.warn(err);
+                    this.refreshSnapshot();
+                });
+            });
+        });
+
+        // --- 回收态预览横幅 ---
+        this.$btnPreviewExit.addEventListener('click', () => {
+            if (!this.currentCtrlUuid) return;
+            this._callScene('exit-preview', { uuid: this.currentCtrlUuid }, () => this.refreshSnapshot());
+        });
+        this.$btnPreviewRestore.addEventListener('click', () => {
+            if (!this.currentCtrlUuid || !this.currentSnapshot) return;
+            const id = this.currentSnapshot.previewingStateId;
+            if (typeof id !== 'number' || id < 0) return;
+            this._callScene('restore-deleted-state', { uuid: this.currentCtrlUuid, stateId: id }, (err) => {
+                if (err) Editor.warn(err);
+                this.refreshSnapshot();
+            });
+        });
+
+        // --- 自定义确认弹窗 ---
+        this.$cmCancel.addEventListener('click', () => this._closeConfirm());
+        this.$cmBackdrop.addEventListener('click', () => this._closeConfirm());
+        this.$cmConfirm.addEventListener('click', () => {
+            const cb = this._confirmCb;
+            this._closeConfirm();
+            if (typeof cb === 'function') cb();
+        });
         this.$btnPrevCtrl.addEventListener('click', () => this._stepCtrl(-1));
         this.$btnNextCtrl.addEventListener('click', () => this._stepCtrl(1));
         // 下拉直选控制器 / 状态 (替代旧的「点击跳下一个」)
@@ -242,13 +309,19 @@ module.exports = {
 
     renderTopology() {
         const ctrls = (this.topology && this.topology.controllers) || [];
+        const empty = !ctrls.length;
+        // 空态: 只显示「场景里还没有控制器」, 隐藏三栏工作区 + 仪表盘, 并清掉上一个预制体残留的矩阵/选中
+        this.$overviewEmpty.style.display = empty ? 'flex' : 'none';
+        this.$overviewBody.style.display = empty ? 'none' : 'flex';
+        this.$dashboardGrid.style.display = empty ? 'none' : '';
         this.$topologyTree.innerHTML = '';
-        if (!ctrls.length) {
-            this.$overviewEmpty.style.display = 'flex';
-            this.renderDashboard(); this.renderIssues();
+        if (empty) {
+            this.selMemberUuid = null;
+            this.matrixCtrl = null;
+            this._clearMatrix();
+            this.renderIssues();
             return;
         }
-        this.$overviewEmpty.style.display = 'none';
 
         ctrls.forEach(ctrl => {
             const collapsed = !!this.collapsedCtrls[ctrl.ctrlId];
@@ -574,6 +647,23 @@ module.exports = {
         ctrls.forEach(c => { byId[c.ctrlId] = c; });
         this._ctrlById = byId;
 
+        // 无控制器: 联动表单不可用, 隐藏表单并把空态文案改为「场景里还没有控制器」
+        const noCtrl = !ctrls.length;
+        if (this.$bindingsForm) this.$bindingsForm.style.display = noCtrl ? 'none' : '';
+        if (noCtrl) {
+            this.$bindingsGraph.innerHTML = '';
+            const h = this.$bindingsEmpty.querySelector('h3');
+            const p = this.$bindingsEmpty.querySelector('p');
+            if (h) h.textContent = '场景里还没有控制器';
+            if (p) p.textContent = '给节点挂上 StateControllerV2 并接入控制后, 再来这里建立跨控制器联动。';
+            this.$bindingsEmpty.style.display = 'flex';
+            return;
+        }
+        const h = this.$bindingsEmpty.querySelector('h3');
+        const p = this.$bindingsEmpty.querySelector('p');
+        if (h) h.textContent = '还没有任何跨控制器联动';
+        if (p) p.textContent = '用上方表单建立「A 切到某状态 → B 自动切到某状态」的声明式联动。';
+
         this._fillCtrlOptions(this.$bindSourceCtrl);
         this._fillCtrlOptions(this.$bindTargetCtrl);
         this._fillStateOptions(this.$bindSourceCtrl, this.$bindSourceState);
@@ -721,7 +811,11 @@ module.exports = {
             this._initialFetch = false;
             this.ctrlItems = Array.isArray(list) ? list : [];
             this.$ctrlList.innerHTML = '';
-            if (!this.ctrlItems.length) { this.setCurrentCtrl(null); return; }
+            // 空态文案: 无控制器 → 「场景里还没有控制器」并隐藏「从下方列表选择」提示; 有控制器仅未选中 → 提示从列表选
+            const noCtrl = !this.ctrlItems.length;
+            if (this.$emptyTipTitle) this.$emptyTipTitle.textContent = noCtrl ? '场景里还没有控制器' : '请在场景中选中带 StateControllerV2 的节点';
+            if (this.$ctrlListHint) this.$ctrlListHint.style.display = noCtrl ? 'none' : '';
+            if (noCtrl) { this.setCurrentCtrl(null); return; }
             this.ctrlItems.forEach(item => {
                 const node = document.importNode(this.$tplCtrlItem.content, true);
                 node.querySelector('.ctrl-name').textContent = this._ctrlLabel(item);
@@ -768,15 +862,32 @@ module.exports = {
     renderUI() {
         if (!this.currentSnapshot) return;
         this._renderCtrlHeader();
+        this.renderPreviewBanner();
         this.renderStates();
+        this.renderBin();
         this.renderDetail();
         this.renderEditorMatrix();
+    },
+    // 预览中 = 锁定结构操作 (同录制): 状态切换/新增/删除/恢复/录制 全锁, 唯一出口是横幅
+    _isLocked(snap) {
+        return !!(snap && (snap.isRecording || (typeof snap.previewingStateId === 'number' && snap.previewingStateId >= 0)));
+    },
+    _previewingId(snap) {
+        return (snap && typeof snap.previewingStateId === 'number') ? snap.previewingStateId : -1;
+    },
+    renderPreviewBanner() {
+        const snap = this.currentSnapshot;
+        const id = this._previewingId(snap);
+        if (id < 0) { this.$previewBanner.style.display = 'none'; return; }
+        const item = (snap.deletedStates || []).find(d => d.stateId === id);
+        this.$pvName.textContent = item ? `「${item.name}」(id ${id})` : `id ${id}`;
+        this.$previewBanner.style.display = 'flex';
     },
     renderStates() {
         const snap = this.currentSnapshot;
         const states = snap.states || [];
         const activeIndex = this._activeIndex(snap);
-        const locked = !!snap.isRecording;
+        const locked = this._isLocked(snap);
         this.$statesList.innerHTML = '';
         this.$statesList.classList.toggle('locked', locked);
         this.$btnAddState.disabled = locked;
@@ -800,6 +911,10 @@ module.exports = {
             delBtn.addEventListener('click', (event) => {
                 event.stopPropagation();
                 if (locked) return;
+                const ok = typeof confirm === 'function'
+                    ? confirm(`移除状态「${state.name || state.index}」？数据会移入回收站，可恢复。`)
+                    : true;
+                if (!ok) return;
                 this._callScene('remove-state', { uuid: this.currentCtrlUuid, index: state.index }, (err) => {
                     if (err) Editor.warn(err);
                     this.refreshSnapshot();
@@ -807,6 +922,79 @@ module.exports = {
             });
             this.$statesList.appendChild(node);
         });
+    },
+    // 回收站可操作前置: 有控制器/快照, 且不在录制 (录制中锁结构操作, 与 states 列表一致)
+    _binActionable() {
+        return !!(this.currentCtrlUuid && this.currentSnapshot && !this.currentSnapshot.isRecording);
+    },
+    renderBin() {
+        const snap = this.currentSnapshot;
+        const deleted = (snap && snap.deletedStates) || [];
+        const locked = this._isLocked(snap);
+        const previewingId = this._previewingId(snap);
+        this.$binCount.textContent = String(deleted.length);
+        // 空回收站: 折叠并隐藏整个区块, 不占视觉
+        this.$recycleBin.style.display = deleted.length ? '' : 'none';
+        this.$recycleBin.classList.toggle('locked', locked);
+        this.$binList.innerHTML = '';
+        deleted.forEach(item => {
+            const frag = document.importNode(this.$tplBinItem.content, true);
+            frag.querySelector('.bin-name').textContent = item.name || `#${item.stateId}`;
+            frag.querySelector('.bin-sub').textContent = `id ${item.stateId}`;
+            const previewBtn = frag.querySelector('.btn-bin-preview');
+            const restoreBtn = frag.querySelector('.btn-bin-restore');
+            const purgeBtn = frag.querySelector('.btn-bin-purge');
+            const isPreviewingThis = previewingId === item.stateId;
+            // 预览按钮: 未预览时可点(开预览); 正在预览这一项则高亮且可点=退出预览; 锁定(录制)时禁用
+            previewBtn.disabled = !!(snap && snap.isRecording);
+            previewBtn.classList.toggle('is-active', isPreviewingThis);
+            previewBtn.title = isPreviewingThis ? '退出预览' : '只读预览: 把该状态叠加到节点查看 (不改当前选中)';
+            previewBtn.addEventListener('click', () => {
+                if (!this.currentCtrlUuid || (snap && snap.isRecording)) return;
+                const msg = isPreviewingThis ? 'exit-preview' : 'preview-deleted-state';
+                const payload = isPreviewingThis
+                    ? { uuid: this.currentCtrlUuid }
+                    : { uuid: this.currentCtrlUuid, stateId: item.stateId };
+                this._callScene(msg, payload, () => this.refreshSnapshot());
+            });
+            // 恢复/彻底删除: 预览中也锁 (出口走横幅), 录制中也锁
+            restoreBtn.disabled = locked;
+            purgeBtn.disabled = locked;
+            restoreBtn.addEventListener('click', () => {
+                if (!this._binActionable()) return;
+                this._callScene('restore-deleted-state', { uuid: this.currentCtrlUuid, stateId: item.stateId }, (err, ok) => {
+                    if (err) Editor.warn(err);
+                    if (!ok) Editor.warn('恢复失败');
+                    this.refreshSnapshot();
+                });
+            });
+            purgeBtn.addEventListener('click', () => {
+                if (!this._binActionable()) return;
+                this._confirm({
+                    title: '彻底删除？',
+                    body: `将彻底删除状态「${item.name || item.stateId}」(id ${item.stateId}) 的数据，<b>不可恢复</b>。`,
+                    confirmLabel: '彻底删除',
+                }, () => {
+                    this._callScene('purge-deleted-state', { uuid: this.currentCtrlUuid, stateId: item.stateId }, (err) => {
+                        if (err) Editor.warn(err);
+                        this.refreshSnapshot();
+                    });
+                });
+            });
+            this.$binList.appendChild(frag);
+        });
+    },
+    // 自定义确认弹窗: opts={title, body(html), confirmLabel}, onConfirm 在点确认时回调
+    _confirm(opts, onConfirm) {
+        this._confirmCb = onConfirm;
+        this.$cmTitle.textContent = (opts && opts.title) || '确认';
+        this.$cmBody.innerHTML = (opts && opts.body) || '';
+        this.$cmConfirm.textContent = (opts && opts.confirmLabel) || '确认';
+        this.$confirmModal.style.display = 'block';
+    },
+    _closeConfirm() {
+        this._confirmCb = null;
+        this.$confirmModal.style.display = 'none';
     },
     renderDetail() {
         const snap = this.currentSnapshot;
@@ -830,6 +1018,10 @@ module.exports = {
         this.$btnStartRecord.style.display = recording ? 'none' : 'inline-flex';
         this.$btnStopRecord.style.display = recording ? 'inline-flex' : 'none';
         this.$btnCancelRecord.style.display = recording ? 'inline-flex' : 'none';
+        // 预览中禁止开录 (开录会自动退出预览, UI 上直接锁更清晰)
+        const previewing = this._previewingId(snap) >= 0;
+        this.$btnStartRecord.disabled = previewing;
+        this.$btnStartRecord.classList.toggle('is-disabled', previewing);
     },
     // 当前控制器在 topology 里的节点 (含 members/states/valueByState 真数据)
     _currentTopologyCtrl() {

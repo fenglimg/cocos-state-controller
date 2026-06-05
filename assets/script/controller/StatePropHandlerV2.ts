@@ -15,30 +15,30 @@
  */
 
 import { EnumPropName } from "./StateEnumV2";
-import { StateErrorManagerV2 } from "./StateErrorManagerV2";
+import { StateErrorManager } from "./StateErrorManagerV2";
 
 /** 属性值统一类型 */
-export type TPropValue =
-    | number
-    | boolean
-    | string
-    | cc.Vec3
-    | cc.Vec2
-    | cc.Color
-    | cc.Size
-    | cc.Quat
-    | cc.SpriteFrame
-    | cc.Font
-    | undefined;
+export type TPropValue
+    = | number
+      | boolean
+      | string
+      | cc.Vec3
+      | cc.Vec2
+      | cc.Color
+      | cc.Size
+      | cc.Quat
+      | cc.SpriteFrame
+      | cc.Font
+      | undefined;
 
 /** 属性处理器接口 */
 export interface IPropHandler {
     /** 读取节点 / 组件当前属性值; 假定 node 非 null (manager 已做守卫) */
-    getValue(node: cc.Node): TPropValue | undefined;
+    getValue(node: cc.Node): TPropValue | undefined
     /** 写入节点 / 组件属性值; 假定 node 非 null */
-    setValue(node: cc.Node, value: TPropValue): void;
+    setValue(node: cc.Node, value: TPropValue): void
     /** 默认值, 通常等同 getValue */
-    getDefaultValue(node: cc.Node): TPropValue | undefined;
+    getDefaultValue(node: cc.Node): TPropValue | undefined
     /**
      * 录制 diff 用: 判断两个值是否等同.
      *  - 基础类型 (number/string/boolean): ===
@@ -47,7 +47,7 @@ export interface IPropHandler {
      *  - undefined/null 双方为 nil 即 true
      * 默认实现见 PropHandlerManager 注册路径 (factory 自带 isEqual)。
      */
-    isEqual(a: TPropValue, b: TPropValue): boolean;
+    isEqual(a: TPropValue, b: TPropValue): boolean
 }
 
 /**
@@ -182,16 +182,24 @@ function compProp(
 
 // ---- 节点直接属性 ----
 PropHandlerManager.register(EnumPropName.Active,
-    nodeProp<boolean>(n => n.active, (n, v) => { n.active = v; }));
+    nodeProp<boolean>(n => n.active, (n, v) => {
+        n.active = v;
+    }));
 
 PropHandlerManager.register(EnumPropName.Position,
-    nodeProp<cc.Vec3>(n => cc.v3(n.position), (n, v) => { n.position = v; }, eqVec3));
+    nodeProp<cc.Vec3>(n => cc.v3(n.position), (n, v) => {
+        n.position = v;
+    }, eqVec3));
 
 PropHandlerManager.register(EnumPropName.Euler,
-    nodeProp<cc.Vec3>(n => cc.v3(n.eulerAngles), (n, v) => { n.eulerAngles = v; }, eqVec3));
+    nodeProp<cc.Vec3>(n => cc.v3(n.eulerAngles), (n, v) => {
+        n.eulerAngles = v;
+    }, eqVec3));
 
 PropHandlerManager.register(EnumPropName.Scale,
-    nodeProp<number>(n => n.scale, (n, v) => { n.scale = v; }));
+    nodeProp<number>(n => n.scale, (n, v) => {
+        n.scale = v;
+    }));
 
 PropHandlerManager.register(EnumPropName.Anchor,
     nodeProp<cc.Vec2>(
@@ -202,20 +210,32 @@ PropHandlerManager.register(EnumPropName.Anchor,
 
 PropHandlerManager.register(EnumPropName.Size,
     nodeProp<cc.Size>(
-        n => { const s = n.getContentSize(); return cc.size(s.width, s.height); },
-        (n, v) => { n.setContentSize(v); },
+        (n) => {
+            const s = n.getContentSize();
+            return cc.size(s.width, s.height);
+        },
+        (n, v) => {
+            n.setContentSize(v);
+        },
         eqSize,
     ));
 
 PropHandlerManager.register(EnumPropName.Color,
     nodeProp<cc.Color>(
-        n => { const c = n.color; return cc.color(c.r, c.g, c.b, c.a); },
-        (n, v) => { n.color = v; },
+        (n) => {
+            const c = n.color;
+            return cc.color(c.r, c.g, c.b, c.a);
+        },
+        (n, v) => {
+            n.color = v;
+        },
         eqColor,
     ));
 
 PropHandlerManager.register(EnumPropName.Opacity,
-    nodeProp<number>(n => n.opacity, (n, v) => { n.opacity = v; }));
+    nodeProp<number>(n => n.opacity, (n, v) => {
+        n.opacity = v;
+    }));
 
 // ---- Label 组件 ----
 PropHandlerManager.register(EnumPropName.LabelString, compProp(cc.Label, "string"));
@@ -269,7 +289,7 @@ PropHandlerManager.register(EnumPropName.GrayScale, {
     setValue: (node, _value) => {
         const sprite = node.getComponent(cc.Sprite);
         if (sprite) {
-            StateErrorManagerV2.warn("GrayScale属性在Cocos Creator 2.x中需要通过材质实现");
+            StateErrorManager.warn("GrayScale属性在Cocos Creator 2.x中需要通过材质实现");
         }
     },
     getDefaultValue: (node) => {

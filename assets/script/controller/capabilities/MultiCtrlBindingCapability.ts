@@ -23,20 +23,20 @@
 
 import { CapabilityRegistry } from "../CapabilityRegistry";
 import { ICapability } from "../Capability";
-import { StateErrorManagerV2 } from "../StateErrorManagerV2";
+import { StateErrorManager } from "../StateErrorManagerV2";
 import { EventCapability, StateChangedPayload } from "./EventCapability";
 import { SelectedPageIdCapability } from "./SelectedPageIdCapability";
 
 interface BindingEntry {
-    targetStateId: number;
-    target: object;
+    targetStateId: number
+    target: object
 }
 
 interface SourceListener {
     /** sourceStateId → list of bindings */
-    byState: Map<number, BindingEntry[]>;
+    byState: Map<number, BindingEntry[]>
     /** EventCapability 注册的回调引用 (用于卸载) */
-    listener: (payload: StateChangedPayload) => void;
+    listener: (payload: StateChangedPayload) => void
 }
 
 const sourceMap: WeakMap<object, SourceListener> = new WeakMap();
@@ -64,7 +64,7 @@ function ensureSourceListener(sourceCtrl: any): SourceListener {
                     SelectedPageIdCapability.setStateById(b.target, b.targetStateId);
                 }
                 catch (e) {
-                    StateErrorManagerV2.warn("MultiCtrlBinding setStateById 异常", {
+                    StateErrorManager.warn("MultiCtrlBinding setStateById 异常", {
                         component: "MultiCtrlBindingCapability",
                         method: "dispatch",
                         params: { error: (e as Error).message, targetStateId: b.targetStateId },
@@ -84,16 +84,16 @@ function ensureSourceListener(sourceCtrl: any): SourceListener {
 }
 
 export interface BindingDescriptor {
-    sourceStateId: number;
-    targetCtrl: any;
-    targetStateId: number;
+    sourceStateId: number
+    targetCtrl: any
+    targetStateId: number
 }
 
 export const MultiCtrlBindingCapability: ICapability & {
-    addBinding: (source: any, sourceStateId: number, target: any, targetStateId: number) => boolean,
-    removeBinding: (source: any, sourceStateId: number, target: any) => boolean,
-    listBindings: (source: any) => BindingDescriptor[],
-    clearAllBindings: (source: any) => void,
+    addBinding: (source: any, sourceStateId: number, target: any, targetStateId: number) => boolean
+    removeBinding: (source: any, sourceStateId: number, target: any) => boolean
+    listBindings: (source: any) => BindingDescriptor[]
+    clearAllBindings: (source: any) => void
 } = {
     name: "multiCtrlBinding",
     dependsOn: ["event", "selectedPageId"],
@@ -138,7 +138,7 @@ export const MultiCtrlBindingCapability: ICapability & {
         if (!entry) return [];
         const out: BindingDescriptor[] = [];
         entry.byState.forEach((bindings, sId) => {
-            bindings.forEach(b => {
+            bindings.forEach((b) => {
                 out.push({ sourceStateId: sId, targetCtrl: b.target, targetStateId: b.targetStateId });
             });
         });

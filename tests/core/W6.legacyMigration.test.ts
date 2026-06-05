@@ -3,7 +3,7 @@
  *
  * 验证 framework 锚点:
  *   1) LEGACY_DROPPED_ENUMS (EnumPropRefMap export) 含 GrayScale=15
- *   2) StateSelectV2.migrateLegacyCtrlData 私有方法:
+ *   2) StateSelect.migrateLegacyCtrlData 私有方法:
  *      - 仅删 LEGACY_DROPPED_ENUMS 中数字 key (即 GrayScale)
  *      - ENUM_TO_PROPREF 内置 prop 数字 key (Active=1, Color=10, LabelString=3, ...) 保留 (c2 才迁)
  *      - AMBIGUOUS 数字 key (Position=2, Anchor=8, Size=9) 保留 (c2 决定)
@@ -39,8 +39,8 @@ const EnumMod = require("../../assets/script/controller/StateEnumV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumPropRefMapMod = require("../../assets/script/controller/EnumPropRefMap");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function setup() {
@@ -51,10 +51,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();

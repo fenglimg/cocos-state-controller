@@ -1,5 +1,5 @@
 /**
- * M2b-1 红测试: StateSelectV2.setPropExcluded(propRef, bool) 干净 mutation API.
+ * M2b-1 红测试: StateSelect.setPropExcluded(propRef, bool) 干净 mutation API.
  *
  * 边界搬迁 — 用显式方法替代 excludedPropsDisplay getter 的副作用 (reconcileUserExcluded) 路径:
  *   - setPropExcluded(ref, true)  → 加入 _userExcludedProps + 退出跟随 (isPropertyControlledByPropRef=false)
@@ -25,9 +25,9 @@ beforeAll(() => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass;
@@ -47,10 +47,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
     selectNode.addComponent(M2b1_Fixture);
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -58,7 +58,7 @@ function setup() {
 }
 
 describe("M2b-1 setPropExcluded mutation API", () => {
-    it("StateSelectV2 暴露 setPropExcluded 方法", () => {
+    it("StateSelect 暴露 setPropExcluded 方法", () => {
         const { select } = setup();
         expect(typeof (select as any).setPropExcluded).toBe("function");
     });

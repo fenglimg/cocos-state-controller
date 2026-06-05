@@ -1,7 +1,7 @@
 {
     "name": "state-controller-v2-panel",
     "version": "0.1.0",
-    "description": "State Controller 编辑器面板 - 替代 cocos 2.x Inspector 死磕的极简扩展面板",
+    "description": "State Controller V2 编辑器面板 - 替代 cocos 2.x Inspector 死磕的极简扩展面板",
     "author": "wepie",
     "main": "main.js",
     "main-menu": {

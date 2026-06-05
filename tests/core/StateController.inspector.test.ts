@@ -1,7 +1,7 @@
 /**
- * StateControllerV2 inspector 极简形态契约 (T16 of PLN-001 Wave 1)
+ * StateController inspector 极简形态契约 (T16 of PLN-001 Wave 1)
  *
- * Wave 1 后, inspector 中 StateControllerV2 字段大幅删减, 仅保留:
+ * Wave 1 后, inspector 中 StateController 字段大幅删减, 仅保留:
  *   - ctrlName (input, displayName "控制器 id")
  *   - selectedIndex (enum 下拉, displayName "state")
  *   - recordTrigger (按钮, displayName "🔴 录制")
@@ -30,8 +30,8 @@ const ControllerMod = require("../../assets/script/controller/StateControllerV2"
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SelectMod = require("../../assets/script/controller/StateSelectV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 
 function setup() {
     const ccL = (globalThis as any).cc;
@@ -41,16 +41,16 @@ function setup() {
     const selectNode = new ccL.Node("CI_SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
     return { ctrl, select, ctrlNode, selectNode };
 }
 
-describe("StateControllerV2 inspector 极简形态", () => {
+describe("StateController inspector 极简形态", () => {
     describe("[T16] 录制按钮", () => {
         // Wave 2 T14: recordTrigger 已从 cc.warn stub 升级为真实切换 isRecording.
         // 保留 stub 时代的形状检查 (存在性 + 不抛), 行为校验交给 Recording.controller.test.ts。

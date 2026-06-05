@@ -8,8 +8,8 @@ beforeAll(() => {
     (globalThis as any).CC_EDITOR = true;
     (globalThis as any).Editor = { log:()=>{},warn:()=>{},error:()=>{}, Utils:{refreshSelectedInspector:()=>{}} };
 });
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass; const property = ccL._decorator.property;
 @ccclass("R3RecFixture") class R3RecFixture extends ccL.Component { @property() public value = 0; }
@@ -19,9 +19,9 @@ function setup() {
     const root = new ccL.Node("R3R_Root");
     const ctrlNode = new ccL.Node("R3R_Ctrl"); root.addChild(ctrlNode);
     const selNode = new ccL.Node("R3R_Sel"); ctrlNode.addChild(selNode);
-    const ctrl = ctrlNode.addComponent(StateControllerV2); (ctrl as any).__preload();
+    const ctrl = ctrlNode.addComponent(StateController); (ctrl as any).__preload();
     const fixture = selNode.addComponent(R3RecFixture);
-    const select = selNode.addComponent(StateSelectV2); (select as any).__preload();
+    const select = selNode.addComponent(StateSelect); (select as any).__preload();
     (ctrl as any).markCacheDirty();
     return { ctrl, select, selNode, fixture };
 }

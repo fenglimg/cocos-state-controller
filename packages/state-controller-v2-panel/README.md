@@ -6,7 +6,7 @@
 ## 目录结构
 
 ```
-packages/state-controller-panel/
+packages/state-controller-v2-panel/
 ├── package.json          Cocos 2.x 插件清单 (dockable panel 配置)
 ├── main.js               入口, 响应 :open / :close
 ├── scene-accessor.js     scene-script, IPC 路由层, 调 lib/handlers.js
@@ -20,31 +20,31 @@ packages/state-controller-panel/
 
 ## IPC 契约 (panel → scene-accessor)
 
-panel/build.js 用 `Editor.Ipc.sendToPanel('scene', 'state-controller-panel:<msg>', payload, callback)`
+panel/build.js 用 `Editor.Ipc.sendToPanel('scene', 'state-controller-v2-panel:<msg>', payload, callback)`
 向 scene-script 发请求, 路由名见下表 (与 scene-accessor.js 的 message handler 一一对应):
 
 | 消息名 | payload | 返回 (result) | 作用 |
 |---|---|---|---|
-| `state-controller-panel:list-ctrls` | (空) | `[{uuid, ctrlId, ctrlName}]` | Panel 打开时, 列场景所有 StateController |
-| `state-controller-panel:get-ctrl-snapshot` | `{uuid}` | `CtrlSnapshot` | 拉某 ctrl 完整数据 (states 列表 + 当前 index + recording 等) |
-| `state-controller-panel:set-selected-index` | `{uuid, index}` | `boolean` | 切预览中的 state |
-| `state-controller-panel:set-state-by-id` | `{uuid, stateId}` | `boolean` | 用稳定 stateId 切换 |
-| `state-controller-panel:set-home-page` | `{uuid, stateIdOrName}` | `boolean` | 设默认启动状态 (-1 清除) |
-| `state-controller-panel:set-recording` | `{uuid, isRecording}` | `boolean` | 开/关录制 |
-| `state-controller-panel:add-state` | `{uuid, name}` | `stateId number, -1 失败` | 新增 state |
-| `state-controller-panel:remove-state` | `{uuid, index}` | `boolean` | 删 state (至少保留 1 个) |
-| `state-controller-panel:add-property` | `{ctrlUuid, selectUuid, propType}` | `boolean` | 手动加 prop |
-| `state-controller-panel:dispose-all-bridges` | (空) | `true` | Panel 关闭时调, 解所有广播桥 |
+| `state-controller-v2-panel:list-ctrls` | (空) | `[{uuid, ctrlId, ctrlName}]` | Panel 打开时, 列场景所有 StateController |
+| `state-controller-v2-panel:get-ctrl-snapshot` | `{uuid}` | `CtrlSnapshot` | 拉某 ctrl 完整数据 (states 列表 + 当前 index + recording 等) |
+| `state-controller-v2-panel:set-selected-index` | `{uuid, index}` | `boolean` | 切预览中的 state |
+| `state-controller-v2-panel:set-state-by-id` | `{uuid, stateId}` | `boolean` | 用稳定 stateId 切换 |
+| `state-controller-v2-panel:set-home-page` | `{uuid, stateIdOrName}` | `boolean` | 设默认启动状态 (-1 清除) |
+| `state-controller-v2-panel:set-recording` | `{uuid, isRecording}` | `boolean` | 开/关录制 |
+| `state-controller-v2-panel:add-state` | `{uuid, name}` | `stateId number, -1 失败` | 新增 state |
+| `state-controller-v2-panel:remove-state` | `{uuid, index}` | `boolean` | 删 state (至少保留 1 个) |
+| `state-controller-v2-panel:add-property` | `{ctrlUuid, selectUuid, propType}` | `boolean` | 手动加 prop |
+| `state-controller-v2-panel:dispose-all-bridges` | (空) | `true` | Panel 关闭时调, 解所有广播桥 |
 
 ## 广播事件 (scene-accessor → panel)
 
-scene-accessor 收到 capability 事件后, 经 `Editor.Ipc.sendToPanel('state-controller-panel', '<event>', payload)`:
+scene-accessor 收到 capability 事件后, 经 `Editor.Ipc.sendToPanel('state-controller-v2-panel', '<event>', payload)`:
 
 | 事件名 | payload | 触发时机 |
 |---|---|---|
-| `state-controller-panel:on-state-changed` | `{ctrlId, fromState, toState, fromName, toName}` | EventCapability stateChanged |
-| `state-controller-panel:on-recording-changed` | `{ctrlId, isRecording}` | startRecording / stopRecording |
-| `state-controller-panel:on-data-changed` | `{ctrlId}` | add/remove state, add prop 等本期所有数据变 |
+| `state-controller-v2-panel:on-state-changed` | `{ctrlId, fromState, toState, fromName, toName}` | EventCapability stateChanged |
+| `state-controller-v2-panel:on-recording-changed` | `{ctrlId, isRecording}` | startRecording / stopRecording |
+| `state-controller-v2-panel:on-data-changed` | `{ctrlId}` | add/remove state, add prop 等本期所有数据变 |
 
 ## CtrlSnapshot 结构
 

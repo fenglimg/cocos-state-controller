@@ -1,12 +1,12 @@
 /**
- * StateControllerV2 多 controller 共存测试 (Phase 4.4)
+ * StateController 多 controller 共存测试 (Phase 4.4)
  *
- * 已有 StateControllerV2.nestedCache.test.ts 覆盖了 parent ↔ child 嵌套的责任划分
+ * 已有 StateController.nestedCache.test.ts 覆盖了 parent ↔ child 嵌套的责任划分
  * 与 cache 隔离. 这里补充:
  *   - 兄弟 (sibling) controller: 同父节点下两个并列子树各自一个 controller
  *   - 3 层深嵌套: outer / middle / inner 各管自己的 select
  *
- * 注: 同节点上只能挂一个 StateControllerV2 (cocos 组件单例机制), 不需要覆盖.
+ * 注: 同节点上只能挂一个 StateController (cocos 组件单例机制), 不需要覆盖.
  */
 
 declare global {
@@ -32,8 +32,8 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 
 function makeCtrlSubtree(parent: any, ctrlName: string, selectName: string) {
@@ -43,9 +43,9 @@ function makeCtrlSubtree(parent: any, ctrlName: string, selectName: string) {
     const selectNode = new ccL.Node(selectName);
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -126,13 +126,13 @@ describe("多 controller: 3 层深嵌套独立性", () => {
         const innerSelectNode = new ccL.Node("InnerSelect");
         innerNode.addChild(innerSelectNode);
 
-        const outerCtrl = outerNode.addComponent(StateControllerV2); (outerCtrl as any).__preload();
-        const middleCtrl = middleNode.addComponent(StateControllerV2); (middleCtrl as any).__preload();
-        const innerCtrl = innerNode.addComponent(StateControllerV2); (innerCtrl as any).__preload();
+        const outerCtrl = outerNode.addComponent(StateController); (outerCtrl as any).__preload();
+        const middleCtrl = middleNode.addComponent(StateController); (middleCtrl as any).__preload();
+        const innerCtrl = innerNode.addComponent(StateController); (innerCtrl as any).__preload();
 
-        const outerSelect = outerSelectNode.addComponent(StateSelectV2); (outerSelect as any).__preload();
-        const middleSelect = middleSelectNode.addComponent(StateSelectV2); (middleSelect as any).__preload();
-        const innerSelect = innerSelectNode.addComponent(StateSelectV2); (innerSelect as any).__preload();
+        const outerSelect = outerSelectNode.addComponent(StateSelect); (outerSelect as any).__preload();
+        const middleSelect = middleSelectNode.addComponent(StateSelect); (middleSelect as any).__preload();
+        const innerSelect = innerSelectNode.addComponent(StateSelect); (innerSelect as any).__preload();
 
         (outerCtrl as any).markCacheDirty();
         (middleCtrl as any).markCacheDirty();

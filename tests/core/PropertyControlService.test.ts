@@ -3,7 +3,7 @@
  *
  * 三块:
  *   - isPropertyAvailable / isPropertyControlled / scanAvailableProperties 的静态调用
- *     (已被 StateSelectV2.publicApi + scanProps 间接覆盖, 这里 1-2 个 sanity check)
+ *     (已被 StateSelect.publicApi + scanProps 间接覆盖, 这里 1-2 个 sanity check)
  *   - registerComponentProp 插件扩展点 — 主要契约: 注册后 isPropertyAvailable 识别新 prop,
  *     且 scanAvailableProperties 会列出该 prop (前提是 prop 数字值在 EnumPropName 范围内)
  */
@@ -28,7 +28,7 @@ beforeAll(() => {
 const Mod = require("../../assets/script/controller/StatePropertyControlService");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const EnumMod = require("../../assets/script/controller/StateEnumV2");
-// require StateSelectV2 一次, 触发 cc.Enum(EnumPropName) 副作用, 与运行时一致
+// require StateSelect 一次, 触发 cc.Enum(EnumPropName) 副作用, 与运行时一致
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 require("../../assets/script/controller/StateSelectV2");
 

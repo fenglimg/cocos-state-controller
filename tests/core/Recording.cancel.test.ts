@@ -7,7 +7,7 @@
  *   - cancelRecording 不触发 onRecordingStop 路径 (不发 CapabilityRegistry.dispatch onRecordingStop)
  *   - 录制中 states/move/copy/remove 入口被拒 (warn + return), state 列表不变
  *
- * 红预期: 当前 StateControllerV2 没有 cancelRecording 方法 / 录制中 states 等仍可改。
+ * 红预期: 当前 StateController 没有 cancelRecording 方法 / 录制中 states 等仍可改。
  */
 
 declare global {
@@ -33,8 +33,8 @@ const EnumMod = require("../../assets/script/controller/StateEnumV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const RegistryMod = require("../../assets/script/controller/CapabilityRegistry");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { EnumPropName } = EnumMod;
 const { CapabilityRegistry } = RegistryMod;
 
@@ -46,10 +46,10 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -58,7 +58,7 @@ function setup() {
 }
 
 describe("cancelRecording 契约 (TASK-002)", () => {
-    it("StateControllerV2 暴露 cancelRecording 方法", () => {
+    it("StateController 暴露 cancelRecording 方法", () => {
         const { ctrl } = setup();
         expect(typeof (ctrl as any).cancelRecording).toBe("function");
     });

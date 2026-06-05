@@ -234,6 +234,74 @@ module.exports = {
         }
     },
 
+    'restore-last-deleted-state'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.restoreLastDeletedState(ctrl);
+        event.reply(null, ok);
+        if (ok) {
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        }
+    },
+
+    /** 回收站: 恢复指定 stateId 的暂存 state (追加到尾部). payload = { uuid, stateId } */
+    'restore-deleted-state'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.restoreDeletedState(ctrl, payload && payload.stateId);
+        event.reply(null, ok);
+        if (ok) {
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        }
+    },
+
+    /** 回收站硬删: 彻底删除指定 stateId 的页数据 (不可恢复). payload = { uuid, stateId } */
+    'purge-deleted-state'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.purgeDeletedState(ctrl, payload && payload.stateId);
+        event.reply(null, ok);
+        if (ok) {
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        }
+    },
+
+    /** 回收站: 清空 (对所有暂存项硬删, 不可恢复). payload = { uuid } */
+    'purge-all-deleted-states'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.purgeAllDeletedStates(ctrl);
+        event.reply(null, ok);
+        if (ok) {
+            broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+            if (typeof Editor !== 'undefined' && Editor.Ipc) Editor.Ipc.sendToMain('scene:set-dirty');
+        }
+    },
+
+    /**
+     * 回收站: 进入某 stateId 的只读预览 (叠加到节点, 不改选中). payload = { uuid, stateId }
+     * 预览只动节点显示、不写 ctrlData, 故不标 scene-dirty; 广播 data-changed 让面板刷新预览态。
+     */
+    'preview-deleted-state'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.previewDeletedState(ctrl, payload && payload.stateId);
+        event.reply(null, ok);
+        if (ok) broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+    },
+
+    /** 回收站: 退出预览 (按快照还原节点). payload = { uuid } */
+    'exit-preview'(event, payload) {
+        const ctrl = getCtrlByUuid(payload && payload.uuid);
+        if (!ctrl) return event.reply('ctrl not found', false);
+        const ok = handlers.exitPreview(ctrl);
+        event.reply(null, ok);
+        if (ok) broadcast('on-data-changed', { ctrlId: ctrl.ctrlId });
+    },
+
     'add-property'(event, payload) {
         const ctrl = getCtrlByUuid(payload && payload.ctrlUuid);
         const select = getSelectByUuid(payload && payload.selectUuid);

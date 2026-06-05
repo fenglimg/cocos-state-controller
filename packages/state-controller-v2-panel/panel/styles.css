@@ -296,8 +296,8 @@
 .btn-issue-jump { font-size: 11px; padding: 3px 8px; }
 .issue-empty { font-size: 12px; color: var(--text-dim); font-weight: 600; text-align: center; padding: 16px 0; }
 
-/* 空态 */
-.empty-tip { padding: 32px 20px; text-align: center; }
+/* 空态: logic 以内联 display:flex 显隐, 这里固定竖排居中并填充容器, 否则 h3/p 会并排成一行 */
+.empty-tip { flex: 1 1 auto; min-height: 0; padding: 32px 20px; text-align: center; flex-direction: column; align-items: center; justify-content: center; }
 .empty-tip h3 { font-family: 'Syne', sans-serif; font-size: 18px; margin-bottom: 8px; }
 .empty-tip p { color: var(--text-dim); font-weight: 600; margin-bottom: 12px; }
 
@@ -401,3 +401,54 @@
 .bind-arrow { font-family: 'Space Grotesk'; font-weight: 700; font-size: 18px; }
 .bind-edge.broken .bind-tgt { background: var(--accent-pink); }
 .btn-del-binding { margin-left: auto; }
+
+/* ====================================================
+   回收站 (侧栏可折叠) + 危险按钮 + 自定义确认弹窗
+   ==================================================== */
+.btn-danger { background: var(--accent-pink); color: #000; }
+.btn-danger:hover:not(:disabled) { background: var(--accent-pink); }
+
+.recycle-bin { flex: 0 0 auto; border-top: var(--border-thin); display: flex; flex-direction: column; max-height: 45%; }
+.recycle-bin.locked { opacity: .7; pointer-events: none; }
+.bin-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; cursor: pointer; font-weight: 700; background: var(--bg-card); user-select: none; }
+.bin-header:hover { background: var(--primary); }
+.bin-caret { font-size: 11px; transition: var(--transition); }
+.recycle-bin:not(.is-collapsed) .bin-caret { transform: rotate(90deg); }
+.bin-title { flex: 1; font-size: 12px; }
+.bin-count { font-size: 11px; font-weight: 800; min-width: 18px; text-align: center; padding: 1px 5px; background: var(--accent-pink); border: var(--border-thin); box-shadow: 1px 1px 0 #000; }
+.bin-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.recycle-bin.is-collapsed .bin-body { display: none; }
+.bin-item { display: flex; align-items: center; gap: 6px; padding: 6px; background: #fff; border: var(--border-thin); box-shadow: 2px 2px 0 #000; }
+.bin-meta { flex: 1; min-width: 0; }
+.bin-name { font-weight: 700; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bin-sub { font-size: 10px; color: var(--text-dim); }
+.btn-bin-restore, .btn-bin-purge { flex: 0 0 auto; }
+
+/* 自定义确认弹窗 (居中模态, 不可恢复操作专用) */
+.confirm-modal { position: fixed; inset: 0; z-index: 200; }
+.cm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.4); }
+.cm-dialog { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 360px; max-width: 88vw; background: var(--bg-main); border: var(--border-thick); box-shadow: var(--shadow-hard-lg); display: flex; flex-direction: column; }
+.cm-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--accent-pink); border-bottom: var(--border-thick); }
+.cm-icon { font-size: 18px; }
+.cm-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; }
+.cm-body { padding: 16px; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.cm-body b { color: var(--accent-pink); }
+.cm-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 16px 16px; }
+
+/* ====================================================
+   回收态只读预览 (横幅 + 预览按钮态)
+   ==================================================== */
+.preview-banner {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; margin-bottom: 4px;
+    background: var(--accent-blue); color: #fff;
+    border: var(--border-thick); box-shadow: var(--shadow-hard);
+    font-weight: 700;
+}
+.preview-banner .pv-icon { font-size: 18px; }
+.preview-banner .pv-text { font-size: 13px; }
+.preview-banner .pv-text b { color: var(--primary); }
+.preview-banner .pv-spacer { flex: 1; }
+.btn-primary { background: var(--accent-green); }
+.bin-item .btn-bin-preview { flex: 0 0 auto; padding: 3px 7px; }
+.bin-item .btn-bin-preview.is-active { background: var(--accent-blue); color: #fff; }

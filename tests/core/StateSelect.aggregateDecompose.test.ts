@@ -11,16 +11,16 @@ beforeAll(() => {
     (globalThis as any).CC_EDITOR = true;
     (globalThis as any).Editor = { log:()=>{},warn:()=>{},error:()=>{}, Utils:{refreshSelectedInspector:()=>{}} };
 });
-const { StateControllerV2 } = require("../../assets/script/controller/StateControllerV2");
-const { StateSelectV2 } = require("../../assets/script/controller/StateSelectV2");
+const { StateController } = require("../../assets/script/controller/StateControllerV2");
+const { StateSelect } = require("../../assets/script/controller/StateSelectV2");
 const { EnumPropName } = require("../../assets/script/controller/StateEnumV2");
 const ccL = (globalThis as any).cc;
 
 function setup() {
     const root = new ccL.Node("AD_Root"); const cn = new ccL.Node("AD_Ctrl"); root.addChild(cn);
     const sn = new ccL.Node("AD_Sel"); cn.addChild(sn);
-    const ctrl = cn.addComponent(StateControllerV2); (ctrl as any).__preload();
-    const select = sn.addComponent(StateSelectV2); (select as any).__preload(); (ctrl as any).markCacheDirty();
+    const ctrl = cn.addComponent(StateController); (ctrl as any).__preload();
+    const select = sn.addComponent(StateSelect); (select as any).__preload(); (ctrl as any).markCacheDirty();
     return { ctrl, select };
 }
 

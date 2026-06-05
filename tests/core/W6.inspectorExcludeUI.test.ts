@@ -1,7 +1,7 @@
 /**
  * W6-4 红测试: inspector 排除清单 UI 字段契约
  *
- * 验证 StateSelectV2 新增的 3 个 inspector @property + refreshExcludeEnumLists 私有方法:
+ * 验证 StateSelect 新增的 3 个 inspector @property + refreshExcludeEnumLists 私有方法:
  *   - excludedPropsDisplay (string[] readonly): 返回 SYSTEM_EXCLUDE + _userExcludedProps union
  *   - addExcludeTrigger (string setter): 收到 propRef 时 push 到 _userExcludedProps + 该 prop 从跟随中移除
  *   - removeExcludeTrigger (string setter): 收到 propRef 时从 _userExcludedProps 移除
@@ -9,7 +9,7 @@
  *
  * 不 mock cc, 走真 cocos 引擎集成测试.
  *
- * 红预期: 当前 StateSelectV2 无这 3 个新字段 / refreshExcludeEnumLists 方法, 全红.
+ * 红预期: 当前 StateSelect 无这 3 个新字段 / refreshExcludeEnumLists 方法, 全红.
  */
 
 declare global {
@@ -35,8 +35,8 @@ const IntrospectionMod = require("../../assets/script/controller/PrefabIntrospec
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const SelectGroupsMod = require("../../assets/script/controller/props/SelectInspectorGroups");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 const { SYSTEM_EXCLUDE } = IntrospectionMod;
 const { SelectExcludeGroup } = SelectGroupsMod;
 
@@ -59,12 +59,12 @@ function setup() {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
     selectNode.addComponent(W6_ExcludeFixture);
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
     (ctrl as any).markCacheDirty();
 
@@ -168,10 +168,10 @@ describe("W6-4 inspector 排除清单 UI", () => {
         realItems.forEach((it: any, i: number) => expect(it.value).toBe(i + 1));
     });
 
-    it("用户排除清单数组移入 excludeGroup 折叠组 (cocos 原生 +/- 按钮), StateSelectV2 上的序列化字段转隐藏", () => {
-        // 折叠组重构后: 序列化字段 _userExcludedProps 在 StateSelectV2 上转 visible:false (不直显),
+    it("用户排除清单数组移入 excludeGroup 折叠组 (cocos 原生 +/- 按钮), StateSelect 上的序列化字段转隐藏", () => {
+        // 折叠组重构后: 序列化字段 _userExcludedProps 在 StateSelect 上转 visible:false (不直显),
         // 可见的「用户排除清单」由 excludeGroup.userExcludedProps 代理 (同一份数组引用).
-        const selectAttrs = ccL.Class.Attr.getClassAttrs(StateSelectV2);
+        const selectAttrs = ccL.Class.Attr.getClassAttrs(StateSelect);
         expect(selectAttrs["_userExcludedProps$_$visible"]).toBe(false);
 
         const { select } = setup();

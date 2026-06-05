@@ -20,9 +20,9 @@ import { CapabilityRegistry } from "../CapabilityRegistry";
 import { ICapability } from "../Capability";
 
 export interface StateInfo {
-    index: number;
-    stateId: number;
-    name: string;
+    index: number
+    stateId: number
+    name: string
 }
 
 function findIndexByStateId(ctrl: any, stateId: number): number {
@@ -36,10 +36,10 @@ function findIndexByStateId(ctrl: any, stateId: number): number {
 }
 
 export const SelectedPageIdCapability: ICapability & {
-    setStateById: (ctrl: any, stateId: number) => boolean,
-    getSelectedStateId: (ctrl: any) => number,
-    getStateIdByName: (ctrl: any, name: string) => number,
-    listAllStates: (ctrl: any) => StateInfo[],
+    setStateById: (ctrl: any, stateId: number) => boolean
+    getSelectedStateId: (ctrl: any) => number
+    getStateIdByName: (ctrl: any, name: string) => number
+    listAllStates: (ctrl: any) => StateInfo[]
 } = {
     name: "selectedPageId",
 

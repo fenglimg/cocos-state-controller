@@ -34,7 +34,7 @@
         <!-- 仪表盘: 每个控制器当前所在状态 -->
         <section id="dashboard-grid" class="dashboard-grid"></section>
 
-        <div class="overview-body">
+        <div id="overview-body" class="overview-body">
             <!-- 左: 拓扑树 -->
             <aside class="topology-panel">
                 <div class="panel-cap">拓扑树</div>
@@ -70,7 +70,7 @@
 
         <div id="overview-empty" class="empty-tip" style="display:none;">
             <h3>场景里还没有控制器</h3>
-            <p>给节点挂上 StateController 并接入控制后, 这里会列出全部观测信息。</p>
+            <p>给节点挂上 StateControllerV2 并接入控制后, 这里会列出全部观测信息。</p>
         </div>
     </div>
 
@@ -78,12 +78,32 @@
     <div id="view-editor" class="view-container" style="display:none;">
         <aside class="sidebar">
             <div id="states-list" class="states-list"></div>
+            <!-- 回收站: 暂存被移除的状态, 可恢复或彻底删除 (硬删数据) -->
+            <div id="recycle-bin" class="recycle-bin is-collapsed">
+                <div id="bin-header" class="bin-header" title="展开/折叠回收站">
+                    <span class="bin-caret">▸</span>
+                    <span class="bin-title">🗑 回收站</span>
+                    <span id="bin-count" class="bin-count">0</span>
+                </div>
+                <div id="bin-body" class="bin-body">
+                    <div id="bin-list" class="bin-list"></div>
+                    <button id="btn-purge-all" class="nb-btn btn-wide btn-danger">清空回收站</button>
+                </div>
+            </div>
             <div class="sidebar-footer">
                 <button id="btn-add-state" class="nb-btn nb-btn-primary btn-wide">+ 新增状态</button>
             </div>
         </aside>
 
         <main class="main-content">
+            <!-- 回收态只读预览横幅 (强表现): 预览中叠加到节点查看, 场景只读, 出口=恢复/退出 -->
+            <div id="preview-banner" class="preview-banner" style="display:none;">
+                <span class="pv-icon">👁</span>
+                <span class="pv-text">正在预览回收状态 <b id="pv-name">--</b> · 只读叠加, 不影响当前激活状态</span>
+                <span class="pv-spacer"></span>
+                <button id="btn-preview-restore" class="nb-btn btn-small btn-primary">↩ 恢复到列表</button>
+                <button id="btn-preview-exit" class="nb-btn btn-small btn-danger">⏹ 退出预览</button>
+            </div>
             <div class="main-toolbar">
                 <span class="field-label">当前控制器</span>
                 <div id="ctrl-switch-wrap" class="ctrl-switch-wrap">
@@ -123,8 +143,8 @@
             </section>
 
             <section id="empty-tip" class="empty-tip">
-                <h3>请在场景中选中带 StateController 的节点</h3>
-                <p>或从下方列表选择:</p>
+                <h3 id="empty-tip-title">请在场景中选中带 StateControllerV2 的节点</h3>
+                <p id="ctrl-list-hint">或从下方列表选择:</p>
                 <div id="ctrl-list" class="ctrl-list"></div>
             </section>
         </main>
@@ -132,7 +152,7 @@
 
     <!-- ===== 视图 3: 控制器联动关系图 ===== -->
     <div id="view-bindings" class="view-container" style="display:none;">
-        <div class="bindings-form">
+        <div id="bindings-form" class="bindings-form">
             <span class="field-label">新增联动</span>
             <select id="bind-source-ctrl" class="nb-select"></select>
             <span class="bind-sep">切到</span>
@@ -245,3 +265,32 @@
         <button class="nb-btn btn-small btn-use-ctrl">选择</button>
     </div>
 </template>
+
+<!-- 回收站条目 -->
+<template id="tpl-bin-item">
+    <div class="bin-item">
+        <div class="bin-meta">
+            <div class="bin-name"></div>
+            <div class="bin-sub"></div>
+        </div>
+        <button class="nb-btn btn-small btn-bin-preview" title="只读预览: 把该状态叠加到节点查看 (不改当前选中)">👁</button>
+        <button class="nb-btn btn-small btn-bin-restore" title="恢复到状态列表尾部">恢复</button>
+        <button class="nb-btn btn-small btn-danger btn-bin-purge" title="彻底删除数据, 不可恢复">彻底删除</button>
+    </div>
+</template>
+
+<!-- ===== 自定义确认弹窗 (不可恢复操作专用) ===== -->
+<div id="confirm-modal" class="confirm-modal" style="display:none;">
+    <div class="cm-backdrop" id="cm-backdrop"></div>
+    <div class="cm-dialog">
+        <div class="cm-head">
+            <span class="cm-icon">⚠️</span>
+            <span id="cm-title" class="cm-title">彻底删除？</span>
+        </div>
+        <div id="cm-body" class="cm-body"></div>
+        <div class="cm-actions">
+            <button id="cm-cancel" class="nb-btn">取消</button>
+            <button id="cm-confirm" class="nb-btn btn-danger">彻底删除</button>
+        </div>
+    </div>
+</div>

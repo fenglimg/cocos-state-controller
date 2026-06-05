@@ -4,12 +4,12 @@
  * 验证 W6-2a 核心成果: ctrlData 双 key 存储 (内置 prop 写 EnumPropName 数字, 自定义 prop 写 propRef 字符串).
  *
  * 端到端链路:
- *   1) 节点挂自定义 @ccclass 组件 + StateSelectV2 → __preload 自动接入 (含自定义 prop)
+ *   1) 节点挂自定义 @ccclass 组件 + StateSelect → __preload 自动接入 (含自定义 prop)
  *   2) startRecording → 改 fixture prop → stopRecording → ctrlData[state] 存储 fixture 当前值 (string key)
  *   3) selectedIndex 切换 → apply 路径写回 fixture (自定义 prop 也跟随)
  *   4) SYSTEM_EXCLUDE / _userExcludedProps 黑名单不接入
  *
- * 红预期: 当前 StateSelectV2 仅走 EnumPropName 数字 key 路径, 自定义 prop 无任何接入 / 录制 / apply 入口.
+ * 红预期: 当前 StateSelect 仅走 EnumPropName 数字 key 路径, 自定义 prop 无任何接入 / 录制 / apply 入口.
  */
 
 declare global {
@@ -33,11 +33,11 @@ const SelectMod = require("../../assets/script/controller/StateSelectV2");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const IntrospectionMod = require("../../assets/script/controller/PrefabIntrospection");
 
-const { StateControllerV2 } = ControllerMod;
-const { StateSelectV2 } = SelectMod;
+const { StateController } = ControllerMod;
+const { StateSelect } = SelectMod;
 
 // 自定义 @ccclass fixture (extends cc.Component): 模拟用户业务组件
-// W6-2a 跑通后, 节点挂该组件即可被 StateSelectV2 自动追踪/录制/切 state 同步
+// W6-2a 跑通后, 节点挂该组件即可被 StateSelect 自动追踪/录制/切 state 同步
 const ccL = (globalThis as any).cc;
 const ccclass = ccL._decorator.ccclass;
 const property = ccL._decorator.property;
@@ -58,16 +58,16 @@ function setup(opts?: { withCustom?: boolean }) {
     const selectNode = new ccLocal.Node("SelectNode");
     ctrlNode.addChild(selectNode);
 
-    const ctrl = ctrlNode.addComponent(StateControllerV2);
+    const ctrl = ctrlNode.addComponent(StateController);
     (ctrl as any).__preload();
 
-    // 在挂 StateSelectV2 之前先挂自定义 fixture, 这样 __preload 时能扫到
+    // 在挂 StateSelect 之前先挂自定义 fixture, 这样 __preload 时能扫到
     let fixture: W6_AutoFixtureA | null = null;
     if (withCustom) {
         fixture = selectNode.addComponent(W6_AutoFixtureA);
     }
 
-    const select = selectNode.addComponent(StateSelectV2);
+    const select = selectNode.addComponent(StateSelect);
     (select as any).__preload();
 
     (ctrl as any).markCacheDirty();
@@ -89,15 +89,14 @@ describe("W6-2a 自定义 @ccclass 组件端到端 (双 key 存储)", () => {
     it("__preload 自动接入: 自定义 prop 写入 ctrlData 内层 string key", () => {
         const { ctrl, select } = setup();
 
-        // ctrlData[ctrlId][state0].$$controlledProps$$ 应该含自定义 propRef 作为 string key
-        const propData = (select as any).getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-        expect(propData).toBeDefined();
-        const cp = propData.$$controlledProps$$ || {};
-
+        // Track1 序列化瘦身: 受控集上提到 ctrl 级 $$default$$, auto-opt 不再逐 state 内联.
         // 自定义 prop 用 propRef 字符串作 key (双 key 存储的新路径)
+        const cp = (select as any).getDefaultData(ctrl.ctrlId).$$controlledProps$$ || {};
         expect(cp["W6_AutoFixtureA.heatLevel"]).toBeDefined();
         expect(cp["W6_AutoFixtureA.label"]).toBeDefined();
         expect(cp["W6_AutoFixtureA.ratio"]).toBeDefined();
+        // 公开契约同样成立 (与存储位置解耦)
+        expect(select.isPropertyControlledByPropRef("W6_AutoFixtureA.heatLevel")).toBe(true);
     });
 
     it("isPropertyControlledByPropRef: 自定义 prop 接入后 propRef 查询返回 true", () => {
@@ -167,18 +166,18 @@ describe("W6-2a 自定义 @ccclass 组件端到端 (双 key 存储)", () => {
         const selectNode = new ccLocal.Node("SelectNode");
         ctrlNode.addChild(selectNode);
 
-        const ctrl = ctrlNode.addComponent(StateControllerV2);
+        const ctrl = ctrlNode.addComponent(StateController);
         (ctrl as any).__preload();
         selectNode.addComponent(W6_AutoFixtureA);
 
-        const select = selectNode.addComponent(StateSelectV2);
+        const select = selectNode.addComponent(StateSelect);
         // 在 __preload 之前注入用户排除列表
         (select as any)._userExcludedProps = ["W6_AutoFixtureA.heatLevel"];
         (select as any).__preload();
         (ctrl as any).markCacheDirty();
 
-        const propData = (select as any).getPropData(ctrl.selectedIndex, ctrl.ctrlId);
-        const cp = propData.$$controlledProps$$ || {};
+        // Track1: 受控集上提到 ctrl 级 $$default$$.
+        const cp = (select as any).getDefaultData(ctrl.ctrlId).$$controlledProps$$ || {};
         // 被排除的 propRef 不接入
         expect(cp["W6_AutoFixtureA.heatLevel"]).toBeUndefined();
         // 其它 propRef 仍接入
