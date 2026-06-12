@@ -1,12 +1,27 @@
 {
-  "name": "cocos-state-controller",
+  "name": "@fenglimg/cocos-state-controller",
   "version": "1.0.0",
-  "description": "Cocos Creator State Controller - 状态控制器组件",
-  "private": true,
+  "description": "Cocos Creator State Controller — 状态控制器组件 + 分发/同步 CLI (csc)",
+  "bin": {
+    "csc": "bin/csc.js"
+  },
+  "files": [
+    "bin/",
+    "assets/script/controller/",
+    "packages/state-controller-v2-panel/",
+    "tools/migration/",
+    "tools/state-controller-sync-manifest.json",
+    "skills/cocos-state-controller/",
+    "skills/cocos-scv2-migrate/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "lint": "eslint assets/ --ext .ts,.js",
     "lint:fix": "eslint assets/ --ext .ts,.js --fix",
     "migrate:v1-to-v2": "node tools/migration/migrate-prefab-v1-to-v2.js",
+    "test": "cd tests && npx jest",
     "prepare": "husky"
   },
   "devDependencies": {
