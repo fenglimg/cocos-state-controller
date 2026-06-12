@@ -11,11 +11,13 @@
  * 设计：入口只做 argv 路由 + help/version；命令实现落 lib/commands/*（P1 起建）。
  */
 
+const fs = require('fs');
 const path = require('path');
 const installMod = require('../lib/commands/install');
 const diffMod = require('../lib/commands/diff');
 const doctorMod = require('../lib/commands/doctor');
 const updateMod = require('../lib/commands/update');
+const syncMod = require('../lib/commands/sync');
 const lockMod = require('../lib/lock');
 const baselineMod = require('../lib/baseline');
 
@@ -140,6 +142,45 @@ function cmdUpdate(args) {
   return 0;
 }
 
+function cmdSync(args) {
+  const { flags } = parseFlags(args);
+  if (!flags.upstream) {
+    console.error('用法: csc sync --upstream [--output patch.diff]');
+    return 1;
+  }
+  const targetRoot = process.cwd();
+  const lock = lockMod.readLock(targetRoot);
+  if (!lock) {
+    console.error('✗ 未安装：先 csc install');
+    return 1;
+  }
+  const pkg = require(path.join(__dirname, '..', 'package.json')).name;
+  let basePayloadRoot;
+  try {
+    basePayloadRoot = flags['base-payload'] || baselineMod.reconstructBaseline({ pkg, version: lock.packageVersion });
+  } catch (e) {
+    console.error('✗ 取基线失败（需包已发布到 npm）：' + e.message);
+    return 1;
+  }
+
+  const r = syncMod.sync({ targetRoot, basePayloadRoot });
+  if (!r.hasChanges) {
+    console.log('无上行改动（与装的版本一致）');
+    return 0;
+  }
+  if (flags.output && typeof flags.output === 'string') {
+    fs.writeFileSync(flags.output, r.patch);
+    console.log(`patch 写入 ${flags.output}`);
+  } else {
+    process.stdout.write(r.patch);
+  }
+  console.error(
+    `\n// 改动 modified ${r.summary.modified} / added ${r.summary.added} / removed ${r.summary.removed}` +
+      '（交上行 PR skill 据 §4 漂移政策取舍 + 开 GitHub PR）'
+  );
+  return 0;
+}
+
 /** @type {Record<string, { phase: string, summary: string, handler: CommandHandler }>} */
 const COMMANDS = {
   install: { phase: 'P3', summary: '拷净荷 + 写 .meta + 写 .csc/lock.json + uuid 撞车预检 + 提示重启编辑器',
@@ -153,7 +194,7 @@ const COMMANDS = {
   migrate: { phase: 'P6', summary: '确定性 prefab V1→V2 迁移引擎（remote bundle 默认拒绝）',
     handler: notYetImplemented('migrate', 'P6') },
   sync: { phase: 'P5', summary: '重建 vX 基线 + 反归一化 + 三方 diff → 输出 patch（交 AI Skill 开 PR）',
-    handler: notYetImplemented('sync', 'P5') },
+    handler: cmdSync },
   skill: { phase: 'P6', summary: '分发 skills 到 .claude/.codex',
     handler: notYetImplemented('skill', 'P6') },
   uninstall: { phase: 'P3', summary: '按 lock 移除 managed 文件 + .csc/（回退）',
