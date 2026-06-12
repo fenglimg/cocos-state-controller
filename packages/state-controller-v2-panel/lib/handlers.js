@@ -26,7 +26,15 @@
 // 项目源 require — 仅 jest 路径用得到, cocos 编辑器侧 try 失败也无害.
 let _CapabilityRegistry = null;
 try {
-    require('../../../assets/script/controller/capabilities/index');
+    // 逐个 require 内置 capability 触发 side-effect 自注册 (原 capabilities/index barrel 已删:
+    // cocos 2.x 构建会无条件包含 assets 下所有脚本, barrel 仅 jest/此处显式加载需要).
+    require('../../../assets/script/controller/capabilities/AutoSyncCapability');
+    require('../../../assets/script/controller/capabilities/EventCapability');
+    require('../../../assets/script/controller/capabilities/MigrationCapability');
+    require('../../../assets/script/controller/capabilities/MultiCtrlBindingCapability');
+    require('../../../assets/script/controller/capabilities/PropertyControlCapability');
+    require('../../../assets/script/controller/capabilities/RecordingCapability');
+    require('../../../assets/script/controller/capabilities/SelectedPageIdCapability');
     _CapabilityRegistry = require('../../../assets/script/controller/CapabilityRegistry').CapabilityRegistry;
 } catch (_) {
     // cocos editor scene-script 上下文 — 项目 ts 源不可达, installBroadcastBridge 降级

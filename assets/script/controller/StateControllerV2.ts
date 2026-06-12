@@ -4,7 +4,6 @@ import { cloneValueByType } from "./NestedCtrlData";
 // Wave 3 T07: 让所有 L0 内置 capability 跟着 StateControllerV2 一起被打入产出 (side-effect 自注册).
 // 显式 /index: cocos 2.x ts 编译路径不做 folder→index 解析, 写 "./capabilities" 会报
 // "Cannot find module './capabilities'" (jest 用 node resolver 能解出, 编辑器不行).
-import "./capabilities/index";
 import { EnumPropName, EnumStateName, EnumUpdateType } from "./StateEnumV2";
 import { StateErrorManager } from "./StateErrorManagerV2";
 import { StateSelectV2 } from "./StateSelectV2";
