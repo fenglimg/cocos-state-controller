@@ -25,13 +25,22 @@ export class SelectExcludeGroup {
         return this.owner ? this.owner.excludedPropsDisplay : [];
     }
 
-    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单 (用 cocos 数组 - 按钮恢复跟随)" })
+    @property({ type: EnumExcludeSlot, displayName: "+ 添加排除", tooltip: "从当前跟随中选一个 prop 加入排除清单" })
     public get addExcludeTrigger(): number {
         return 0;
     }
 
     public set addExcludeTrigger(v: number) {
         if (this.owner) this.owner.addExcludeTrigger = v;
+    }
+
+    @property({ type: EnumExcludeSlot, displayName: "- 恢复跟随", tooltip: "从用户排除清单选一个 prop 恢复跟随 (含 [失效] 项可在此清理)" })
+    public get removeExcludeTrigger(): number {
+        return this.owner ? this.owner.removeExcludeTrigger : 0;
+    }
+
+    public set removeExcludeTrigger(v: number) {
+        if (this.owner) this.owner.removeExcludeTrigger = v;
     }
 
     @property({

@@ -76,9 +76,9 @@ describe("W6-4 inspector 排除清单 UI", () => {
         const { select } = setup();
         const display = (select as any).excludedPropsDisplay;
         expect(Array.isArray(display)).toBe(true);
-        // SYSTEM_EXCLUDE 6 项必含
+        // SYSTEM_EXCLUDE 项必含 (带 [系统] 前缀 — 显示列双标记)
         for (const ex of SYSTEM_EXCLUDE) {
-            expect(display).toContain(ex);
+            expect(display).toContain(`[系统] ${ex}`);
         }
         // 默认 _userExcludedProps 为空, 不应额外项
         expect(display.length).toBe(SYSTEM_EXCLUDE.length);
@@ -88,11 +88,11 @@ describe("W6-4 inspector 排除清单 UI", () => {
         const { select } = setup();
         (select as any)._userExcludedProps = ["W6_ExcludeFixture.heatLevel", "W6_ExcludeFixture.label"];
         const display = (select as any).excludedPropsDisplay;
-        // 含 SYSTEM_EXCLUDE
+        // 含 SYSTEM_EXCLUDE (带 [系统] 前缀)
         for (const ex of SYSTEM_EXCLUDE) {
-            expect(display).toContain(ex);
+            expect(display).toContain(`[系统] ${ex}`);
         }
-        // 含用户加的
+        // 含用户加的有效项 (fixture 存在 → 无 [失效] 前缀)
         expect(display).toContain("W6_ExcludeFixture.heatLevel");
         expect(display).toContain("W6_ExcludeFixture.label");
         expect(display.length).toBe(SYSTEM_EXCLUDE.length + 2);

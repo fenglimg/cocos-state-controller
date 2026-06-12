@@ -149,7 +149,19 @@ export class StateSelectV2 extends cc.Component {
         // W6-4 C 方案: inspector 渲染时机做 reconcile (idempotent, O(N) 小数组). 用户在 _userExcludedProps
         // 数组 inspector +/- 后, 这里 diff 上次快照 → 触发 togglePropertyControl 同步跟随状态.
         this.reconcileUserExcluded();
-        return [...SYSTEM_EXCLUDE, ...(this._userExcludedProps || [])];
+        // 双标记 (纯显示, 不改 _userExcludedProps 原始数据 / 下拉 enumList): 系统项加 [系统];
+        // 用户失效项 (不在当前 listTrackableProps, 多因组件被删 / prop 改名) 加 [失效] 提示可在 - 下拉里清掉.
+        // trackable 计算失败时 (node 缺失等) 置 null, 退化为不打失效标记, 避免误标.
+        let trackable: Set<string> | null = null;
+        try {
+            if (this.node) trackable = new Set(listTrackableProps(this.node).map(p => p.propRef));
+        }
+        catch {
+            trackable = null;
+        }
+        const sysMarked = SYSTEM_EXCLUDE.map(r => `[系统] ${r}`);
+        const userMarked = (this._userExcludedProps || []).map(r => (trackable && !trackable.has(r)) ? `[失效] ${r}` : r);
+        return [...sysMarked, ...userMarked];
     }
 
     /**
@@ -262,6 +274,32 @@ export class StateSelectV2 extends cc.Component {
     }
 
     /**
+     * 「- 恢复跟随」下拉选项缓存 (instance scope, 非序列化). 对称 _addExcludeOptions.
+     * enumList value=v 对应 _removeExcludeOptions[v-1] (value=0 是 sentinel "(选一个恢复跟随)").
+     * 列原始 _userExcludedProps 全列 (含失效项), refreshExcludeEnumLists 注入时同步刷新.
+     */
+    private _removeExcludeOptions: string[] = [];
+
+    /**
+     * 「- 恢复跟随」快捷下拉 (对称 addExcludeTrigger). enumList[0] 是 sentinel "(选一个恢复跟随)", 真实选项 value 从 1 起.
+     * getter 恒返回 0 (操作完回到未选). setter 收 0/非法 noop, 收 >0 反查 _removeExcludeOptions[v-1] 得 propRef →
+     * setPropExcluded(propRef, false): 从 _userExcludedProps 移除 (即便 ref 失效, splice 照常完成, togglePropertyControl 安全 no-op),
+     * 同时恢复跟随. 一个下拉同时覆盖 "逐项恢复" 与 "清理失效 key" 两个诉求.
+     */
+    /** 普通访问器, inspector 可见性 + 动态 enumList 由 excludeGroup 折叠组代理. */
+    public get removeExcludeTrigger(): number {
+        return 0;
+    }
+
+    public set removeExcludeTrigger(v: number) {
+        if (!CC_EDITOR) return;
+        if (typeof v !== "number" || !Number.isFinite(v) || v === 0) return;
+        const propRef = this._removeExcludeOptions[v - 1];
+        if (!propRef) return;
+        this.setPropExcluded(propRef, false);
+    }
+
+    /**
      * W6-4 C 方案: 注入 addExcludeTrigger 下拉选项.
      *
      * 选项规则: enumList = [sentinel "(选一个...)" value=0, ...listTrackableProps - SYSTEM_EXCLUDE - _userExcludedProps value=1,2,...].
@@ -301,6 +339,16 @@ export class StateSelectV2 extends cc.Component {
         // __attrs__ 原型链 (Object.create(类attrs)) 同样能读到, 两条读路径都成立.
         // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
         cc.Class.Attr.setClassAttr(SelectExcludeGroup, "addExcludeTrigger", "enumList", addEnum);
+
+        // 「- 恢复跟随」下拉: 列原始 _userExcludedProps 全列 (含失效项, 不经 trackable 过滤 → 失效 key 也可在此清理).
+        const removeList = (this._userExcludedProps || []).slice();
+        this._removeExcludeOptions = removeList;
+        const removeEnum = [
+            { name: "(选一个恢复跟随)", value: 0 },
+            ...removeList.map((r, i) => ({ name: r, value: i + 1 })),
+        ];
+        // @ts-expect-error setClassAttr 在 cocos 2.x d.ts 中未声明
+        cc.Class.Attr.setClassAttr(SelectExcludeGroup, "removeExcludeTrigger", "enumList", removeEnum);
     }
     // #endregion W6-4
 
