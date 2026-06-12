@@ -18,6 +18,8 @@ const diffMod = require('../lib/commands/diff');
 const doctorMod = require('../lib/commands/doctor');
 const updateMod = require('../lib/commands/update');
 const syncMod = require('../lib/commands/sync');
+const migrateMod = require('../lib/commands/migrate');
+const skillMod = require('../lib/commands/skill');
 const lockMod = require('../lib/lock');
 const baselineMod = require('../lib/baseline');
 
@@ -181,6 +183,46 @@ function cmdSync(args) {
   return 0;
 }
 
+function cmdMigrate(args) {
+  const { flags, positional } = parseFlags(args);
+  if (!positional.length) {
+    console.error('用法: csc migrate <prefab|dir...> [--write] [--backup] [--allow-remote]');
+    return 1;
+  }
+  const packageRoot = path.join(__dirname, '..');
+  const r = migrateMod.migrate({
+    targets: positional,
+    projectRoot: process.cwd(),
+    packageRoot,
+    write: !!flags.write,
+    backup: !!flags.backup,
+    allowRemote: !!flags['allow-remote'],
+  });
+  if (!r.ok) {
+    console.error('✗ remote bundle 默认拒绝迁移（迁 V2-cid 会崩仅 V1 runtime 的老客户端）：');
+    r.blocked.forEach((b) => console.error(`  ${b.file} — ${b.reason}`));
+    console.error('确认全客户端已铺 V1+V2 共存 runtime 后，加 --allow-remote 重试。');
+    return 1;
+  }
+  if (r.output) process.stdout.write(r.output);
+  if (r.blocked.length) console.warn(`⚠ ${r.blocked.length} 个 remote bundle 文件已放行（--allow-remote）`);
+  return 0;
+}
+
+function cmdSkill(args) {
+  const [sub, ...rest] = args;
+  if (sub !== 'install') {
+    console.error('用法: csc skill install [--target claude|codex|all]');
+    return 1;
+  }
+  const { flags } = parseFlags(rest);
+  const packageRoot = path.join(__dirname, '..');
+  const r = skillMod.skillInstall({ packageRoot, projectRoot: process.cwd(), target: flags.target || 'all' });
+  console.log(`✓ 安装 ${r.installed.length} 个 skill 目标：`);
+  r.installed.forEach((t) => console.log('  ' + t));
+  return 0;
+}
+
 /** @type {Record<string, { phase: string, summary: string, handler: CommandHandler }>} */
 const COMMANDS = {
   install: { phase: 'P3', summary: '拷净荷 + 写 .meta + 写 .csc/lock.json + uuid 撞车预检 + 提示重启编辑器',
@@ -192,11 +234,11 @@ const COMMANDS = {
   doctor: { phase: 'P3', summary: '体检：文件齐全 / .meta uuid / uuid 撞车 / V1 cid 残留 / Cocos 版本 / lock 一致',
     handler: cmdDoctor },
   migrate: { phase: 'P6', summary: '确定性 prefab V1→V2 迁移引擎（remote bundle 默认拒绝）',
-    handler: notYetImplemented('migrate', 'P6') },
+    handler: cmdMigrate },
   sync: { phase: 'P5', summary: '重建 vX 基线 + 反归一化 + 三方 diff → 输出 patch（交 AI Skill 开 PR）',
     handler: cmdSync },
   skill: { phase: 'P6', summary: '分发 skills 到 .claude/.codex',
-    handler: notYetImplemented('skill', 'P6') },
+    handler: cmdSkill },
   uninstall: { phase: 'P3', summary: '按 lock 移除 managed 文件 + .csc/（回退）',
     handler: notYetImplemented('uninstall', 'P3') }
 };
