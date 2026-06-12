@@ -400,12 +400,21 @@ export class StateControllerV2 extends cc.Component {
         }
     }
 
-    /** 选择的状态下标 */
+    /**
+     * 选择的状态下标 (index 级低层 API)。
+     *
+     * @deprecated 业务代码请改用 `SelectedPageIdCapability.getSelectedStateId(ctrl)` 读取。
+     * index 会随 state reorder/delete 漂移; SelectedPageIdCapability 用稳定 stateId 定位。
+     * 此 getter/setter 仅供 inspector 下拉与 capability 内部使用, 不要在业务层直接读写。
+     */
     @property({ type: EnumStateName, displayName: "state", tooltip: "当前选中的状态" })
     public get selectedIndex() {
         return this._selectedIndex;
     }
 
+    /**
+     * @deprecated 业务代码请改用 `SelectedPageIdCapability.setStateById(ctrl, stateId)` 切换 (按稳定 stateId, 抗 reorder/delete 漂移)。详见 getter 说明。
+     */
     public set selectedIndex(value: EnumStateName) {
         if (this.isInit || this._selectedIndex != value) {
             this.isInit = false;
