@@ -12,8 +12,33 @@
  */
 
 const path = require('path');
+const installMod = require('../lib/commands/install');
+const diffMod = require('../lib/commands/diff');
+const doctorMod = require('../lib/commands/doctor');
 
 /** @typedef {(args: string[]) => (number|void|Promise<number|void>)} CommandHandler */
+
+/** 极简 flag 解析：--key value / --flag。 */
+function parseFlags(args) {
+  const flags = {};
+  const positional = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const next = args[i + 1];
+      if (next !== undefined && !next.startsWith('--')) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = true;
+      }
+    } else {
+      positional.push(a);
+    }
+  }
+  return { flags, positional };
+}
 
 /** 后续阶段把这些占位换成 require('../lib/commands/<cmd>')。 */
 function notYetImplemented(name, phase) {
@@ -23,16 +48,71 @@ function notYetImplemented(name, phase) {
   };
 }
 
+function cmdInstall(args) {
+  const { flags } = parseFlags(args);
+  const payloadRoot = path.join(__dirname, '..');
+  const targetRoot = process.cwd();
+  const pkg = require(path.join(payloadRoot, 'package.json'));
+  const installPaths = { ...installMod.DEFAULT_INSTALL_PATHS };
+  if (flags['runtime-path']) installPaths.runtime = flags['runtime-path'];
+  if (flags['panel-path']) installPaths.panel = flags['panel-path'];
+  if (flags.version) console.error('注意：--version 跨版本安装自 P4 起支持，当前用 CLI 自带版本净荷。');
+
+  const r = installMod.install({ payloadRoot, targetRoot, packageVersion: pkg.version, installPaths });
+  if (r.collisions.length) {
+    console.error('✗ uuid 撞车，已中止安装（未改任何文件）：');
+    for (const c of r.collisions) {
+      console.error(`  ${c.uuid}\n    包→ ${c.packageDest}\n    冲突← ${c.consumerFiles.join(', ')}`);
+    }
+    console.error('请重生成本地冲突方的 uuid（绝不动包的），再重试。');
+    return 1;
+  }
+  console.log(`✓ 安装 ${r.copied.length} 个文件 → ${targetRoot}`);
+  if (!r.cocos) console.warn('⚠ 未探测到 Cocos 版本（project.json）');
+  else if (!r.cocosSupported) console.warn(`⚠ Cocos ${r.cocos.version} 不在 2.4.x 支持范围（仅警告）`);
+  else console.log(`  Cocos ${r.cocos.version} ✓`);
+  console.log('→ 重启 Cocos 编辑器以加载面板');
+  return 0;
+}
+
+function cmdDiff() {
+  let r;
+  try {
+    r = diffMod.diffInstalled(process.cwd());
+  } catch (e) {
+    console.error('✗ ' + e.message);
+    return 1;
+  }
+  const total = r.added.length + r.removed.length + r.modified.length;
+  if (!total) {
+    console.log('无差异（与装的版本一致）');
+    return 0;
+  }
+  r.added.forEach((p) => console.log(`+ ${p}`));
+  r.removed.forEach((p) => console.log(`- ${p}`));
+  r.modified.forEach((p) => console.log(`~ ${p}`));
+  console.log(`\n共 ${total} 项（+${r.added.length} -${r.removed.length} ~${r.modified.length}）`);
+  return 0;
+}
+
+function cmdDoctor() {
+  const r = doctorMod.doctor(process.cwd());
+  const icon = { ok: '✓', warn: '⚠', fail: '✗', skipped: '·' };
+  for (const c of r.checks) console.log(`${icon[c.status] || '?'} ${c.name}: ${c.detail}`);
+  console.log(`\n体检${r.ok ? '通过' : '发现问题'}`);
+  return r.ok ? 0 : 1;
+}
+
 /** @type {Record<string, { phase: string, summary: string, handler: CommandHandler }>} */
 const COMMANDS = {
   install: { phase: 'P3', summary: '拷净荷 + 写 .meta + 写 .csc/lock.json + uuid 撞车预检 + 提示重启编辑器',
-    handler: notYetImplemented('install', 'P3') },
+    handler: cmdInstall },
   update: { phase: 'P4', summary: '取新版净荷：未改的覆盖 / 改过的三方合并；更新 lock',
     handler: notYetImplemented('update', 'P4') },
   diff: { phase: 'P3', summary: 'consumer 当前 vs 装的版本 pristine（归一化后）列 新增/删除/修改',
-    handler: notYetImplemented('diff', 'P3') },
+    handler: cmdDiff },
   doctor: { phase: 'P3', summary: '体检：文件齐全 / .meta uuid / uuid 撞车 / V1 cid 残留 / Cocos 版本 / lock 一致',
-    handler: notYetImplemented('doctor', 'P3') },
+    handler: cmdDoctor },
   migrate: { phase: 'P6', summary: '确定性 prefab V1→V2 迁移引擎（remote bundle 默认拒绝）',
     handler: notYetImplemented('migrate', 'P6') },
   sync: { phase: 'P5', summary: '重建 vX 基线 + 反归一化 + 三方 diff → 输出 patch（交 AI Skill 开 PR）',
