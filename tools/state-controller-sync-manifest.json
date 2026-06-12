@@ -24,7 +24,18 @@
     {
       "name": "agent-skill",
       "source": "skills/cocos-state-controller",
-      "target": ".codex/skills/cocos-state-controller"
+      "targets": [
+        ".claude/skills/cocos-state-controller",
+        ".codex/skills/cocos-state-controller"
+      ]
+    },
+    {
+      "name": "agent-skill-migrate-v1-v2",
+      "source": "skills/cocos-scv2-migrate",
+      "targets": [
+        ".claude/skills/cocos-scv2-migrate",
+        ".codex/skills/cocos-scv2-migrate"
+      ]
     }
   ]
 }
