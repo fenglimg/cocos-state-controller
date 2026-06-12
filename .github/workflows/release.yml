@@ -1,0 +1,43 @@
+name: release
+
+# push git tag → 全测试门禁 → npm publish + GitHub Release（docs/cli-architecture-plan.md §1/§11 P7）。
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 建 GitHub Release 需要
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      # 测试在隔离依赖环境 tests/ 下跑（根目录 jest 会 babel 全挂）
+      - name: Install test deps
+        run: cd tests && npm ci
+
+      - name: Test gate — main suite
+        run: cd tests && npx jest
+
+      - name: Test gate — CLI suite
+        run: cd tests && npx jest -c jest.config.cli.js
+
+      # 门禁过后才发布瘦净荷（files 白名单卡死）
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

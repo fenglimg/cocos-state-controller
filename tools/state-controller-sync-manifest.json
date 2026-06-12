@@ -36,6 +36,14 @@
         ".claude/skills/cocos-scv2-migrate",
         ".codex/skills/cocos-scv2-migrate"
       ]
+    },
+    {
+      "name": "agent-skill-upstream-pr",
+      "source": "skills/cocos-scv2-upstream-pr",
+      "targets": [
+        ".claude/skills/cocos-scv2-upstream-pr",
+        ".codex/skills/cocos-scv2-upstream-pr"
+      ]
     }
   ]
 }
