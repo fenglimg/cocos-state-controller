@@ -15,6 +15,9 @@ const path = require('path');
 const installMod = require('../lib/commands/install');
 const diffMod = require('../lib/commands/diff');
 const doctorMod = require('../lib/commands/doctor');
+const updateMod = require('../lib/commands/update');
+const lockMod = require('../lib/lock');
+const baselineMod = require('../lib/baseline');
 
 /** @typedef {(args: string[]) => (number|void|Promise<number|void>)} CommandHandler */
 
@@ -103,12 +106,46 @@ function cmdDoctor() {
   return r.ok ? 0 : 1;
 }
 
+function cmdUpdate(args) {
+  const { flags } = parseFlags(args);
+  const targetRoot = process.cwd();
+  const lock = lockMod.readLock(targetRoot);
+  if (!lock) {
+    console.error('✗ 未安装：先 csc install');
+    return 1;
+  }
+  const pkg = require(path.join(__dirname, '..', 'package.json')).name;
+  let basePayloadRoot;
+  let newPayloadRoot;
+  try {
+    // base = lock 记录的 vX pristine；new = 目标版本（默认 latest）。本地 dogfood 可用 --base-payload/--new-payload 覆盖。
+    basePayloadRoot = flags['base-payload'] || baselineMod.reconstructBaseline({ pkg, version: lock.packageVersion });
+    newPayloadRoot = flags['new-payload'] || baselineMod.reconstructBaseline({ pkg, version: flags.version || 'latest' });
+  } catch (e) {
+    console.error('✗ 取净荷失败（跨版本 update 需包已发布到 npm）：' + e.message);
+    return 1;
+  }
+
+  const r = updateMod.update({ targetRoot, basePayloadRoot, newPayloadRoot, newVersion: flags.version });
+  const R = r.results;
+  console.log(
+    `更新到 v${r.packageVersion}：clean ${R.clean.length} / merged ${R.merged.length} / ` +
+      `conflict ${R.conflict.length} / added ${R.added.length} / removed ${R.removed.length}`
+  );
+  if (r.hasConflict) {
+    console.warn('⚠ 冲突文件（含 <<<< 标记），需人工/AI 解：');
+    R.conflict.forEach((p) => console.warn('  ' + p));
+    return 1;
+  }
+  return 0;
+}
+
 /** @type {Record<string, { phase: string, summary: string, handler: CommandHandler }>} */
 const COMMANDS = {
   install: { phase: 'P3', summary: '拷净荷 + 写 .meta + 写 .csc/lock.json + uuid 撞车预检 + 提示重启编辑器',
     handler: cmdInstall },
   update: { phase: 'P4', summary: '取新版净荷：未改的覆盖 / 改过的三方合并；更新 lock',
-    handler: notYetImplemented('update', 'P4') },
+    handler: cmdUpdate },
   diff: { phase: 'P3', summary: 'consumer 当前 vs 装的版本 pristine（归一化后）列 新增/删除/修改',
     handler: cmdDiff },
   doctor: { phase: 'P3', summary: '体检：文件齐全 / .meta uuid / uuid 撞车 / V1 cid 残留 / Cocos 版本 / lock 一致',
