@@ -1,17 +1,11 @@
----
-name: cocos-scv2-upstream-pr
-description: 把 consumer 工程对 @fenglimg/cocos-state-controller managed 文件的本地改动，经 csc sync 算出 diff，按漂移政策取舍后在源仓 GitHub 开 PR 上行回流。触发词：上行同步、回流改动、csc sync PR、upstream PR。
----
-
-# cocos-scv2-upstream-pr — 上行回流 PR
+# 上行回流 PR
 
 把 consumer 工程里对 managed 文件（runtime + panel）的本地改动，回流到源仓
-`github.com/fenglimg/cocos-state-controller`。CLI 算差异（确定性），本 skill 做判断与编排（看懂改动、按政策取舍、写提交、开 PR）。
+`github.com/fenglimg/cocos-state-controller`。CLI 算差异（确定性），你（AI）做判断与编排（看懂改动、按政策取舍、写提交、开 PR）。
 
 ## 前置
 - consumer 工程已 `csc install`（存在 `.csc/lock.json`）。
 - 已装 `gh` CLI 且登录（`gh auth status`）。
-- 知道源仓地址：`github.com/fenglimg/cocos-state-controller`。
 
 ## 流程
 
@@ -23,7 +17,7 @@ csc sync --upstream --output /tmp/upstream.patch
 - 范围只 managed runtime+panel，不含 tests（CLI 已保证）。
 - 无改动则结束，无需 PR。
 
-### 2. 按漂移政策取舍（§4，本 skill 的判断核心）
+### 2. 按漂移政策取舍（本流程的判断核心）
 逐个 hunk 审查，**只回流符合单一规范形态的改动**：
 - ✅ **真实 bug fix / 功能改进** → 收入 PR。
 - ✅ **两端通吃的 env 收敛写法**（如统一 `Array.from(new Set())`）→ 收入。
@@ -35,14 +29,13 @@ csc sync --upstream --output /tmp/upstream.patch
 
 ### 3. 在源仓开 PR
 ```bash
-# clone 或复用源仓 working copy
 git clone https://github.com/fenglimg/cocos-state-controller /tmp/scv2-src   # 若未克隆
 cd /tmp/scv2-src
 git checkout -b upstream/<简短主题>
 git apply /tmp/upstream.patch    # 或仅 apply 取舍后保留的 hunk
 ```
 - patch 路径已是源仓 canonical 布局，直接 `git apply` 落位。
-- 若源仓 main 已领先（base 落后），按标准 PR 流程：让 git 三方合并 / 贡献者 rebase 后再提。
+- 若源仓 main 已领先，按标准 PR 流程：git 三方合并 / rebase 后再提。
 
 ### 4. 写提交 + 开 PR
 - 提交信息用中文，格式 `类型: 简短描述`（feat/fix/refactor…）。
@@ -56,12 +49,12 @@ gh pr create --repo fenglimg/cocos-state-controller \
 ## 来源
 consumer 工程上行回流（csc sync --upstream）。
 
-## 改动取舍（§4 漂移政策）
+## 改动取舍（漂移政策）
 - 收入：<列保留的改动 + 通吃理由>
 - 剔除：<列剔除的本地适配 + 原因>
 
 ## 验证
-源仓 CI（tag release workflow）跑全测试门禁。
+源仓 CI（release workflow）跑全测试门禁。
 EOF
 )"
 ```

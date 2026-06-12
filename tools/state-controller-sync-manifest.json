@@ -28,22 +28,6 @@
         ".claude/skills/cocos-state-controller",
         ".codex/skills/cocos-state-controller"
       ]
-    },
-    {
-      "name": "agent-skill-migrate-v1-v2",
-      "source": "skills/cocos-scv2-migrate",
-      "targets": [
-        ".claude/skills/cocos-scv2-migrate",
-        ".codex/skills/cocos-scv2-migrate"
-      ]
-    },
-    {
-      "name": "agent-skill-upstream-pr",
-      "source": "skills/cocos-scv2-upstream-pr",
-      "targets": [
-        ".claude/skills/cocos-scv2-upstream-pr",
-        ".codex/skills/cocos-scv2-upstream-pr"
-      ]
     }
   ]
 }

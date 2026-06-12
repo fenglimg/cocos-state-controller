@@ -92,13 +92,15 @@ describe('migrate — 引擎集成（dry-run，源仓 .fire）', () => {
 });
 
 describe('skill install', () => {
-  test('--target all → 落 .claude + .codex', () => {
+  test('--target all → 落 .claude + .codex（含 refs，收敛后仅 1 skill）', () => {
     const proj = tmp('csc-sk-');
     const r = skillInstall({ packageRoot: REPO_ROOT, projectRoot: proj, target: 'all' });
     expect(r.installed.some((t) => t.includes('.claude'))).toBe(true);
     expect(r.installed.some((t) => t.includes('.codex'))).toBe(true);
+    expect(r.installed.length).toBe(2); // 单一 router skill × 2 target
     expect(fs.existsSync(path.join(proj, '.claude/skills/cocos-state-controller/SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(proj, '.codex/skills/cocos-scv2-migrate'))).toBe(true);
+    // refs/ 子目录随 copyDir 递归分发
+    expect(fs.existsSync(path.join(proj, '.codex/skills/cocos-state-controller/refs/editor-guide.md'))).toBe(true);
   });
 
   test('--target claude → 只落 .claude', () => {
