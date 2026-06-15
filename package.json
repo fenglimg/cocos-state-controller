@@ -28,6 +28,7 @@
   },
   "files": [
     "bin/",
+    "lib/",
     "assets/script/controller/",
     "packages/state-controller-v2-panel/",
     "tools/migration/",
