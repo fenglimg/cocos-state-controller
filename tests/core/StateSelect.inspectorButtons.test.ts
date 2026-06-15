@@ -1,9 +1,8 @@
 /**
  * StateSelect Inspector 按钮契约 (Phase 4.5)
  *
- * 覆盖三个面向编辑器的 inspector 按钮:
+ * 覆盖面向编辑器的 inspector 按钮:
  *   - forceRefreshInspector: 调用 Editor.Utils.refreshSelectedInspector
- *   - manualReloadController: 重置后重新拿到 currCtrlId
  *   - deletePropertyWithConfirmation: 没选 prop 静默 / 选了且 confirm=true 才真删
  *
  * syncDataFromMemory 已在 StateSelect.syncDataFromMemory.test.ts 覆盖.
@@ -77,21 +76,6 @@ describe("StateSelect.forceRefreshInspector", () => {
         refreshSpy.mockImplementationOnce(() => { throw new Error("editor down"); });
 
         expect(() => select.forceRefreshInspector()).not.toThrow();
-    });
-});
-
-describe("StateSelect.manualReloadController", () => {
-    it("调用后 currCtrlId 应被重新分配为 parent controller 的 ctrlId", () => {
-        const { ctrl, select } = setupCtrlAndSelect();
-        const originalCtrlId = ctrl.ctrlId;
-        expect(select.currCtrlId).toBe(originalCtrlId);
-
-        // 人为清掉, 模拟 inspector 看见数据走样
-        (select as any)._currCtrlId = null;
-
-        select.manualReloadController();
-
-        expect(select.currCtrlId).toBe(originalCtrlId);
     });
 });
 

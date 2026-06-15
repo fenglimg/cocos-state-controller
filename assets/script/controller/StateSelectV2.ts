@@ -1667,6 +1667,73 @@ export class StateSelectV2 extends cc.Component {
         });
     }
 
+    /**
+     * 重新绑定控制器 (拷贝到新 prefab 后用). 清掉悬空缓存 → 按当前祖先链重扫 → 重解析绑定指针.
+     *
+     * 典型场景: 把带 StateSelectV2 的节点拷贝粘贴到另一个 prefab 后, _currCtrlId/_ctrlsMap 仍指向
+     * 老 prefab 的控制器 (新 prefab 里不存在); 自动承接 (checkParentChanged 轮询 lastParent) 又盖不住
+     * "重开 prefab" 路径 (打开即 lastParent === node.parent, 永不触发). 故需手动按当前祖先链重绑,
+     * 无需删组件再加.
+     *
+     * 数据策略: 只在「真切换到一个不同控制器」时才全删旧状态数据 (_ctrlData = {}), 因为老 prefab 的
+     * 数据在新链里绑不上、视为重来. 两个兜底防止无谓破坏:
+     *  - 目标与当前是同一控制器 → 不操作 (防误点). 不靠 ctrlId 判 "是否语义一致的 StateController"
+     *    (无法可靠判定), 同一即不动.
+     *  - 没扫到任何控制器 → 不操作 (无东西可绑, 不删唯一的数据).
+     */
+    public rebindController(): void {
+        if (!CC_EDITOR) {
+            return;
+        }
+
+        // 1. 清掉来自老 prefab 的悬空缓存. updateCtrlName 对 _ctrlsMap 只增不删, 不先清则下拉残留死控制器.
+        const prevCtrlId = this._currCtrlId;
+        this._ctrlsMap = {};
+        this._root = null;
+
+        // 2. 按当前祖先链重扫, 重建 _ctrlsMap 与 currCtrlId 下拉枚举.
+        this.updateCtrlName(this.node.parent);
+
+        // 3. 解析目标控制器: 旧绑定在新链里仍有效则保留, 否则单控制器自动绑、多控制器绑第一个 (下拉已刷新可手改).
+        const ids = Object.keys(this._ctrlsMap);
+        let nextId: number = null;
+        if (prevCtrlId != null && this._ctrlsMap[prevCtrlId]) {
+            nextId = prevCtrlId;
+        }
+        else if (ids.length) {
+            nextId = Number(ids[0]);
+        }
+
+        // 4. 兜底: 没扫到控制器, 或目标与当前一致 → 不操作, 不动数据.
+        if (nextId == null || nextId === prevCtrlId) {
+            StateErrorManager.debug("rebindController: 无新控制器可绑或与当前一致, 跳过", {
+                component: "StateSelectV2",
+                method: "rebindController",
+                params: { prevCtrlId, nextId, controllersFound: ids.length },
+            });
+            return;
+        }
+
+        // 5. 真切到不同控制器: 全删旧状态数据 (老 prefab 数据在新链绑不上, 重来), 再切指针.
+        //    直接赋值 _currCtrlId (不走 setter): 避开 setter 告警, 并保证 updateCtrlPage 比对前指针已就位.
+        this._ctrlData = {};
+        this._currCtrlId = nextId;
+
+        // 6. 刷新页面. updateCtrlPage 内部用 currCtrlId 比对, 须在 _currCtrlId 赋值后调用.
+        const ctrl = this.getCurrCtrl();
+        if (ctrl) {
+            ctrl.markCacheDirty();
+            this.updateCtrlPage(ctrl);
+            this.refProp();
+        }
+
+        StateErrorManager.info("重新绑定控制器完成", {
+            component: "StateSelectV2",
+            method: "rebindController",
+            params: { prevCtrlId, nextId, controllersFound: ids.length },
+        });
+    }
+
     /** 获取所有的Ctrl */
     private getCtrls(node: cc.Node): StateControllerV2[] {
         if (!node || !CC_EDITOR) {
@@ -3745,6 +3812,24 @@ export class StateSelectV2 extends cc.Component {
         }
     }
 
+    /**
+     * 一键重新绑定控制器: 把本节点拷贝粘贴到另一个 prefab 后, 勾一下即按当前祖先链重扫重绑,
+     * 无需删组件再加. 切到不同控制器时会清空旧状态数据 (重来); 同一控制器或没扫到控制器则不操作
+     * (详见 rebindController).
+     */
+    @property({
+        displayName: "⟳ 重新绑定控制器",
+        tooltip: "按当前所在祖先链重新解析并绑定 StateControllerV2 (拷贝到新 prefab 后用). 切到不同控制器会清空旧状态数据; 同一控制器不操作",
+    })
+    public get rebindControllerTrigger(): boolean {
+        return false;
+    }
+
+    public set rebindControllerTrigger(_value: boolean) {
+        if (!CC_EDITOR) return;
+        this.rebindController();
+    }
+
     /** 把 TPropValue 序列化为人类可读字符串 (currentStateProps 内部用) */
     private formatPropValue(value: unknown): string {
         if (value === null || value === undefined) {
@@ -4197,51 +4282,6 @@ export class StateSelectV2 extends cc.Component {
         }
     }
 
-    /** 🔧 恢复：手动重新获取控制器 */
-    public manualReloadController() {
-        if (!CC_EDITOR) {
-            return;
-        }
-
-        StateErrorManager.info("开始手动重新获取控制器", {
-            component: "StateSelectV2",
-            method: "manualReloadController",
-            params: { currentCtrlId: this.currCtrlId },
-        });
-
-        try {
-            // 🔧 第一步：重置预加载状态
-            this._isPreloaded = false;
-
-            // 🔧 第二步：清理当前状态
-            this.currCtrlId = null;
-            this._propKey = EnumPropName.Non;
-            this._propValue = null;
-
-            // 🔧 第三步：重新执行预加载逻辑
-            this.__preload();
-
-            // 🔧 第四步：强制刷新界面
-            this.forceRefreshInspector();
-
-            StateErrorManager.info("控制器重新获取完成", {
-                component: "StateSelectV2",
-                method: "manualReloadController",
-                params: {
-                    newCtrlId: this.currCtrlId,
-                    success: !!this.currCtrlId,
-                    propKey: this._propKey ? EnumPropName[this._propKey] : "None",
-                },
-            });
-        }
-        catch (error) {
-            StateErrorManager.error("控制器重新获取失败", {
-                component: "StateSelectV2",
-                method: "manualReloadController",
-                params: { error: error.message },
-            });
-        }
-    }
 
     /** 🔧 修复：从内存同步数据（包含复选框状态更新） */
     /**

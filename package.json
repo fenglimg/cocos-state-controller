@@ -1,7 +1,28 @@
 {
   "name": "@fenglimg/cocos-state-controller",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cocos Creator State Controller — 状态控制器组件 + 分发/同步 CLI (csc)",
+  "license": "MIT",
+  "author": "fenglimg <fenglimg90@gmail.com>",
+  "homepage": "https://github.com/fenglimg/cocos-state-controller#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fenglimg/cocos-state-controller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fenglimg/cocos-state-controller/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cocos",
+    "cocos-creator",
+    "state-controller",
+    "state-machine",
+    "csc",
+    "cli"
+  ],
   "bin": {
     "csc": "bin/csc.js"
   },
