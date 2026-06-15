@@ -43,7 +43,7 @@
     "lint:fix": "eslint assets/ --ext .ts,.js --fix",
     "migrate:v1-to-v2": "node tools/migration/migrate-prefab-v1-to-v2.js",
     "test": "cd tests && npx jest",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
