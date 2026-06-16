@@ -154,6 +154,7 @@ function printUsage() {
         "  --write       Write migrated JSON back to disk. Default is dry-run.",
         "  --backup      With --write, create <file>.bak before overwriting.",
         "  --root <dir>  Project root. Defaults to current working directory.",
+        "  --controller-dir <dir>  Runtime install dir (root-relative) for locating V2 .meta. Defaults to built-in candidates.",
         "  --help        Show this help.",
     ].join("\n"));
 }
@@ -186,6 +187,12 @@ function parseArgs(argv) {
             options.root = path.resolve(value);
             continue;
         }
+        if (arg === "--controller-dir") {
+            const value = argv[++i];
+            if (!value) throw new Error("--controller-dir requires a directory");
+            options.controllerDir = value; // root 相对路径（来自 .csc/lock.json installPaths.runtime）
+            continue;
+        }
         if (arg.startsWith("--")) {
             throw new Error(`Unknown option: ${arg}`);
         }
@@ -199,7 +206,7 @@ function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-function readFirstMetaUuid(root, candidates, fallbackUuid) {
+function readFirstMetaUuid(root, candidates, fallbackUuid, label) {
     for (const relativePath of candidates) {
         const metaPath = path.join(root, relativePath);
         if (!fs.existsSync(metaPath)) continue;
@@ -208,15 +215,22 @@ function readFirstMetaUuid(root, candidates, fallbackUuid) {
         return meta.uuid;
     }
     if (fallbackUuid) return fallbackUuid;
-    throw new Error(`Cannot find any meta file: ${candidates.join(", ")}`);
+    throw new Error(
+        `Cannot find ${label || "component"} .meta (looked in: ${candidates.join(", ")}). ` +
+        "If runtime is installed to a non-default directory, check .csc/lock.json installPaths.runtime " +
+        "or pass --controller-dir <dir>."
+    );
 }
 
-function createTypeMap(root) {
+// V2 组件 .meta 随 install 落在 lock 的 installPaths.runtime；该目录最高优先，其后回落历史固定候选。
+function createTypeMap(root, controllerDir) {
+    const withDir = (candidates, fileName) =>
+        controllerDir ? [path.join(controllerDir, fileName), ...candidates] : candidates;
     return {
         controllerV1: compressUuid(readFirstMetaUuid(root, CONTROLLER_V1_META_CANDIDATES, LEGACY_CONTROLLER_V1_UUID)),
         selectV1: compressUuid(readFirstMetaUuid(root, SELECT_V1_META_CANDIDATES, LEGACY_SELECT_V1_UUID)),
-        controllerV2: compressUuid(readFirstMetaUuid(root, CONTROLLER_V2_META_CANDIDATES)),
-        selectV2: compressUuid(readFirstMetaUuid(root, SELECT_V2_META_CANDIDATES)),
+        controllerV2: compressUuid(readFirstMetaUuid(root, withDir(CONTROLLER_V2_META_CANDIDATES, "StateControllerV2.ts.meta"), null, "StateControllerV2")),
+        selectV2: compressUuid(readFirstMetaUuid(root, withDir(SELECT_V2_META_CANDIDATES, "StateSelectV2.ts.meta"), null, "StateSelectV2")),
     };
 }
 
@@ -539,12 +553,13 @@ function main() {
         return;
     }
 
-    const typeMap = createTypeMap(options.root);
+    // 先校验目标存在/收集文件，再解析 meta —— 目标不存在时给出贴题报错而非 meta 找不到。
     const files = walkTargets(options.targets, options.root);
     if (files.length === 0) {
         console.log("No .prefab/.fire files found.");
         return;
     }
+    const typeMap = createTypeMap(options.root, options.controllerDir);
 
     const totals = {
         files: 0,

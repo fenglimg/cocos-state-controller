@@ -7,11 +7,13 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { migrate, detectRemoteBundle, collectTargets } = require('../../lib/commands/migrate');
+const { execFileSync } = require('child_process');
+const { migrate, detectRemoteBundle, collectTargets, extractEngineError } = require('../../lib/commands/migrate');
 const { skillInstall } = require('../../lib/commands/skill');
 const { install } = require('../../lib/commands/install');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const BIN = path.join(REPO_ROOT, 'bin/csc.js');
 
 function tmp(p) {
   return fs.mkdtempSync(path.join(os.tmpdir(), p));
@@ -103,6 +105,77 @@ describe('migrate — 引擎集成（dry-run，源仓 .fire）', () => {
     const r = migrate({ targets: ['assets/ui/Plain.prefab'], projectRoot: root, packageRoot: REPO_ROOT, write: false });
     expect(r.ok).toBe(true);
     expect(r.output).toMatch(/changedFiles=0/);
+  });
+});
+
+describe('migrate — 非默认安装目录 controllerDir（issue #3）', () => {
+  test('runtime 装到非默认目录 + 传 controllerDir → 引擎找到 V2 meta 跑通', () => {
+    const root = tmp('csc-cd-');
+    fs.writeFileSync(path.join(root, 'project.json'), JSON.stringify({ engine: 'cocos2d-html5', version: '2.4.13' }));
+    install({ payloadRoot: REPO_ROOT, targetRoot: root, packageVersion: '1.0.0', installPaths: { runtime: 'assets/custom/ctrl2', panel: 'packages/p' } });
+    const f = path.join(root, 'assets/ui/Plain.prefab');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '[{"__type__":"cc.Node","_name":"plain"}]');
+
+    // 不传 controllerDir → 引擎在写死候选里找不到 V2 meta → engine-error
+    const miss = migrate({ targets: ['assets/ui/Plain.prefab'], projectRoot: root, packageRoot: REPO_ROOT });
+    expect(miss.ok).toBe(false);
+    expect(miss.reason).toBe('engine-error');
+    expect(miss.engineError).toMatch(/StateControllerV2/);
+
+    // 传 controllerDir（= lock 的 installPaths.runtime）→ 跑通
+    const ok = migrate({ targets: ['assets/ui/Plain.prefab'], projectRoot: root, packageRoot: REPO_ROOT, controllerDir: 'assets/custom/ctrl2' });
+    expect(ok.ok).toBe(true);
+    expect(ok.output).toMatch(/summary/);
+  });
+});
+
+describe('migrate — 干净错误（issue #5）', () => {
+  test('不存在的目标 → reason no-targets，不跑引擎', () => {
+    const root = tmp('csc-nt-');
+    const r = migrate({ targets: ['assets/does-not-exist.prefab'], projectRoot: root, packageRoot: REPO_ROOT });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('no-targets');
+    expect(r.ran).toBe(false);
+  });
+
+  test('引擎抛错 → reason engine-error + 单条可读原因（无堆栈裸抛）', () => {
+    const root = tmp('csc-ee-');
+    fs.writeFileSync(path.join(root, 'project.json'), JSON.stringify({ engine: 'cocos2d-html5', version: '2.4.13' }));
+    install({ payloadRoot: REPO_ROOT, targetRoot: root, packageVersion: '1.0.0' });
+    const f = path.join(root, 'assets/ui/Bad.prefab');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '{"not":"an array"}'); // 引擎要求根为数组 → 抛错
+    const r = migrate({ targets: ['assets/ui/Bad.prefab'], projectRoot: root, packageRoot: REPO_ROOT });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('engine-error');
+    expect(r.engineError).toMatch(/array/);
+    expect(r.engineError).not.toMatch(/\n/); // 单条，非整栈
+  });
+
+  test('extractEngineError：取首个非 at 行，去 Error: 前缀', () => {
+    expect(extractEngineError('Error: boom\n    at foo (x:1)\n    at bar (y:2)')).toBe('boom');
+    expect(extractEngineError('', 'fallback')).toBe('fallback');
+  });
+});
+
+describe('bin — 子命令 --help 短路（issue #4）', () => {
+  test.each(['diff', 'install', 'uninstall', 'update', 'migrate'])('csc %s --help 打印用法且不执行命令', (cmd) => {
+    const root = tmp('csc-help-');
+    const out = execFileSync('node', [BIN, cmd, '--help'], { cwd: root, encoding: 'utf8' });
+    expect(out).toMatch(new RegExp(`用法: csc ${cmd}`));
+    // 未执行命令副作用：diff/uninstall 在未装工程会报「未安装」错误，这里不应出现
+    expect(out).not.toMatch(/未安装|安装完成|卸载完成/);
+    expect(fs.existsSync(path.join(root, '.csc'))).toBe(false);
+  });
+
+  test('csc install --yes --help 不触发安装（破坏性短路）', () => {
+    const root = tmp('csc-help2-');
+    fs.writeFileSync(path.join(root, 'project.json'), JSON.stringify({ engine: 'cocos2d-html5', version: '2.4.13' }));
+    fs.mkdirSync(path.join(root, 'assets'), { recursive: true });
+    const out = execFileSync('node', [BIN, 'install', '--yes', '--help'], { cwd: root, encoding: 'utf8' });
+    expect(out).toMatch(/用法: csc install/);
+    expect(fs.existsSync(path.join(root, '.csc/lock.json'))).toBe(false); // 没真装
   });
 });
 
