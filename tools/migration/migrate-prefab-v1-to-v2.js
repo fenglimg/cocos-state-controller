@@ -10,8 +10,7 @@
 
 const fs = require("fs");
 const path = require("path");
-
-const BASE64_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const { compressUuid } = require("../../lib/cocos");
 
 const DEFAULT_ROOT = process.cwd();
 const LEGACY_CONTROLLER_V1_UUID = "16b3e1ab-f9ea-4f09-ac6f-a92d6e80fdee";
@@ -210,23 +209,6 @@ function readFirstMetaUuid(root, candidates, fallbackUuid) {
     }
     if (fallbackUuid) return fallbackUuid;
     throw new Error(`Cannot find any meta file: ${candidates.join(", ")}`);
-}
-
-function compressUuid(uuid) {
-    const hex = String(uuid).replace(/-/g, "");
-    if (!/^[0-9a-fA-F]{32}$/.test(hex)) {
-        throw new Error(`Invalid uuid: ${uuid}`);
-    }
-
-    let out = hex.slice(0, 5);
-    for (let i = 5; i < 32; i += 3) {
-        const a = parseInt(hex[i], 16);
-        const b = parseInt(hex[i + 1], 16);
-        const c = parseInt(hex[i + 2], 16);
-        out += BASE64_KEYS[(a << 2) | (b >> 2)];
-        out += BASE64_KEYS[((b & 3) << 4) | c];
-    }
-    return out;
 }
 
 function createTypeMap(root) {
@@ -527,9 +509,13 @@ function migratePrefabJson(json, typeMap) {
 function migrateFile(filePath, typeMap, options) {
     const before = fs.readFileSync(filePath, "utf8");
     const json = JSON.parse(before);
+    // 基准 = 原始 JSON 同序列化器重排（未迁移）。与迁移后 after 比，差异即真实迁移，
+    // 不含 Cocos 原始格式 ↔ JSON.stringify 的纯格式噪声 —— 否则零迁移文件也会被误判 changed，
+    // --write 会把整份 prefab 无谓重排成巨量 diff。
+    const baseline = `${JSON.stringify(JSON.parse(before), null, 2)}\n`;
     const stats = migratePrefabJson(json, typeMap);
     const after = `${JSON.stringify(json, null, 2)}\n`;
-    const changed = before !== after;
+    const changed = baseline !== after;
 
     if (changed && options.write) {
         if (options.backup) {

@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 const { migrate, detectRemoteBundle, collectTargets } = require('../../lib/commands/migrate');
 const { skillInstall } = require('../../lib/commands/skill');
+const { install } = require('../../lib/commands/install');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
@@ -88,6 +89,20 @@ describe('migrate — 引擎集成（dry-run，源仓 .fire）', () => {
     expect(r.ok).toBe(true);
     expect(r.ran).toBe(true);
     expect(r.output).toMatch(/summary/);
+  });
+
+  test('无可迁移内容的 prefab（仅格式与 JSON.stringify 不同）→ changedFiles=0', () => {
+    // 纯格式差异（紧凑 JSON ↔ 2 空格缩进）不得误判 changed，否则 --write 会无谓重排整份 prefab。
+    // 先 install 铺 runtime（引擎 createTypeMap 需 controller V2 .meta 推 cid），再放紧凑 prefab。
+    const root = tmp('csc-fmt-');
+    fs.writeFileSync(path.join(root, 'project.json'), JSON.stringify({ engine: 'cocos2d-html5', version: '2.4.13' }));
+    install({ payloadRoot: REPO_ROOT, targetRoot: root, packageVersion: '1.0.0' });
+    const f = path.join(root, 'assets/ui/Plain.prefab');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '[{"__type__":"cc.Node","_name":"plain"}]'); // 无 V1 控制器 + 紧凑格式
+    const r = migrate({ targets: ['assets/ui/Plain.prefab'], projectRoot: root, packageRoot: REPO_ROOT, write: false });
+    expect(r.ok).toBe(true);
+    expect(r.output).toMatch(/changedFiles=0/);
   });
 });
 

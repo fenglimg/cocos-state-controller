@@ -33,8 +33,7 @@
     "packages/state-controller-v2-panel/",
     "tools/migration/",
     "tools/state-controller-sync-manifest.json",
-    "skills/cocos-state-controller/",
-    "skills/cocos-scv2-migrate/"
+    "skills/cocos-state-controller/"
   ],
   "publishConfig": {
     "access": "public"
@@ -57,5 +56,9 @@
     "assets/**/*.ts": [
       "eslint --fix"
     ]
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
   }
 }

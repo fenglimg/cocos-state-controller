@@ -4,6 +4,7 @@
  * P3 dogfood：在临时 consumer 工程上跑 install → diff → doctor，净荷源 = 源仓自身。
  */
 
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -13,6 +14,7 @@ const { doctor } = require('../../lib/commands/doctor');
 const { readLock } = require('../../lib/lock');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..'); // 源仓根 = 净荷源
+const BIN = path.join(REPO_ROOT, 'bin/csc.js');
 const SC_CANONICAL = 'assets/script/controller/StateControllerV2.ts';
 const SC_META_UUID = '931dc519-4e18-4197-843c-50af732e8be6';
 
@@ -58,6 +60,19 @@ describe('csc install (dogfood)', () => {
     expect(r.collisions.length).toBeGreaterThan(0);
     expect(r.copied).toEqual([]);
     expect(readLock(consumer)).toBeNull();
+  });
+
+  test('bin install 默认随装分发 skill → .claude/.codex（--no-skill 关）', () => {
+    const consumer = makeConsumer();
+    execFileSync('node', [BIN, 'install'], { cwd: consumer, encoding: 'utf8' });
+    expect(fs.existsSync(path.join(consumer, '.claude/skills/cocos-state-controller/SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(consumer, '.codex/skills/cocos-state-controller/SKILL.md'))).toBe(true);
+
+    const noSkill = makeConsumer();
+    execFileSync('node', [BIN, 'install', '--no-skill'], { cwd: noSkill, encoding: 'utf8' });
+    expect(fs.existsSync(path.join(noSkill, '.claude'))).toBe(false);
+    expect(fs.existsSync(path.join(noSkill, '.codex'))).toBe(false);
+    expect(readLock(noSkill)).not.toBeNull(); // 关 skill 不影响净荷安装
   });
 
   test('自定义 installPaths：文件落自定义位置，lock.files key 仍 canonical', () => {
