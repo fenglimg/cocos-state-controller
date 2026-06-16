@@ -2,7 +2,7 @@
 
 /**
  * lib/ui.js 表现层单测：符号恒在 / stdout-stderr 流向 / confirm 守卫。
- * jest 非 TTY 环境下 picocolors 自动去色，故输出 = 纯「符号 + 文本」，正好验证「留符号去色」。
+ * 颜色由 picocolors 按 NO_COLOR/TTY/CI 自动开关（CI 下会开色），故不断言颜色码有无。
  */
 
 const ui = require('../../lib/ui');
@@ -58,10 +58,9 @@ describe('lib/ui 符号与流向', () => {
     expect(err).toBe('');
   });
 
-  test('非 TTY 下保留符号、不含 ANSI 颜色码', () => {
+  test('符号始终存在（颜色由 picocolors 按环境开关，不在此断言）', () => {
     const { out } = capture(() => ui.ok('x'));
     expect(out).toContain('✓');
-    expect(out).not.toContain('['); // 无颜色转义
   });
 });
 
