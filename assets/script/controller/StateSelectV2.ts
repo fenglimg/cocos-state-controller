@@ -4025,63 +4025,6 @@ export class StateSelectV2 extends cc.Component {
         return availableProps;
     }
 
-    /**
-     * 智能属性推断: 批量启用所有 applicable prop. TASK-003 之后 __preload 已自动接入,
-     * 此方法保留作为外部工具入口 (例: panel 命令 / 脚本批量配置 / 现有 jest 测试).
-     */
-    public autoConfigureAllProperties(): { enabled: number, skipped: number, failed: number } {
-        if (!CC_EDITOR) {
-            return { enabled: 0, skipped: 0, failed: 0 };
-        }
-
-        StateErrorManager.info("开始批量启用所有可用属性", {
-            component: "StateSelectV2",
-            method: "autoConfigureAllProperties",
-        });
-
-        const result = { enabled: 0, skipped: 0, failed: 0 };
-        const availableProps = this.scanAvailableProperties();
-
-        for (const propType of availableProps) {
-            // 跳过已控制的属性
-            if (this.isPropertyControlled(propType)) {
-                result.skipped++;
-                continue;
-            }
-
-            // 启用属性控制
-            try {
-                this.togglePropertyControl(propType, true);
-                result.enabled++;
-
-                StateErrorManager.debug("属性已自动启用", {
-                    component: "StateSelectV2",
-                    method: "autoConfigureAllProperties",
-                    params: { propType: EnumPropName[propType] },
-                });
-            }
-            catch (error) {
-                result.failed++;
-                StateErrorManager.warn("属性启用失败", {
-                    component: "StateSelectV2",
-                    method: "autoConfigureAllProperties",
-                    params: { propType: EnumPropName[propType], error: error.message },
-                });
-            }
-        }
-
-        // 刷新编辑器界面
-        this.forceRefreshInspector();
-
-        StateErrorManager.info("批量启用完成", {
-            component: "StateSelectV2",
-            method: "autoConfigureAllProperties",
-            params: result,
-        });
-
-        return result;
-    }
-
     /** 🔧 架构重构：添加属性控制（分离控制状态和数据状态） */
     private addPropertyControl(propType: EnumPropName) {
         const propData = this.getPropData();

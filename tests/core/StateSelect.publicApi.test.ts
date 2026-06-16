@@ -6,7 +6,7 @@
  *   - isPropertyControlled: 切换控制后状态反映正确
  *   - togglePropertyControl(true/false): 启用 / 解除 控制
  *
- * scanAvailableProperties / autoConfigureAllProperties 拆到
+ * scanAvailableProperties 拆到
  * StateSelect.scanProps.test.ts 单独走 red→green (Phase 4.3 发现 cc.Enum 副作用 bug).
  */
 

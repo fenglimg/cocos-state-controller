@@ -1,9 +1,9 @@
 /**
- * StateSelect.scanAvailableProperties / autoConfigureAllProperties (Phase 4.3 part 2)
+ * StateSelect.scanAvailableProperties (Phase 4.3 part 2)
  *
  * Red→Green bug 修复:
  *
- * 现象: scanAvailableProperties 永远返回 []; autoConfigureAllProperties 永远 enabled=0.
+ * 现象: scanAvailableProperties 永远返回 [].
  *
  * 根因: StateSelect.ts 顶部调用 `cc.Enum(EnumPropName)` 之后,
  * cocos 引擎把 EnumPropName 上的数字 key (反向映射) 设为 enumerable: false,
@@ -88,52 +88,5 @@ describe("StateSelect.scanAvailableProperties", () => {
         const { select } = setupCtrlAndSelect();
         const available = select.scanAvailableProperties();
         expect(available).not.toContain(EnumPropName.Non);
-    });
-});
-
-describe("StateSelect.autoConfigureAllProperties", () => {
-    it("空白节点上调一次, 应启用 8 个节点基础 prop, skipped=0 failed=0", () => {
-        const { select } = setupCtrlAndSelect();
-        // TASK-003: __preload 自动接入 8 个节点基础 prop, 先逐个 opt-out 回到旧基线
-        for (const p of [EnumPropName.Active, EnumPropName.Position, EnumPropName.Euler,
-                         EnumPropName.Scale, EnumPropName.Anchor, EnumPropName.Size,
-                         EnumPropName.Color, EnumPropName.Opacity]) {
-            select.togglePropertyControl(p, false);
-        }
-        const result = select.autoConfigureAllProperties();
-
-        expect(result.enabled).toBe(8);
-        expect(result.skipped).toBe(0);
-        expect(result.failed).toBe(0);
-
-        expect(select.isPropertyControlled(EnumPropName.Active)).toBe(true);
-        expect(select.isPropertyControlled(EnumPropName.Opacity)).toBe(true);
-    });
-
-    it("先启用一部分再调, 已启用的进 skipped", () => {
-        const { select } = setupCtrlAndSelect();
-        // TASK-003: __preload 自动接入 8 个, 先全 opt-out 回到旧基线
-        for (const p of [EnumPropName.Active, EnumPropName.Position, EnumPropName.Euler,
-                         EnumPropName.Scale, EnumPropName.Anchor, EnumPropName.Size,
-                         EnumPropName.Color, EnumPropName.Opacity]) {
-            select.togglePropertyControl(p, false);
-        }
-        select.togglePropertyControl(EnumPropName.Active, true);
-        select.togglePropertyControl(EnumPropName.Opacity, true);
-
-        const result = select.autoConfigureAllProperties();
-        // 8 节点 prop 中 2 已启用 → skipped 2, enabled 6
-        expect(result.enabled).toBe(6);
-        expect(result.skipped).toBe(2);
-        expect(result.failed).toBe(0);
-    });
-
-    it("挂了 cc.Toggle 应额外启用 ToggleIsChecked", () => {
-        const ccL = (globalThis as any).cc;
-        const { select, selectNode } = setupCtrlAndSelect();
-        selectNode.addComponent(ccL.Toggle);
-
-        select.autoConfigureAllProperties();
-        expect(select.isPropertyControlled(EnumPropName.ToggleIsChecked)).toBe(true);
     });
 });
