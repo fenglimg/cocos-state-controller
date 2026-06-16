@@ -1,6 +1,6 @@
 {
   "name": "@fenglimg/cocos-state-controller",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cocos Creator State Controller — 状态控制器组件 + 分发/同步 CLI (csc)",
   "license": "MIT",
   "author": "fenglimg <fenglimg90@gmail.com>",
