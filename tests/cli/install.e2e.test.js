@@ -8,7 +8,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { install } = require('../../lib/commands/install');
+const { install, checkInstallPaths, candidateRuntimeDirs } = require('../../lib/commands/install');
 const { diffInstalled } = require('../../lib/commands/diff');
 const { doctor } = require('../../lib/commands/doctor');
 const { readLock } = require('../../lib/lock');
@@ -73,6 +73,48 @@ describe('csc install (dogfood)', () => {
     expect(fs.existsSync(path.join(noSkill, '.claude'))).toBe(false);
     expect(fs.existsSync(path.join(noSkill, '.codex'))).toBe(false);
     expect(readLock(noSkill)).not.toBeNull(); // 关 skill 不影响净荷安装
+  });
+
+  test('bin install --runtime-path：controller 落自定义目录（非交互不卡提问）', () => {
+    const consumer = makeConsumer();
+    execFileSync('node', [BIN, 'install', '--runtime-path', 'assets/game/scv2', '--no-skill'], {
+      cwd: consumer,
+      encoding: 'utf8',
+    });
+    expect(fs.existsSync(path.join(consumer, 'assets/game/scv2/StateControllerV2.ts'))).toBe(true);
+    expect(readLock(consumer).installPaths.runtime).toBe('assets/game/scv2');
+    expect(Object.keys(readLock(consumer).files)).toContain(SC_CANONICAL); // lock key 仍 canonical
+  });
+
+  test('bin install 无 flag + 非交互（无 TTY）→ controller 走默认 canonical', () => {
+    const consumer = makeConsumer();
+    execFileSync('node', [BIN, 'install', '--no-skill'], { cwd: consumer, encoding: 'utf8' });
+    expect(fs.existsSync(path.join(consumer, SC_CANONICAL))).toBe(true);
+    expect(readLock(consumer).installPaths.runtime).toBe('assets/script/controller');
+  });
+
+  test('candidateRuntimeDirs：默认排第一 + 扫到 assets/ 下已有目录(去重默认)', () => {
+    const consumer = makeConsumer();
+    const def = 'assets/script/controller';
+    // 空 assets/ → 仅默认项
+    expect(candidateRuntimeDirs(consumer, def)).toEqual([def]);
+
+    fs.mkdirSync(path.join(consumer, 'assets/scripts/foo'), { recursive: true });
+    fs.mkdirSync(path.join(consumer, 'assets/game'), { recursive: true });
+    const dirs = candidateRuntimeDirs(consumer, def);
+    expect(dirs[0]).toBe(def); // 默认/推荐恒在首位
+    expect(dirs).toContain('assets/scripts');
+    expect(dirs).toContain('assets/scripts/foo'); // depth≤2
+    expect(dirs).toContain('assets/game');
+    expect(dirs.filter((p) => p === def).length).toBe(1); // 默认不重复
+  });
+
+  test('checkInstallPaths：路径符合约束→无警告；越界→出警告（软校验不拦）', () => {
+    expect(checkInstallPaths({ runtime: 'assets/script/controller', panel: 'packages/scv2-panel' })).toEqual([]);
+    const w = checkInstallPaths({ runtime: 'src/vendor/scv2', panel: 'editor/panel' });
+    expect(w.length).toBe(2);
+    expect(w[0]).toMatch(/assets\//);
+    expect(w[1]).toMatch(/packages\//);
   });
 
   test('自定义 installPaths：文件落自定义位置，lock.files key 仍 canonical', () => {

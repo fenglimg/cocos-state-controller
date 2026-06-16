@@ -20,7 +20,9 @@ csc install [--version X] [--runtime-path P] [--panel-path P] [--no-skill]
 - **默认随装分发 agent skills** 到 `.claude/skills` 与 `.codex/skills`（等价 `csc skill install --target all`）；加 `--no-skill` 关闭。
 - Cocos 版本不在 2.4.x **只 warn 不拦**。
 - 装完提示「重启 Cocos 编辑器加载面板」。
+- **交互式选 controller 目录**：TTY 下直接 `csc install` 弹 ↑↓ 菜单选 controller 运行时目录 —— 默认/推荐 `assets/script/controller` 排第一，其后是扫到的 `assets/` 下已有子目录（depth≤2），末项「✎ 自定义输入…」转文本框（预填默认值，可改）兜底任意路径。`--runtime-path P` 显式给值则跳过菜单；`--yes` / 非交互（管道/CI）走默认。panel 形态固定（须在 `packages/` 下），不弹问，仅 `--panel-path P` 可改。
 - `--runtime-path` / `--panel-path`：自定义安装位置（记进 `.csc/lock.json`，`lock.files` 的 key 仍是 canonical 路径）。
+- **软校验**：runtime 不在 `assets/` 下、panel 不在 `packages/` 下时 **只 warn 不拦**（引擎可能不识别/编辑器不加载，但尊重用户判断）。
 
 ## update — 更新到新版（三方合并）
 
