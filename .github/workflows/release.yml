@@ -21,6 +21,10 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      # bin/csc.js 运行时依赖 picocolors/prompts（CLI e2e 经 execFileSync 跑 bin 需要）
+      - name: Install runtime deps
+        run: npm ci --omit=dev
+
       # 测试在隔离依赖环境 tests/ 下跑（根目录 jest 会 babel 全挂）
       - name: Install test deps
         run: cd tests && npm ci
