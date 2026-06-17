@@ -175,26 +175,20 @@ describe("StateSelect 双轨对称性 (内置 facade vs 自定义 propRef)", () 
             expect((select as any).extractPropRefKeys(pd).indexOf(CUSTOM_PROPREF)).toBeGreaterThanOrEqual(0);
         });
 
-        it("内置 propRef 同时进 batchUpdateUI(ENUM) 与 applyPropRefKeysToNode(propRef) 两条 apply 轨 [F-9 红: 双写]", () => {
+        it("内置 propRef 仅经 applyPropRefKeysToNode 一条 apply 轨 (ENUM batchUpdateUI 轨已删) [F-9 已根治]", () => {
             const { ctrl, select } = setup();
-            const spyWritePropRef = jest.spyOn(select as any, "writeNodeValueByPropRef");
-            const spyBatch = jest.spyOn(select as any, "batchUpdateUI");
+            // T2/X方案 收敛单轨: batchUpdateUI 方法已删除 — 结构性证明无 ENUM 第二 apply 轨。
+            expect((select as any).batchUpdateUI).toBeUndefined();
 
+            const spyWritePropRef = jest.spyOn(select as any, "writeNodeValueByPropRef");
             ctrl.selectedIndex = 1;               // 触发一次 updateState apply
 
-            // 轨 1 (propRef): applyPropRefKeysToNode → writeNodeValueByPropRef('cc.Node.active', ...)
+            // 唯一轨 (propRef): applyPropRefKeysToNode → writeNodeValueByPropRef('cc.Node.active', ...)
             const propRefWrites = spyWritePropRef.mock.calls.filter((c: any[]) => c[0] === BUILTIN_PROPREF).length;
-            // 轨 2 (ENUM): batchUpdateUI 收到含 Active 的 batch (extractEnumPropTypes 反查命中 cc.Node.active → Active)
-            const batchArg = (spyBatch.mock.calls[0] && spyBatch.mock.calls[0][0]) || [];
-            const enumWroteActive = (batchArg as Array<{ type: number }>).some(u => u.type === BUILTIN_ENUM);
-
             spyWritePropRef.mockRestore();
-            spyBatch.mockRestore();
 
-            // F-9 红: 双写存在 — propRef 轨写了 1 次 且 ENUM 轨也写了同一内置 prop.
-            // 双轨统一 (T2) 后内置只应走一条 apply 轨, 此联立断言应不再同时成立.
+            // 内置 prop 只被 propRef 轨写一次。
             expect(propRefWrites).toBe(1);
-            expect(enumWroteActive).toBe(false);
         });
     });
 });

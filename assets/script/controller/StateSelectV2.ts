@@ -35,7 +35,6 @@ import { SelectExcludeGroup, SelectRecordGroup, SelectValueOpsGroup } from "./pr
 import { StateControllerV2 } from "./StateControllerV2";
 import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName } from "./StateEnumV2";
 import { StateErrorManager } from "./StateErrorManagerV2";
-import { PropHandlerManager } from "./StatePropHandlerV2";
 import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
 // W6-4: SYSTEM_EXCLUDE 用于 inspector 排除清单 union (excludedPropsDisplay getter)
@@ -2332,17 +2331,29 @@ export class StateSelectV2 extends cc.Component {
         const propData = this.getPropData();
         // 仅 controlled props 接受 commit。聚合根治: AMBIGUOUS 走子项独立, 受控判定按"任一子项受控"
         // (decompose 后 controlledProps 记子项 x/y/z, 聚合 key 不存在 → 不能用 readPropByEnum(聚合)判)。
+        if (!propData) return;
         const cr = enumToPropRef(type);
         const crSubs = (cr !== undefined && isAmbiguousAggregatePropRef(cr))
             ? this.getControllableAmbiguousSubRefs(cr)
             : [];
-        const controlled = crSubs.length > 0
-            ? crSubs.some(s => this.isPropertyControlledByPropRef(s))
-            : (this.readPropByEnum(propData, type) !== undefined); // 非聚合 / euler 走聚合 key 判
-        if (!controlled) return;
-        const value = PropHandlerManager.getValue(type, this.node);
+        if (crSubs.length > 0) {
+            // AMBIGUOUS 聚合 (Position/Anchor/Size): 逐受控子项读节点值写 propData[subRef]。
+            // 不走 handleValue(聚合) — cc.Node 无 anchorPoint/contentSize getter, 必须按子字段
+            // (anchorX/anchorY/width/height…) 读 (旧 PropHandler.Anchor/Size 即如此)。
+            if (!crSubs.some(s => this.isPropertyControlledByPropRef(s))) return;
+            for (const subRef of crSubs) {
+                if (!this.isPropertyControlledByPropRef(subRef)) continue;
+                const cur = this.readPropFromNodeByPropRef(subRef);
+                if (cur === undefined) continue;
+                const tp = this.resolveTrackableProp(subRef);
+                (propData as any)[subRef] = cloneValueByType(cur, tp ? tp.cocosType : undefined);
+            }
+            return;
+        }
+        // 非聚合 (含 euler 整体, node 有该 getter): 走 handleValue 读。
+        if (this.readPropByEnum(propData, type) === undefined) return; // 非受控 → 不 commit
+        const value = this.handleValue(type);
         if (value === undefined) return;
-        // writePropByEnum 对 AMBIGUOUS 自动拆子项写入 propData[x/y/z] (聚合 key 也写但 apply 被 #C6 门控跳过)
         this.writePropByEnum(propData, type, value);
         if (type === this.propKey) {
             this._propValue = value;
@@ -2380,7 +2391,7 @@ export class StateSelectV2 extends cc.Component {
             const ctrlVal = controlledProps[propName];
             if (typeof ctrlVal === "number") {
                 // 老路径: number key snapshot
-                const value = PropHandlerManager.getValue(ctrlVal as EnumPropName, this.node);
+                const value = this.handleValue(ctrlVal as EnumPropName);
                 if (value !== undefined) {
                     (snap as TPropDictionary)[ctrlVal] = value;
                 }
@@ -2622,13 +2633,13 @@ export class StateSelectV2 extends cc.Component {
                 // 老路径: 内置 EnumPropName 数字
                 const propType = ctrlVal as EnumPropName;
                 if (propType === EnumPropName.Non) continue;
-                const current = PropHandlerManager.getValue(propType, this.node);
+                const current = this.handleValue(propType);
                 if (current === undefined) continue;
                 // W6-2c2: 双 key 读; state 无值则回落 default baseline
                 let stored = this.readPropByEnum(propData, propType);
                 if (stored === undefined) stored = this.readPropByEnum(defaultData, propType);
                 if (stored === undefined) continue; // 已勾跟随但 ctrlData 还没值: 不算 dirty, 不弹
-                if (!PropHandlerManager.isEqual(propType, stored, current)) {
+                if (!this.enumValueEqual(propType, stored, current)) {
                     out.push({ propType, current, stored });
                 }
             }
@@ -2760,7 +2771,7 @@ export class StateSelectV2 extends cc.Component {
                     this.togglePropertyControl(propType, true);
                     // togglePropertyControl(prop, true) 会写 controlled flag + 默认值;
                     // 这里再 commit 节点当前实际值, 覆盖默认.
-                    const current = PropHandlerManager.getValue(propType, this.node);
+                    const current = this.handleValue(propType);
                     if (current !== undefined) {
                         const propData = this.getPropData(ctrl.selectedIndex, ctrl.ctrlId);
                         // W6-2c2: 写 string propRef key
@@ -2892,10 +2903,10 @@ export class StateSelectV2 extends cc.Component {
                 const propType = num;
                 if (propType === EnumPropName.Non) continue;
                 if (isExcluded(enumToPropRef(propType as EnumPropName))) continue; // #T4
-                const currentValue = PropHandlerManager.getValue(propType as EnumPropName, this.node);
+                const currentValue = this.handleValue(propType as EnumPropName);
                 if (currentValue === undefined) continue;
                 const snapValue = (snap as TPropDictionary)[propType];
-                if (!PropHandlerManager.isEqual(propType as EnumPropName, snapValue, currentValue)) {
+                if (!this.enumValueEqual(propType as EnumPropName, snapValue, currentValue)) {
                     // W6-2c2: 写 string propRef key (snapshot 仍按 number key 索引, 是 in-memory 临时态)
                     this.writePropByEnum(propData, propType as EnumPropName, currentValue);
                     (snap as TPropDictionary)[propType] = currentValue;
@@ -2952,38 +2963,10 @@ export class StateSelectV2 extends cc.Component {
      * 从 updateState 抽出, updateState(当前 selectedIndex) 与回收站预览(任意 stateId) 共用单一 apply 路径.
      */
     private applyDataToNode(propData: TProp, defaultData: TProp): void {
-        const updateBatch: { type: EnumPropName, value: TPropValue }[] = [];
-        const processedKeys = new Set<number>();
-
-        // W6-2c2: 内置 prop 数据多在 string propRef key 下, 但 PropHandler 按 EnumPropName 数字派发,
-        // 这里仍按 propType 走老路径桥接 (extractEnumPropTypes 把 propRef 反查回 EnumPropName).
-        const defaultPropTypes = this.extractEnumPropTypes(defaultData);
-        for (const propType of defaultPropTypes) {
-            const stateValue = this.readPropByEnum(propData, propType);
-            const defaultValue = this.readPropByEnum(defaultData, propType);
-            const value = stateValue != void 0 ? stateValue : defaultValue;
-            if (value == void 0) {
-                continue;
-            }
-            updateBatch.push({ type: propType, value });
-            processedKeys.add(propType);
-        }
-
-        const statePropTypes = this.extractEnumPropTypes(propData);
-        for (const propType of statePropTypes) {
-            if (processedKeys.has(propType)) {
-                continue;
-            }
-            const value = this.readPropByEnum(propData, propType);
-            if (value == void 0) {
-                continue;
-            }
-            updateBatch.push({ type: propType, value });
-        }
-
-        // enum 数字路径
-        this.batchUpdateUI(updateBatch);
-        // string propRef 路径 (cocos type 分发写回, 带排除/受控门控)
+        // T2/X方案 收敛单轨: 数据在 __preload(migrateLegacyCtrlData) 已全转 propRef string key,
+        // 仅走 propRef apply 路径 (cocos type 分发写回, 带排除/受控门控)。
+        // 老的 ENUM 数字桥接 (extractEnumPropTypes → batchUpdateUI → PropHandlerManager) 已删 —
+        // 迁移后无数字 key, 该轨恒空转; 删除消除内置 prop 的双写 (旧 F-9)。
         this.applyPropRefKeysToNode(propData, defaultData);
     }
 
@@ -3025,15 +3008,15 @@ export class StateSelectV2 extends cc.Component {
             }
             catch (_) { /* noop */ }
         }
-        // enum 路径还原
+        // enum 路径还原 (T2/X方案: 经 enumToPropRef 走 propRef 写回, 不再 PropHandlerManager)
         for (const k of Object.keys(snap.enums)) {
-            const handler = PropHandlerManager.getHandler(Number(k) as EnumPropName);
-            if (handler) {
-                try {
-                    handler.setValue(this.node, (snap.enums as any)[k]);
-                }
-                catch (_) { /* noop */ }
+            const ref = enumToPropRef(Number(k) as EnumPropName);
+            if (ref === undefined) continue;
+            const tp = this.resolveTrackableProp(ref);
+            try {
+                this.writeNodeValueByPropRef(ref, cloneValueByType((snap.enums as any)[k], tp ? tp.cocosType : undefined));
             }
+            catch (_) { /* noop */ }
         }
     }
 
@@ -3044,7 +3027,7 @@ export class StateSelectV2 extends cc.Component {
         // enum 数字路径: default + state 的 enum 类型
         const enumTypes = Array.from(new Set<number>([...this.extractEnumPropTypes(defaultData), ...this.extractEnumPropTypes(propData)]));
         for (const t of enumTypes) {
-            const cur = PropHandlerManager.getValue(t as EnumPropName, this.node);
+            const cur = this.handleValue(t as EnumPropName);
             if (cur !== undefined) enums[t] = cur;
         }
         // propRef 字符串路径: default + state 的 propRef key
@@ -3117,45 +3100,6 @@ export class StateSelectV2 extends cc.Component {
         const ROT_ALIAS = ["cc.Node.angle", "cc.Node.eulerAngles", "cc.Node.quat"];
         if (ROT_ALIAS.some(r => seen.has(r))) for (const r of ROT_ALIAS) seen.add(r);
         apply(defaultData);
-    }
-
-    /** 🔧 批量更新UI，使用属性处理器系统和错误处理机制 */
-    private batchUpdateUI(updateBatch: { type: EnumPropName, value: TPropValue }[]) {
-        // 🔧 验证节点有效性
-        if (!StateErrorManager.validateNode(this.node, {
-            component: "StateSelectV2",
-            method: "batchUpdateUI",
-            params: { batchSize: updateBatch.length },
-        })) {
-            return;
-        }
-
-        // 批量应用所有更新
-        for (const update of updateBatch) {
-            const { type, value } = update;
-
-            if (type === EnumPropName.Non || value === undefined) {
-                continue;
-            }
-
-            // 🔧 使用属性处理器系统，带错误处理
-            StateErrorManager.gracefulFallback(
-                () => {
-                    const handler = PropHandlerManager.getHandler(type);
-                    if (handler) {
-                        handler.setValue(this.node, value);
-                    }
-                    else {
-                        StateErrorManager.warn(
-                            `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
-                            { component: "StateSelectV2", method: "batchUpdateUI", params: { propType: type } },
-                        );
-                    }
-                },
-                undefined,
-                `设置属性值失败: ${EnumPropName[type]}`,
-            );
-        }
     }
 
     private getCurrCtrl() {
@@ -3295,23 +3239,36 @@ export class StateSelectV2 extends cc.Component {
             return undefined;
         }
 
-        // 🔧 使用属性处理器系统，带错误处理
+        // T2/X方案 收敛单轨: 取值走 propRef (enumToPropRef → readPropFromNodeByPropRef + cocosType 深拷),
+        // 不再经 PropHandlerManager。AMBIGUOUS 聚合不会到此 (addPropertyControl 对聚合走子项 path 提前 return)。
+        const propRef = enumToPropRef(type);
+        if (propRef === undefined) {
+            StateErrorManager.warn(
+                `属性类型 ${EnumPropName[type]} 无 propRef 映射`,
+                { component: "StateSelectV2", method: "handleValue", params: { propType: type } },
+            );
+            return undefined;
+        }
         return StateErrorManager.gracefulFallback(
             () => {
-                const handler = PropHandlerManager.getHandler(type);
-                if (handler) {
-                    return handler.getValue(this.node);
-                }
-
-                StateErrorManager.warn(
-                    `属性类型 ${EnumPropName[type]} 尚未迁移到属性处理器系统`,
-                    { component: "StateSelectV2", method: "handleValue", params: { propType: type } },
-                );
-                return undefined;
+                const raw = this.readPropFromNodeByPropRef(propRef);
+                if (raw === undefined) return undefined;
+                const tp = this.resolveTrackableProp(propRef);
+                return cloneValueByType(raw, tp ? tp.cocosType : undefined);
             },
             undefined,
             `获取属性值失败: ${EnumPropName[type]}`,
         );
+    }
+
+    /**
+     * T2/X方案 收敛单轨: 按 EnumPropName 比较两值是否等同 (替代 PropHandlerManager.isEqual)。
+     * 经 enumToPropRef → cocosType 走 eqValueByType (Color/Vec3/Vec2/Size/Quat 按字段比, 余 ===)。
+     */
+    private enumValueEqual(type: EnumPropName, a: TPropValue, b: TPropValue): boolean {
+        const propRef = enumToPropRef(type);
+        const tp = propRef !== undefined ? this.resolveTrackableProp(propRef) : undefined;
+        return eqValueByType(a, b, tp ? tp.cocosType : undefined);
     }
 
     /** 父节点改变，转换已经缓存的位置 */
