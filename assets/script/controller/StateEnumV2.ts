@@ -163,3 +163,22 @@ export enum EnumPropName {
     // /** 旋转、四元数*/
     // Rotation,
 }
+
+/**
+ * 属性值统一类型 (跨模块共享)。
+ *
+ * 原定义在已退役的 StatePropHandlerV2, 收敛单轨后该文件整体删除,
+ * 类型迁到本叶子模块以避免循环依赖 (Capability / StateSelectV2 等引用)。
+ */
+export type TPropValue
+    = | number
+    | boolean
+    | string
+    | cc.Vec3
+    | cc.Vec2
+    | cc.Color
+    | cc.Size
+    | cc.Quat
+    | cc.SpriteFrame
+    | cc.Font
+    | undefined;

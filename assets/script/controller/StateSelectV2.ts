@@ -33,7 +33,7 @@ const {
 } = cc._decorator;
 import { SelectExcludeGroup, SelectRecordGroup, SelectValueOpsGroup } from "./props/SelectInspectorGroups";
 import { StateControllerV2 } from "./StateControllerV2";
-import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName } from "./StateEnumV2";
+import { EnumCtrlName, EnumExcludeSlot, EnumPropName, EnumStateName, TPropValue } from "./StateEnumV2";
 import { StateErrorManager } from "./StateErrorManagerV2";
 import { PropertyControlService } from "./StatePropertyControlService";
 // W6-2a: 自定义组件 propRef 路径基础设施 (W6-1 引入, 本 task 接入)
@@ -48,9 +48,6 @@ cc.Enum(EnumCtrlName);
 cc.Enum(EnumStateName);
 cc.Enum(EnumExcludeSlot);
 cc.Enum(EnumPropName);
-
-/** 属性类型 */
-export type TPropValue = number | boolean | string | cc.Vec3 | cc.Vec2 | cc.Color | cc.Size | cc.Quat | cc.SpriteFrame | cc.Font | undefined;
 
 type TPropDictionary = {
     [propType: number]: TPropValue

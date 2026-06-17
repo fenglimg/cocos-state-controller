@@ -14,8 +14,7 @@
  *  - L2 第三方 (用户自写)
  */
 
-import { EnumPropName } from "./StateEnumV2";
-import { TPropValue } from "./StatePropHandlerV2";
+import { EnumPropName, TPropValue } from "./StateEnumV2";
 
 /**
  * 通用 dispatch context. 各 capability 自己负责从 ctx 取所需字段.
