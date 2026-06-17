@@ -35,24 +35,19 @@ export interface TrackableProp {
 }
 
 /**
- * 系统黑名单 — 这些 prop 即使可见也不参与 state 切换 (引擎内部状态 / 资源关联).
+ * 系统黑名单 — 这些 prop 即使可见也不参与 state 切换。
  *
- * 选取理由:
- *   - cc.Widget.target: 节点引用, prefab 实例化时不稳定
- *   - cc.Widget._alignFlags: 内部对齐 bitmask
- *   - cc.Animation.defaultClip / currentClip: 资源引用, 应通过 play() 切换
- *   - cc.ParticleSystem.file: 粒子配置资源
- *   - cc.AudioSource.clip: 音频资源
- *   - cc.Node.rotation / rotationX / rotationY: cocos 2.1.0 起废弃, 读写会触发 cc.warn (使用 angle / eulerAngles 替代)
- *   - cc.Node.name / cc.Node.uuid: 节点身份标识, 非视觉状态, 不应随 state 切换 (uuid 实例化时还会变)
+ * 原则: 只锁死有"硬技术理由"的 prop, 不预防性锁定行为/资源型 prop。
+ *   - cc.Node.rotation / rotationX / rotationY: cocos 2.1.0 起废弃, 读写触发 cc.warn (用 angle / eulerAngles 替代)
+ *   - cc.Node.name / cc.Node.uuid: 节点身份标识, 非视觉状态 (uuid 实例化时还会变)
+ *
+ * 刻意 *不* 锁 (按需追踪, 真出问题再收):
+ *   - cc.Widget.target / cc.Animation.defaultClip|currentClip / cc.ParticleSystem.file / cc.AudioSource.clip
+ *     行为/资源型 prop, apply 走通用字段赋值; 多数情况只是"设了无视觉效果"的空操作 (无害)。
+ *     注意 cc.Widget.target 是节点引用, 跨 prefab 实例 / 删节点时可能悬空且不报错 (已知静默风险, 用户接受)。
+ *   - 内部对齐 bitmask _alignFlags 等下划线字段已被 enumPropsForCtor 的下划线规则过滤, 无需列入。
  */
 export const SYSTEM_EXCLUDE: string[] = [
-    "cc.Widget.target",
-    "cc.Widget.alignFlags",
-    "cc.Animation.defaultClip",
-    "cc.Animation.currentClip",
-    "cc.ParticleSystem.file",
-    "cc.AudioSource.clip",
     "cc.Node.rotation",
     "cc.Node.rotationX",
     "cc.Node.rotationY",
