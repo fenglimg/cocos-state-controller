@@ -3073,6 +3073,13 @@ export class StateSelectV2 extends cc.Component {
                 const value = (data as any)[propRef];
                 if (value === undefined) continue;
                 const tp = this.resolveTrackableProp(propRef);
+                // 只读 getter (如 cc.Node.children) 写不进节点 → 跳过, 对齐录制侧 readonly 过滤
+                // (旧数据可能把只读 prop 吸进 ctrlData; 不跳过会在 writeNodeValueByPropRef 抛 "only a getter" 刷警告).
+                // 标记 seen 避免 default 兜底层再次尝试。
+                if (tp && tp.readonly) {
+                    seen.add(propRef);
+                    continue;
+                }
                 const cocosType = tp ? tp.cocosType : undefined;
                 try {
                     this.writeNodeValueByPropRef(propRef, cloneValueByType(value, cocosType));
