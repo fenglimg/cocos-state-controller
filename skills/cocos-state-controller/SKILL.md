@@ -15,9 +15,9 @@ description: 安装/更新/迁移/检查/上行同步 StateControllerV2·StateSe
 
 ## 分发归属（ccpm 吸收中）
 
-**生命周期分发（装/升/卸/体检）正交给通用分发器 [`ccpm`](../ccpm)**——它靠本包 `package.json` 的 `cocosDist.mappings` 把 runtime/panel/skill 物化进工程，是所有 Cocos 插件的统一入口。本 skill 只保留 **ccpm 不做的领域活**：编辑器操作、prefab 迁移、上行回流。
+**生命周期分发（装/升/卸/体检）正交给通用分发器 [`ccpm`](../ccpm)**——它靠本包 `package.json` 的 `cocosDist.mappings` 把 runtime/panel 物化进工程、把本 skill（`kind:"skill"`）铺进**用户级** `~/.claude/skills` 与 `~/.codex/skills`，是所有 Cocos 插件的统一入口。本 skill 只保留 **ccpm 不做的领域活**：编辑器操作、prefab 迁移、上行回流。
 
-- **装/升/卸/体检** → 优先 `ccpm install @ccc/state-controller` / `ccpm update` / `ccpm uninstall` / `ccpm doctor`（见 ccpm skill）。`csc` 同名命令为**公网兜底 / 过渡**（外部用户无内网 ccpm 时）。
+- **装/升/卸/体检** → 优先 `ccpm install cocos-state-controller` / `ccpm update` / `ccpm uninstall` / `ccpm doctor`（见 ccpm skill）。`csc` 同名命令为**公网兜底 / 过渡**（外部用户无内网 ccpm 时）。
 - **migrate / sync --upstream** → csc 独有，ccpm 单向拉取、零领域逻辑、明确不碰，**长期保留**。
 
 ## 意图分诊

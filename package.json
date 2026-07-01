@@ -1,6 +1,6 @@
 {
   "name": "@fenglimg/cocos-state-controller",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Cocos Creator State Controller — 状态控制器组件 + 分发/同步 CLI (csc)",
   "license": "MIT",
   "author": "fenglimg <fenglimg90@gmail.com>",
@@ -51,14 +51,9 @@
         "to": "packages/state-controller-v2-panel"
       },
       {
-        "kind": "asset",
+        "kind": "skill",
         "from": "skills/cocos-state-controller",
-        "to": ".claude/skills/cocos-state-controller"
-      },
-      {
-        "kind": "asset",
-        "from": "skills/cocos-state-controller",
-        "to": ".codex/skills/cocos-state-controller"
+        "to": "cocos-state-controller"
       },
       {
         "kind": "asset",

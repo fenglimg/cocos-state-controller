@@ -43,12 +43,12 @@ csc sync --upstream [--output patch.diff]
 
 | csc | ccpm（首选） | 能力差异 |
 |---|---|---|
-| `csc install` | `ccpm install @ccc/state-controller` | 对等：目录选择菜单 + uuid 撞车预检 + lock |
+| `csc install` | `ccpm install cocos-state-controller` | 对等：目录选择菜单 + uuid 撞车预检 + lock |
 | `csc update` | `ccpm update` | ⚠️ **有缺口**：csc 做三方合并保留本地改动；ccpm 只漂移告警+给选择，**不 merge**（见下） |
 | `csc uninstall` | `ccpm uninstall <name>` | 对等：按 lock 精确卸载 |
 | `csc doctor` | `ccpm doctor` | 对等（csc 多 V1 cid 残留检查，属迁移域） |
 | `csc diff` | `ccpm doctor` 漂移 / `git diff` | ccpm 不出逐文件 +/-/~，用 git diff 补 |
-| `csc skill install` | ccpm `cocosDist` 的 `asset` 映射自动物化 skill | 对等 |
+| `csc skill install` | ccpm `cocosDist` 的 `kind:"skill"` 映射随装自动铺 skill（用户级 `~/.claude`+`~/.codex`），记 `~/.ccpm/skills.json`，`ccpm uninstall`/`doctor` 感知 | 对等（ccpm 走用户级、机器级记账） |
 
 ### install — 安装净荷到当前工程
 
@@ -103,7 +103,7 @@ csc uninstall
 
 ## 典型工作流
 
-- **接入新工程（首选 ccpm）**：`ccpm install @ccc/state-controller` → 重启编辑器 → `ccpm doctor` 确认全绿。无 ccpm 环境用 `csc install` → `csc doctor`。
+- **接入新工程（首选 ccpm）**：`ccpm install cocos-state-controller` → 重启编辑器 → `ccpm doctor` 确认全绿。无 ccpm 环境用 `csc install` → `csc doctor`。
 - **升级版本（仍走 csc，需 merge）**：`csc diff`（看本地有无改动）→ `csc update` → 解冲突 → `csc doctor`。
 - **回流改动（csc 独有）**：`csc diff` → `csc sync --upstream --output up.patch` → 走 `refs/upstream-pr.md` 开 PR。
 - **迁移老活动**：见 `refs/migrate.md`（用到 `csc migrate`）。
